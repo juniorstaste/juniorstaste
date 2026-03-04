@@ -1,0 +1,133 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+type View = "list" | "map" | "juniorstaste";
+
+type Props = {
+  view: View;
+  onChange: (v: View) => void;
+};
+
+function ListIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M8 6h13M8 12h13M8 18h13M3.5 6h.5M3.5 12h.5M3.5 18h.5"
+        stroke="#0f3b2e"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function MapIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z"
+        stroke="#0f3b2e"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M9 3v15" stroke="#0f3b2e" strokeWidth="2" strokeLinecap="round" />
+      <path d="M15 6v15" stroke="#0f3b2e" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// TikTok-ähnliches Icon (neutral, premium)
+function TikTokIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M14 3v11.2a3.8 3.8 0 1 1-3.2-3.75V7.2c.7-.1 1.6-.1 3.2.1Z"
+        stroke="#0f3b2e"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M14 5c1.1 2.4 3 3.8 6 4"
+        stroke="#0f3b2e"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+export default function BottomTabs({ view, onChange }: Props) {
+  const [visible, setVisible] = useState(true);
+  const lastY = useRef(0);
+
+  useEffect(() => {
+    function handleScroll() {
+      const currentY = window.scrollY;
+
+      if (currentY < 20) {
+        setVisible(true);
+      } else if (currentY > lastY.current + 10) {
+        setVisible(false);
+      } else if (currentY < lastY.current - 10) {
+        setVisible(true);
+      }
+
+      lastY.current = currentY;
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const baseBtn =
+    "flex-1 h-[56px] rounded-2xl font-semibold flex items-center justify-center gap-1.5 transition text-[14px]";
+
+  return (
+    <div
+      className={`fixed bottom-0 left-0 right-0 z-50 transition-transform duration-300 ${
+        visible ? "translate-y-0" : "translate-y-full"
+      }`}
+    >
+      <div className="mx-auto max-w-[560px] px-4 pb-4">
+        <div className="rounded-3xl bg-[#e8decc] shadow-lg p-2">
+          <div className="flex gap-2">
+            <button
+              onClick={() => onChange("list")}
+              className={`${baseBtn} ${
+                view === "list" ? "bg-white text-[#0f3b2e]" : "text-[#0f3b2e] hover:bg-white/70"
+              }`}
+            >
+              <ListIcon />
+              Liste
+            </button>
+
+            <button
+              onClick={() => onChange("map")}
+              className={`${baseBtn} ${
+                view === "map" ? "bg-white text-[#0f3b2e]" : "text-[#0f3b2e] hover:bg-white/70"
+              }`}
+            >
+              <MapIcon />
+              Karte
+            </button>
+
+            <button
+              onClick={() => onChange("juniorstaste")}
+              className={`${baseBtn} ${
+                view === "juniorstaste"
+                  ? "bg-white text-[#0f3b2e]"
+                  : "text-[#0f3b2e] hover:bg-white/70"
+              }`}
+              title="Juniorstaste"
+            >
+              <TikTokIcon />
+              Juniorstaste
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

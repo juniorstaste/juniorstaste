@@ -10,6 +10,7 @@ import DistanceLabel from "@/components/DistanceLabel";
 import SiteHeader from "@/components/SiteHeader";
 import BottomTabs from "@/components/BottomTabs";
 import JuniorstasteProfileTab from "@/components/JuniorstasteProfileTab";
+import JuniorstasteGrid from "@/components/JuniorstasteGrid";
 
 const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
 
@@ -224,10 +225,11 @@ export default function NearPage() {
   </h1>
 </div>
 
-      {/* ====== JUNIORSTASTE TAB: NUR Profil + Videos (alles andere ausblenden) ====== */}
+            {/* ====== JUNIORSTASTE TAB: NUR Videos (alles andere ausblenden) ====== */}
       {view === "juniorstaste" ? (
         <>
           <JuniorstasteProfileTab />
+          {view === "juniorstaste" ? (
           <BottomTabs view={view} onChange={setView} />
         </>
       ) : (
@@ -333,12 +335,13 @@ export default function NearPage() {
                         <h2 className="truncate text-base font-extrabold text-[#1f1f1f]">{s.name}</h2>
 
                         <div className="mt-1 text-sm text-[#5a5348]">
-                          <DistanceLabel
-                            km={haversineKm({ lat, lng }, { lat: s.lat as number, lng: s.lng as number })}
-                          />
+                          <DistanceLabel km={haversineKm({ lat, lng }, { lat: s.lat as number, lng: s.lng as number })} />
                         </div>
 
-                        {s.description ? <p className="mt-2 line-clamp-2 text-sm text-[#2f2a23]">{s.description}</p> : null}
+                        {s.description ? (
+                          <p className="mt-2 line-clamp-2 text-sm text-[#2f2a23]">{s.description}</p>
+                        ) : null}
+
                         {s.address ? <p className="mt-1 truncate text-sm text-[#6b6256]">{s.address}</p> : null}
 
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -395,6 +398,3 @@ export default function NearPage() {
           <BottomTabs view={view} onChange={setView} />
         </>
       )}
-    </main>
-  );
-}

@@ -6,16 +6,12 @@ import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import TikTokEmbed from "@/components/TikTokEmbed";
 import DistanceLabel from "@/components/DistanceLabel";
-import SiteHeader from "@/components/SiteHeader";
-import BottomTabs from "@/components/BottomTabs";
-import JuniorstasteGrid from "@/components/JuniorstasteGrid";
 
 const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
 
 type Spot = {
   id: string;
   name: string;
-  slug: string;
   description: string | null;
   address: string | null;
   lat: number | null;
@@ -41,8 +37,6 @@ type Spot = {
   lieferando_link?: string | null;
 };
 
-type City = { id: string; name: string; slug: string };
-
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
@@ -67,20 +61,23 @@ export default function CityPage() {
     if (!raw) return null;
     return Array.isArray(raw) ? raw[0] : raw;
   }, [params]);
+  
+  const formattedCityName: string = citySlug
+  ? citySlug
+      .split("-")
+      .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  : "";
 
   const [spots, setSpots] = useState<Spot[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // ✅ Cities für Dropdown
-  const [cities, setCities] = useState<City[]>([]);
-  const [citySelectValue, setCitySelectValue] = useState<string>("");
-
   const [category, setCategory] = useState<string>("all");
   const [categories, setCategories] = useState<{ slug: string; name: string }[]>([]);
 
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"list" | "map" | "juniorstaste">("list");
+  const [view, setView] = useState<"list" | "map">("list");
   const [sort, setSort] = useState<"newest" | "rating" | "price" | "distance">("newest");
 
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -91,72 +88,24 @@ export default function CityPage() {
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
 
   // =========================
-  // ✅ UI TOKENS (dein Style)
+  // ✅ PREMIUM UI TOKENS
   // =========================
-  const topText = "text-white";
+const topText = "text-white";
 
-  const controlBase =
-    "w-full px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] " +
-    "text-[#0f2a22] placeholder:text-[#0f2a22]/50 font-semibold shadow-sm transition hover:bg-[#efe5d6] " +
-    "focus:outline-none focus:ring-2 focus:ring-[#c6a85b]";
+const premiumGreen = "text-[#0f2a22]";
 
-  const buttonBase =
-    "px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] " +
-    "text-[#0f2a22] font-semibold shadow-sm transition hover:bg-[#efe5d6]";
+const controlBase =
+  "w-full px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] " +
+  "text-[#0f2a22] placeholder:text-[#0f2a22]/50 font-semibold shadow-sm transition hover:bg-[#efe5d6] " +
+  "focus:outline-none focus:ring-2 focus:ring-[#c6a85b]";
 
-  // =========================
-  // ✅ 0) Dropdown: immer aktuelle City als value
-  // =========================
-  useEffect(() => {
-    if (citySlug) setCitySelectValue(citySlug);
-  }, [citySlug]);
+const buttonBase =
+  "px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] " +
+  "text-[#0f2a22] font-semibold shadow-sm transition hover:bg-[#efe5d6]";
 
-  // ✅ Cities laden (für Dropdown)
-  useEffect(() => {
-    async function loadCities() {
-      const { data, error } = await supabase
-        .from("cities")
-        .select("id, name, slug")
-        .order("name", { ascending: true });
-
-      if (!error) setCities((data as City[]) ?? []);
-    }
-
-    loadCities();
-  }, []);
-
-  async function handleCitySelectChange(next: string) {
-    setCitySelectValue(next);
-
-    // 1) Near ausgewählt -> Standort abfragen -> Near Page
-    if (next === "__near__") {
-      setGeoError(null);
-
-      if (!navigator.geolocation) {
-        setGeoError("Dein Browser unterstützt Standort nicht.");
-        if (citySlug) setCitySelectValue(citySlug);
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          router.push(`/near?lat=${lat}&lng=${lng}&r=5`);
-        },
-        () => {
-          setGeoError("Standort konnte nicht abgerufen werden. Bitte Standort erlauben.");
-          if (citySlug) setCitySelectValue(citySlug);
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-
-      return;
-    }
-
-    // 2) City ausgewählt -> City Page
-    if (next) router.push(`/city/${next}`);
-  }
+const tabBase =
+  "flex-1 px-4 py-3 rounded-2xl border border-[#e7dfcf] " +
+  "bg-[#f6efe3] text-[#0f2a22] font-extrabold transition shadow-sm hover:bg-[#efe5d6]";
 
   // =========================
   // ✅ 1) Spots laden
@@ -310,63 +259,39 @@ export default function CityPage() {
   if (!citySlug) return <main className="p-4">Lade Stadt…</main>;
 
   return (
-    <main className="mx-auto max-w-[560px] p-4 pb-28">
+    <main className="mx-auto max-w-[560px] p-4">
       <a href="/" className={`inline-block mb-3 font-semibold ${topText} underline-offset-4 hover:underline`}>
         ← Zurück
       </a>
 
-      {/* Logo */}
-      <div className="text-center mb-6">
-        <SiteHeader subtitle={null as any} />
+      <h1 className={`text-3xl font-extrabold mb-4 ${topText}`}>
+        Juniorstaste – {formattedCityName}
+      </h1>
 
-        {/* ✅ Dropdown direkt unter dem Logo (Design wie vorher) */}
-        <div className="mb-5">
-          <select
-            value={citySelectValue}
-            onChange={(e) => handleCitySelectChange(e.target.value)}
-            className={controlBase + " italic"}
-          >
-            <option value="__near__">📍 In meiner Nähe suchen…</option>
-            <option disabled>──────────</option>
-            {cities.map((c) => (
-              <option key={c.id} value={c.slug}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-
-          {geoError ? <div className="mt-2 text-sm text-red-200">{geoError}</div> : null}
-        </div>
-      </div>
-
-      {/* ✅ View Toggle */}
+      {/* ✅ View Toggle (beide beige, aktiv dunkler-beige) */}
       <div className="flex gap-3 mb-4">
         <button
-          onClick={() => setView("list")}
-          className={`flex-1 px-4 py-2.5 rounded-xl border transition-all font-semibold
-          ${
-            view === "list"
-              ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
-              : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
-          }`}
-        >
-          Liste
-        </button>
+  onClick={() => setView("list")}
+  className={`flex-1 px-4 py-2.5 rounded-xl border transition-all font-semibold
+  ${view === "list"
+    ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
+    : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"}`}
+>
+  Liste
+</button>
 
-        <button
-          onClick={() => setView("map")}
-          className={`flex-1 px-4 py-2.5 rounded-xl border transition-all font-semibold
-          ${
-            view === "map"
-              ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
-              : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
-          }`}
-        >
-          Karte
-        </button>
+<button
+  onClick={() => setView("map")}
+  className={`flex-1 px-4 py-2.5 rounded-xl border transition-all font-semibold
+  ${view === "map"
+    ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
+    : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"}`}
+>
+  Karte
+</button>
       </div>
 
-      {/* ✅ Standort (dein bestehender Bereich bleibt unverändert) */}
+      {/* ✅ Standort Buttons (gleich groß wie andere Controls) */}
       <div className="flex gap-3 mb-4">
         <button
           onClick={() => {
@@ -511,8 +436,6 @@ export default function CityPage() {
           />
           <p className="mt-3 text-sm text-[#f6efe3]/80">Tipp: Marker anklicken, um den Namen zu sehen.</p>
         </div>
-      ) : view === "juniorstaste" ? (
-        <JuniorstasteGrid citySlug={citySlug} username="juniorstaste" />
       ) : (
         <div className="grid gap-3">
           {filteredSpots.map((s) => {
@@ -619,7 +542,7 @@ export default function CityPage() {
                     </div>
 
                     {s.tiktok_embed_id ? (
-                      <div className="mt-4 rounded-2xl overflow-hidden shadow-lg" onClick={(e) => e.stopPropagation()}>
+                      <div className="mt-3" onClick={(e) => e.stopPropagation()}>
                         <TikTokEmbed username="juniorstaste" videoId={s.tiktok_embed_id} />
                       </div>
                     ) : null}
@@ -630,8 +553,6 @@ export default function CityPage() {
           })}
         </div>
       )}
-
-      <BottomTabs view={view} onChange={setView} />
     </main>
   );
 }

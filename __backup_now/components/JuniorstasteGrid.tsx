@@ -11,8 +11,7 @@ type FeedItem = {
 };
 
 type Props = {
-  citySlug?: string | null;   // ✅ neu
-  username: string;
+  username: string; // "juniorstaste"
 };
 
 // kleine Helper: sort by date
@@ -36,8 +35,8 @@ function TikTokIcon() {
   );
 }
 
-export default function JuniorstasteGrid({ citySlug, username }: Props) {
-    const [all, setAll] = useState<FeedItem[]>([]);
+export default function JuniorstasteGrid({ username }: Props) {
+  const [all, setAll] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 

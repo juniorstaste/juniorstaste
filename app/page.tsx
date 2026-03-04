@@ -2,25 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import SiteHeader from "@/components/SiteHeader";
+import { useRouter } from "next/navigation";
 
 type City = { id: string; name: string; slug: string };
-
-const linkStyle: React.CSSProperties = {
-  padding: "14px 16px",
-  borderRadius: 12,
-  border: "1px solid #ddd",
-  background: "#fff",
-  fontSize: 18,
-  cursor: "pointer",
-  textAlign: "left",
-  textDecoration: "none",
-  color: "black",
-  display: "block",
-};
 
 export default function Home() {
   const [cities, setCities] = useState<City[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [geoError, setGeoError] = useState<string | null>(null);
+
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [radiusKm, setRadiusKm] = useState<number>(5);
+  const [radiusOpen, setRadiusOpen] = useState<boolean>(false);
+
+  const router = useRouter();
 
   useEffect(() => {
     async function loadCities() {
@@ -29,45 +26,133 @@ export default function Home() {
         .select("id, name, slug")
         .order("name", { ascending: true });
 
-console.log("CITIES FROM SUPABASE:", data, "ERROR:", error);
-
       if (error) {
         setErrorMsg(error.message);
         return;
       }
+
       setCities(data ?? []);
     }
 
     loadCities();
   }, []);
 
-  return (
-    <main style={{ padding: 24, fontFamily: "Arial, sans-serif" }}>
-<h1 className="text-3xl font-bold text-red-600 mb-4">
-  Juniorstaste
-</h1>
-      <p style={{ marginBottom: 24 }}>
-        Wähle eine Stadt und entdecke meine Foodspots.
-      </p>
+  function requestLocation() {
+    setGeoError(null);
+    setGeoLoading(true);
 
-      <div style={{ display: "grid", gap: 12, maxWidth: 420 }}>
-        {errorMsg ? (
-          <div style={{ padding: 12, border: "1px solid red" }}>
-            Supabase-Fehler: {errorMsg}
-          </div>
-        ) : cities.length === 0 ? (
-          <div style={{ padding: 12, border: "1px solid #ddd" }}>
-            Lade Städte…
-          </div>
-        ) : (
-          cities.map((c) => (
-            <a key={c.id} href={`/city/${c.slug}`} style={linkStyle}>
-              {c.name}
-            </a>
-          ))
-        )}
+    if (!navigator.geolocation) {
+      setGeoError("Standort wird von deinem Browser nicht unterstützt.");
+      setGeoLoading(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+        setRadiusOpen(true);
+        setGeoLoading(false);
+      },
+      () => {
+        setGeoError("Standort konnte nicht abgerufen werden.");
+        setGeoLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  function goToNearPage() {
+    if (!coords) return;
+    router.push(`/near?lat=${coords.lat}&lng=${coords.lng}&r=${radiusKm}`);
+  }
+
+  return (
+<main className="min-h-screen bg-[#0f3b2e] flex flex-col items-center justify-center text-center px-6">
+      {/* Logo */}
+      <div className="mb-10">
+        <SiteHeader />
       </div>
+
+      <h1 className="mt-4 mb-6 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide fade-up">
+  Wähle deine Stadt
+</h1>
+
+      <div className="flex flex-col gap-4 w-full max-w-sm">
+
+        {/* 🔥 Standort Button GANZ OBEN */}
+        <button
+          onClick={requestLocation}
+          disabled={geoLoading}
+          className="w-full h-[56px] rounded-2xl bg-[#e8decc] text-lg font-semibold text-[#0f3b2e] shadow-md transition hover:scale-[1.03] disabled:opacity-70"
+        >
+          {geoLoading ? "Standort wird geladen…" : "📍 Standort verwenden"}
+        </button>
+
+        {/* Radius Auswahl klappt hier auf */}
+        {radiusOpen && (
+          <div className="w-full rounded-2xl border border-white/20 p-4 text-left">
+            <div className="text-white font-semibold mb-3">
+              Umkreis wählen
+            </div>
+
+            <select
+              value={radiusKm}
+              onChange={(e) => setRadiusKm(Number(e.target.value))}
+              className="w-full h-[48px] rounded-xl bg-[#e8decc] text-[#0f3b2e] font-semibold px-3"
+            >
+              <option value={2}>2 km</option>
+              <option value={5}>5 km</option>
+              <option value={10}>10 km</option>
+              <option value={25}>25 km</option>
+            </select>
+
+            <div className="mt-4 flex gap-3">
+              <button
+                onClick={goToNearPage}
+                className="flex-1 h-[48px] rounded-xl bg-[#e8decc] text-[#0f3b2e] font-semibold shadow-md transition hover:scale-[1.02]"
+              >
+                Weiter →
+              </button>
+
+              <button
+                onClick={() => {
+                  setRadiusOpen(false);
+                  setCoords(null);
+                }}
+                className="h-[48px] px-4 rounded-xl bg-white/10 text-white border border-white/20"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Städte */}
+        {cities.map((city) => (
+          <button
+            key={city.slug}
+            onClick={() => router.push(`/city/${city.slug}`)}
+            className="w-full h-[56px] rounded-2xl bg-[#e8decc] text-lg font-semibold text-[#0f3b2e] shadow-md transition hover:scale-[1.03]"
+          >
+            {city.name}
+          </button>
+        ))}
+      </div>
+
+      {geoError && (
+        <div className="mt-4 text-sm text-red-400">
+          {geoError}
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="mt-4 text-sm text-red-400">
+          {errorMsg}
+        </div>
+      )}
     </main>
   );
 }
-<h1 className="text-3xl font-bold">Juniorstaste</h1>
