@@ -77,7 +77,7 @@ export default function Home() {
       </div>
 
       <h1 className="mt-4 mb-6 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide fade-up">
-  Wähle deine Stadt
+  Wähle deine Stadt  
 </h1>
 
       <div className="flex flex-col gap-4 w-full max-w-sm">

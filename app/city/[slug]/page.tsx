@@ -478,17 +478,24 @@ export default function CityPage() {
       </div>
 
       {/* ✅ Sortierung */}
-      <div className="mb-5">
-        <label className={`block mb-2 font-extrabold ${topText}`}>Sortierung</label>
-        <select value={sort} onChange={(e) => setSort(e.target.value as any)} className={controlBase}>
-          <option value="newest">Neueste</option>
-          <option value="rating">Best bewertet</option>
-          <option value="price">Preis</option>
-          <option value="distance" disabled={!userPos}>
-            Nähe (GPS)
-          </option>
-        </select>
-      </div>
+{view === "list" && (
+  <div className="mb-5">
+    <label className={`block mb-2 font-extrabold ${topText}`}>Sortierung</label>
+
+    <select
+      value={sort}
+      onChange={(e) => setSort(e.target.value as any)}
+      className={controlBase}
+    >
+      <option value="newest">Neueste</option>
+      <option value="rating">Best bewertet</option>
+      <option value="price">Preis</option>
+      <option value="distance" disabled={!userPos}>
+        Nähe (GPS)
+      </option>
+    </select>
+  </div>
+)}
 
       {/* ✅ Content */}
       {loading ? (

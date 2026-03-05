@@ -1,5 +1,5 @@
 "use client";
-console.log("✅ BottomTabs ACTIVE: components/BottomTabs.tsx");
+
 import { useEffect, useRef, useState } from "react";
 
 type View = "list" | "map" | "juniorstaste";
@@ -91,14 +91,12 @@ export default function BottomTabs({ view, onChange }: Props) {
       }`}
     >
       <div className="mx-auto max-w-[560px] px-4 pb-4">
-        <div className="rounded-2xl bg-[#e8decc] shadow-sm p-1">
-          <div className="flex gap-1">
+        <div className="rounded-3xl bg-[#e8decc] shadow-lg p-2">
+          <div className="flex gap-2">
             <button
               onClick={() => onChange("list")}
               className={`${baseBtn} ${
-                view === "list"
-  ? "bg-white/60 text-[#0f3b2e]"
-  : "text-[#0f3b2e]/80 hover:text-[#0f3b2e] hover:bg-white/20"
+                view === "list" ? "bg-white text-[#0f3b2e]" : "text-[#0f3b2e] hover:bg-white/70"
               }`}
             >
               <ListIcon />
@@ -108,9 +106,7 @@ export default function BottomTabs({ view, onChange }: Props) {
             <button
               onClick={() => onChange("map")}
               className={`${baseBtn} ${
-                view === "map" 
-                ? "bg-white/60 text-[#0f3b2e]"
-  : "text-[#0f3b2e]/80 hover:text-[#0f3b2e] hover:bg-white/20"
+                view === "map" ? "bg-white text-[#0f3b2e]" : "text-[#0f3b2e] hover:bg-white/70"
               }`}
             >
               <MapIcon />
@@ -121,8 +117,8 @@ export default function BottomTabs({ view, onChange }: Props) {
               onClick={() => onChange("juniorstaste")}
               className={`${baseBtn} ${
                 view === "juniorstaste"
-                  ? "bg-white/60 text-[#0f3b2e]"
-  : "text-[#0f3b2e]/80 hover:text-[#0f3b2e] hover:bg-white/20"
+                  ? "bg-white text-[#0f3b2e]"
+                  : "text-[#0f3b2e] hover:bg-white/70"
               }`}
               title="Juniorstaste"
             >
