@@ -1,9 +1,10 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import dynamic from "next/dynamic";
+import dynamicImport from "next/dynamic";
 
 import TikTokEmbed from "@/components/TikTokEmbed";
 import DistanceLabel from "@/components/DistanceLabel";
@@ -13,7 +14,7 @@ import JuniorstasteProfileTab from "@/components/JuniorstasteProfileTab";
 import ProfileButton from "@/components/ProfileButton";
 import SaveSpotButton from "@/components/SaveSpotButton";
 
-const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
+const CityMap = dynamicImport(() => import("@/components/CityMap"), { ssr: false });
 
 type Spot = {
   id: string;
