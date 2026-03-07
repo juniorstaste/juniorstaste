@@ -1,0 +1,15 @@
+{
+  "name": "Junior’s Taste",
+  "short_name": "JuniorTaste",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f3b2e",
+  "theme_color": "#0f3b2e",
+  "icons": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
