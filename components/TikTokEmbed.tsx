@@ -1,62 +1,97 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+
 type Props = {
   videoId: string;
-  username?: string; // optional, nur für Direktlink
-  height?: number;   // optional, default 520
+  username?: string;
+  height?: number; // optional override
 };
 
-export default function TikTokEmbed({
-  videoId,
-  username,
-  height = 520,
-}: Props) {
-  if (!videoId) return null;
+export default function TikTokEmbed({ videoId, username, height }: Props) {
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [dynamicHeight, setDynamicHeight] = useState(760);
 
-  const iframeSrc = `https://www.tiktok.com/embed/v2/${videoId}`;
+  useEffect(() => {
+    if (height) return;
 
-  const tiktokUrl = username
+    function updateHeight() {
+      if (!wrapRef.current) return;
+
+      const width = wrapRef.current.offsetWidth;
+
+      // ✅ Breiter auf Mobile, aber nicht unnötig hoch
+      // Formel:
+      // Video-Anteil + kompakter Caption-Zuschlag
+      let nextHeight = Math.round(width * 1.62 + 105);
+
+      // Kleine Sicherheitsgrenzen
+      if (nextHeight < 640) nextHeight = 640;
+      if (nextHeight > 820) nextHeight = 820;
+
+      setDynamicHeight(nextHeight);
+    }
+
+    updateHeight();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateHeight();
+    });
+
+    if (wrapRef.current) {
+      resizeObserver.observe(wrapRef.current);
+    }
+
+    window.addEventListener("resize", updateHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, [height]);
+
+  const finalHeight = height ?? dynamicHeight;
+
+  const src = `https://www.tiktok.com/embed/v2/${videoId}?autoplay=1`;
+
+  const link = username
     ? `https://www.tiktok.com/@${username}/video/${videoId}`
     : `https://www.tiktok.com/video/${videoId}`;
 
   return (
-    <div style={{ width: "100%" }}>
-      {/* Video */}
-      <div
+    <div
+      ref={wrapRef}
+      style={{
+        width: "100%",
+        maxWidth: 420, // ✅ breiter als vorher
+        margin: "0 auto",
+        borderRadius: 16,
+        overflow: "hidden",
+      }}
+    >
+      <iframe
+        src={src}
+        width="100%"
+        height={finalHeight}
+        scrolling="no"
         style={{
-          width: "100%",
-          border: "1px solid #ddd",
-          borderRadius: 12,
+          border: "none",
+          display: "block",
           overflow: "hidden",
-          background: "#000",
         }}
-      >
-        <iframe
-          src={iframeSrc}
-          style={{
-            width: "100%",
-            height,
-            border: "none",
-            display: "block",
-          }}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-          allowFullScreen
-          loading="lazy"
-          referrerPolicy="strict-origin-when-cross-origin"
-          title={`TikTok video ${videoId}`}
-        />
-      </div>
+        allow="autoplay; encrypted-media"
+        allowFullScreen
+        title={`TikTok video ${videoId}`}
+      />
 
-      {/* Direktlink */}
-      <div style={{ marginTop: 8 }}>
+      <div style={{ marginTop: 6, textAlign: "center" }}>
         <a
-          href={tiktokUrl}
+          href={link}
           target="_blank"
           rel="noreferrer"
           style={{
             fontSize: 13,
-            color: "#555",
-            textDecoration: "none",
+            opacity: 0.8,
           }}
         >
           Auf TikTok öffnen

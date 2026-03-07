@@ -9,6 +9,8 @@ import DistanceLabel from "@/components/DistanceLabel";
 import SiteHeader from "@/components/SiteHeader";
 import BottomTabs from "@/components/BottomTabs";
 import JuniorstasteGrid from "@/components/JuniorstasteGrid";
+import ProfileButton from "@/components/ProfileButton";
+import SaveSpotButton from "@/components/SaveSpotButton";
 
 const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
 
@@ -311,9 +313,13 @@ export default function CityPage() {
 
   return (
     <main className="mx-auto max-w-[560px] p-4 pb-28">
-      <a href="/" className={`inline-block mb-3 font-semibold ${topText} underline-offset-4 hover:underline`}>
-        ← Zurück
-      </a>
+      <div className="mb-3 flex items-center justify-between">
+  <a href="/" className={`font-semibold ${topText} underline-offset-4 hover:underline`}>
+    ← Zurück
+  </a>
+
+  <ProfileButton />
+</div>
 
       {/* Logo */}
       <div className="text-center mb-6">
@@ -528,11 +534,14 @@ export default function CityPage() {
 
             return (
               <div
-                key={s.id}
-                onClick={() => router.push(`/spot/${s.id}`)}
-                className="cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
-              >
+  key={s.id}
+  onClick={() => router.push(`/spot/${s.id}`)}
+  className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
+>
                 <div className="flex gap-3">
+                  <div className="absolute right-3 top-3 z-10">
+  <SaveSpotButton spotId={s.id} variant="list" />
+</div>
                   {s.image_url ? (
                     <img
                       src={s.image_url}
@@ -626,10 +635,18 @@ export default function CityPage() {
                     </div>
 
                     {s.tiktok_embed_id ? (
-                      <div className="mt-4 rounded-2xl overflow-hidden shadow-lg" onClick={(e) => e.stopPropagation()}>
-                        <TikTokEmbed username="juniorstaste" videoId={s.tiktok_embed_id} />
-                      </div>
-                    ) : null}
+  <div
+    className="mt-4 flex justify-center"
+    onClick={(e) => e.stopPropagation()}
+  >
+    <div className="w-full w-full rounded-2xl overflow-hidden shadow-lg">
+      <TikTokEmbed
+        username="juniorstaste"
+        videoId={s.tiktok_embed_id}
+      />
+    </div>
+  </div>
+) : null}
                   </div>
                 </div>
               </div>

@@ -10,6 +10,8 @@ import DistanceLabel from "@/components/DistanceLabel";
 import SiteHeader from "@/components/SiteHeader";
 import BottomTabs from "@/components/BottomTabs";
 import JuniorstasteProfileTab from "@/components/JuniorstasteProfileTab";
+import ProfileButton from "@/components/ProfileButton";
+import SaveSpotButton from "@/components/SaveSpotButton";
 
 const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
 
@@ -86,9 +88,13 @@ export default function NearPage() {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return (
       <main className="mx-auto max-w-[560px] p-4 pb-28">
-        <a href="/" className={`inline-block mb-3 font-semibold ${topText} underline-offset-4 hover:underline`}>
-          ← Zurück
-        </a>
+        <div className="mb-3 flex items-center justify-between">
+  <a href="/" className={`font-semibold ${topText} underline-offset-4 hover:underline`}>
+    ← Zurück
+  </a>
+
+  <ProfileButton />
+</div>
         <div className="text-center mb-6">
   <SiteHeader />
 
@@ -316,8 +322,11 @@ export default function NearPage() {
                   <div
                     key={s.id}
                     onClick={() => router.push(`/spot/${s.id}`)}
-                    className="cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
+                    className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
                   >
+                    <div className="absolute right-3 top-3 z-10">
+  <SaveSpotButton spotId={s.id} variant="list" />
+</div>
                     <div className="flex gap-3">
                       {s.image_url ? (
                         <img

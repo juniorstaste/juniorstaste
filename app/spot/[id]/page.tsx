@@ -8,6 +8,8 @@ import StarRating from "@/components/StarRating";
 import PriceLevel from "@/components/PriceLevel";
 import DistanceLabel from "@/components/DistanceLabel";
 import TikTokEmbed from "@/components/TikTokEmbed";
+import ProfileButton from "@/components/ProfileButton";
+import SaveSpotButton from "@/components/SaveSpotButton";
 
 const SpotMiniMap = dynamic(() => import("@/components/SpotMiniMap"), { ssr: false });
 
@@ -113,12 +115,21 @@ export default function SpotDetailPage() {
   return (
     <main className="min-h-screen bg-[#0f3b2e] text-white px-6 py-8 max-w-xl mx-auto">
 
-      <button
-        onClick={() => router.push(spot?.city_slug ? `/city/${spot.city_slug}` : "/")}
-        className="mb-6 text-sm underline"
-      >
-        ← Zurück
-      </button>
+      <div className="flex items-center justify-between mb-6">
+
+  <button
+    onClick={() => router.push(spot?.city_slug ? `/city/${spot.city_slug}` : "/")}
+    className="text-sm underline"
+  >
+    ← Zurück
+  </button>
+
+  <div className="flex items-center gap-2">
+    {spot?.id && <SaveSpotButton spotId={spot.id} />}
+    <ProfileButton />
+  </div>
+
+</div>
 
       {loading ? (
         <p>Lade Spot…</p>
@@ -215,14 +226,16 @@ export default function SpotDetailPage() {
 
           {/* TikTok */}
           {spot.tiktok_embed_id && (
-            <div className="mt-8 rounded-2xl overflow-hidden">
-              <TikTokEmbed
-                username="juniorstaste"
-                videoId={spot.tiktok_embed_id}
-                height={760}
-              />
-            </div>
-          )}
+  <div className="mt-8 flex justify-center">
+    <div className="w-full w-full rounded-2xl overflow-hidden shadow-lg">
+      <TikTokEmbed
+        username="juniorstaste"
+        videoId={spot.tiktok_embed_id}
+        height={760}
+      />
+    </div>
+  </div>
+)}
         </>
       )}
     </main>

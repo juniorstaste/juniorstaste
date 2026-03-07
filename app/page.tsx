@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import SiteHeader from "@/components/SiteHeader";
 import { useRouter } from "next/navigation";
+import ProfileButton from "@/components/ProfileButton";
 
 type City = { id: string; name: string; slug: string };
 
@@ -72,9 +73,15 @@ export default function Home() {
   return (
 <main className="min-h-screen bg-[#0f3b2e] flex flex-col items-center justify-center text-center px-6">
       {/* Logo */}
-      <div className="mb-10">
-        <SiteHeader />
-      </div>
+      <div className="w-full max-w-sm mb-10">
+  <div className="mb-3 flex items-center justify-end">
+    <ProfileButton />
+  </div>
+
+  <div className="text-center">
+    <SiteHeader />
+  </div>
+</div>
 
       <h1 className="mt-4 mb-6 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide fade-up">
   Wähle deine Stadt  
@@ -131,15 +138,25 @@ export default function Home() {
         )}
 
         {/* Städte */}
-        {cities.map((city) => (
-          <button
-            key={city.slug}
-            onClick={() => router.push(`/city/${city.slug}`)}
-            className="w-full h-[56px] rounded-2xl bg-[#e8decc] text-lg font-semibold text-[#0f3b2e] shadow-md transition hover:scale-[1.03]"
-          >
-            {city.name}
-          </button>
-        ))}
+        <select
+  defaultValue=""
+  onChange={(e) => {
+    const selectedSlug = e.target.value;
+    if (selectedSlug) {
+      router.push(`/city/${selectedSlug}`);
+    }
+  }}
+className="w-full h-[56px] rounded-2xl bg-[#e8decc] px-4 text-lg font-semibold text-[#0f3b2e] shadow-md transition cursor-pointer text-center">
+  <option value="" disabled>
+    Stadt auswählen
+  </option>
+
+  {cities.map((city) => (
+    <option key={city.slug} value={city.slug}>
+      {city.name}
+    </option>
+  ))}
+</select>
       </div>
 
       {geoError && (
