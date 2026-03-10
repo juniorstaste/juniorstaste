@@ -30,12 +30,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="de">
-      <body
-        className={`${montserrat.className} bg-gradient-to-b from-[#0f2a22] to-[#081b16] text-[#f8f5ef]`}
-      >
-        {children}
-      </body>
-    </html>
-  );
+  <html lang="de">
+    <head>
+      <meta name="apple-mobile-web-app-capable" content="yes" />
+      <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      <meta name="apple-mobile-web-app-title" content="JuniorsTaste" />
+      <meta name="theme-color" content="#0f3b2e" />
+      <link rel="apple-touch-icon" href="/icon-512.png" />
+    </head>
+    <body>{children}</body>
+  </html>
+);
 }

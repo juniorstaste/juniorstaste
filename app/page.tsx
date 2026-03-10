@@ -121,7 +121,7 @@ export default function Home() {
                 onClick={goToNearPage}
                 className="flex-1 h-[48px] rounded-xl bg-[#e8decc] text-[#0f3b2e] font-semibold shadow-md transition hover:scale-[1.02]"
               >
-                Weiter →
+                Weiter
               </button>
 
               <button
