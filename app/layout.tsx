@@ -38,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <meta name="theme-color" content="#0f3b2e" />
       <link rel="apple-touch-icon" href="/icon-512.png" />
     </head>
-    <body>{children}</body>
+    <body className={montserrat.className}>{children}</body>
   </html>
 );
 }
