@@ -326,23 +326,63 @@ export default function CityPage() {
         <SiteHeader subtitle={null as any} />
 
         {/* ✅ Dropdown direkt unter dem Logo (Design wie vorher) */}
-        <div className="mb-5">
-          <select
-            value={citySelectValue}
-            onChange={(e) => handleCitySelectChange(e.target.value)}
-            className={controlBase + " italic"}
-          >
-            <option value="__near__">📍 In meiner Nähe suchen…</option>
-            <option disabled>──────────</option>
-            {cities.map((c) => (
-              <option key={c.id} value={c.slug}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+        <div className="mb-5 overflow-x-auto no-scrollbar">
+  <div className="flex gap-3 min-w-max">
+    {/* Stadt */}
+    <div className="w-[240px] shrink-0">
+      <select
+        value={citySelectValue}
+        onChange={(e) => handleCitySelectChange(e.target.value)}
+        className={controlBase + " italic"}
+      >
+        <option value="__near__">📍 In meiner Nähe suchen…</option>
+        <option disabled>──────────</option>
+        {cities.map((c) => (
+          <option key={c.id} value={c.slug}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+    </div>
 
-          {geoError ? <div className="mt-2 text-sm text-red-200">{geoError}</div> : null}
-        </div>
+    {/* Kategorie */}
+    <div className="w-[220px] shrink-0">
+      <select
+        value={category}
+        onChange={(e) => {
+          setCategory(e.target.value);
+          setSearch("");
+        }}
+        className={controlBase}
+      >
+        <option value="all">Kategorie: Alle</option>
+        {categories.map((c) => (
+          <option key={c.slug} value={c.slug}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    {/* Sortierung */}
+    <div className="w-[220px] shrink-0">
+      <select
+        value={sort}
+        onChange={(e) => setSort(e.target.value as any)}
+        className={controlBase}
+      >
+        <option value="newest">Sortierung: Neueste</option>
+        <option value="rating">Best bewertet</option>
+        <option value="price">Preis</option>
+        <option value="distance" disabled={!userPos}>
+          Nähe (GPS)
+        </option>
+      </select>
+    </div>
+  </div>
+
+  {geoError ? <div className="mt-2 text-sm text-red-200">{geoError}</div> : null}
+</div>
       </div>
 
       {/* ✅ View Toggle */}
@@ -462,46 +502,8 @@ export default function CityPage() {
           className={controlBase}
         />
       </div>
+      
 
-      {/* ✅ Kategorie */}
-      <div className="mb-4">
-        <label className={`block mb-2 font-extrabold ${topText}`}>Kategorie</label>
-        <select
-          value={category}
-          onChange={(e) => {
-            setCategory(e.target.value);
-            setSearch("");
-          }}
-          className={controlBase}
-        >
-          <option value="all">Alle</option>
-          {categories.map((c) => (
-            <option key={c.slug} value={c.slug}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* ✅ Sortierung */}
-{view === "list" && (
-  <div className="mb-5">
-    <label className={`block mb-2 font-extrabold ${topText}`}>Sortierung</label>
-
-    <select
-      value={sort}
-      onChange={(e) => setSort(e.target.value as any)}
-      className={controlBase}
-    >
-      <option value="newest">Neueste</option>
-      <option value="rating">Best bewertet</option>
-      <option value="price">Preis</option>
-      <option value="distance" disabled={!userPos}>
-        Nähe (GPS)
-      </option>
-    </select>
-  </div>
-)}
 
       {/* ✅ Content */}
       {loading ? (

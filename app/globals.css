@@ -38,3 +38,11 @@ body {
 html, body {
   background-color: #0f3b2e !important;
 }
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
