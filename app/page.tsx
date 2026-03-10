@@ -146,7 +146,7 @@ export default function Home() {
       router.push(`/city/${selectedSlug}`);
     }
   }}
-className="w-full h-[56px] rounded-2xl bg-[#e8decc] px-4 text-lg font-semibold text-[#0f3b2e] shadow-md transition cursor-pointer text-center">
+className="w-full h-[56px] rounded-2xl bg-[#e8decc] px-4 text-lg font-semibold text-[#0f3b2e] shadow-md transition cursor-pointer text-center text-center-last">
   <option value="" disabled>
     Stadt auswählen
   </option>
