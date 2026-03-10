@@ -391,10 +391,19 @@ export default function NearPage() {
                         </div>
 
                         {s.tiktok_embed_id ? (
-                          <div className="mt-4 rounded-2xl overflow-hidden shadow-lg" onClick={(e) => e.stopPropagation()}>
-                            <TikTokEmbed username="juniorstaste" videoId={s.tiktok_embed_id} />
-                          </div>
-                        ) : null}
+  <div
+    className="mt-8 flex justify-center"
+    onClick={(e) => e.stopPropagation()}
+  >
+    <div className="w-full rounded-2xl overflow-hidden shadow-lg">
+      <TikTokEmbed
+        username="juniorstaste"
+        videoId={s.tiktok_embed_id}
+        height={760}
+      />
+    </div>
+  </div>
+) : null}
                       </div>
                     </div>
                   </div>

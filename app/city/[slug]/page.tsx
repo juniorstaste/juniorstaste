@@ -636,13 +636,14 @@ export default function CityPage() {
 
                     {s.tiktok_embed_id ? (
   <div
-    className="mt-4 flex justify-center"
+    className="mt-8 flex justify-center"
     onClick={(e) => e.stopPropagation()}
   >
-    <div className="w-full w-full rounded-2xl overflow-hidden shadow-lg">
+    <div className="w-full rounded-2xl overflow-hidden shadow-lg">
       <TikTokEmbed
         username="juniorstaste"
         videoId={s.tiktok_embed_id}
+        height={760}
       />
     </div>
   </div>
