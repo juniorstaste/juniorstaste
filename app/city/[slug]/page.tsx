@@ -310,6 +310,29 @@ export default function CityPage() {
   }, [mapSpots]);
 
   if (!citySlug) return <main className="p-4">Lade Stadt…</main>;
+  
+  const selectedCityLabel =
+  citySelectValue === "__near__"
+    ? "📍 In meiner Nähe suchen…"
+    : cities.find((c) => c.slug === citySelectValue)?.name ?? "Stadt";
+
+const selectedCategoryLabel =
+  category === "all"
+    ? "Kategorie: Alle"
+    : categories.find((c) => c.slug === category)?.name ?? "Kategorie";
+
+const selectedSortLabel =
+  sort === "newest"
+    ? "Sortierung: Neueste"
+    : sort === "rating"
+    ? "Best bewertet"
+    : sort === "price"
+    ? "Preis"
+    : "Nähe (GPS)";
+
+function getSelectWidth(label: string, min = 140) {
+  return `${Math.max(min, label.length * 9 + 48)}px`;
+}
 
   return (
     <main className="mx-auto max-w-[560px] p-4 pb-28">
@@ -329,7 +352,7 @@ export default function CityPage() {
         <div className="mb-5 overflow-x-auto no-scrollbar">
   <div className="flex gap-3 min-w-max">
     {/* Stadt */}
-    <div className="w-[240px] shrink-0">
+    <div className="shrink-0" style={{ width: getSelectWidth(selectedCityLabel, 150) }}>
       <select
         value={citySelectValue}
         onChange={(e) => handleCitySelectChange(e.target.value)}
@@ -346,7 +369,7 @@ export default function CityPage() {
     </div>
 
     {/* Kategorie */}
-    <div className="w-[220px] shrink-0">
+    <div className="shrink-0" style={{ width: getSelectWidth(selectedCategoryLabel, 150) }}>
       <select
         value={category}
         onChange={(e) => {
@@ -365,7 +388,7 @@ export default function CityPage() {
     </div>
 
     {/* Sortierung */}
-    <div className="w-[220px] shrink-0">
+    <div className="shrink-0" style={{ width: getSelectWidth(selectedSortLabel, 170) }}>
       <select
         value={sort}
         onChange={(e) => setSort(e.target.value as any)}
