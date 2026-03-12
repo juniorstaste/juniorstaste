@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import SiteHeader from "@/components/SiteHeader";
 import { useRouter } from "next/navigation";
 import ProfileButton from "@/components/ProfileButton";
+
 
 type City = { id: string; name: string; slug: string };
 
@@ -17,9 +18,10 @@ export default function Home() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusKm, setRadiusKm] = useState<number>(5);
   const [radiusOpen, setRadiusOpen] = useState<boolean>(false);
+  const [cityOpen, setCityOpen] = useState<boolean>(false);
 
   const router = useRouter();
-  const [cityOpen, setCityOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function loadCities() {
@@ -37,6 +39,23 @@ export default function Home() {
     }
 
     loadCities();
+  }, []);
+
+    useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setCityOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
   function requestLocation() {
@@ -139,7 +158,7 @@ export default function Home() {
         )}
 
         {/* Städte Dropdown (Custom) */}
-<div className="relative w-full">
+<div ref={dropdownRef} className="relative w-full">
   <button
     onClick={() => setCityOpen(!cityOpen)}
     className="w-full h-[56px] rounded-2xl bg-[#e8decc] text-lg font-semibold text-[#0f3b2e] shadow-md transition hover:scale-[1.03]"
@@ -151,13 +170,13 @@ export default function Home() {
     <div className="absolute top-[64px] left-0 w-full rounded-2xl bg-[#e8decc] shadow-lg overflow-hidden z-20">
       {cities.map((city) => (
         <button
-          key={city.slug}
-          onClick={() => {
-            setCityOpen(false);
-            router.push(`/city/${city.slug}`);
-          }}
-          className="w-full px-4 py-3 text-center font-semibold text-[#0f3b2e] hover:bg-[#ded3be] transition"
-        >
+  key={city.slug}
+  onClick={() => {
+    setCityOpen(false);
+    router.push(`/city/${city.slug}`);
+  }}
+  className="w-full px-4 py-3 text-center font-semibold text-[#0f3b2e] hover:bg-[#ded3be] transition"
+>
           {city.name}
         </button>
       ))}
