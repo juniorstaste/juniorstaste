@@ -340,6 +340,7 @@ export default function CityPage() {
         <button
   onClick={() => router.back()}
   className={`text-[28px] leading-none ${topText} font-semibold hover:opacity-70 transition`}
+  aria-label="Zurück"
 >
   ‹
 </button>

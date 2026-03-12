@@ -6,6 +6,7 @@ import SiteHeader from "@/components/SiteHeader";
 import ProfileButton from "@/components/ProfileButton";
 import SaveSpotButton from "@/components/SaveSpotButton";
 import TikTokEmbed from "@/components/TikTokEmbed";
+import { useRouter } from "next/navigation";
 
 type Spot = {
   id: string;
@@ -28,6 +29,7 @@ export default function SavedPage() {
   const [spots, setSpots] = useState<Spot[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCity, setSelectedCity] = useState<string>("all");
+  const router = useRouter();
 
   // 1) IDs aus localStorage laden
   useEffect(() => {
@@ -128,13 +130,17 @@ const filteredSpots =
     <main className="min-h-screen bg-[#0f3b2e]">
       <div className="mx-auto max-w-[560px] p-4 pb-28">
         {/* Top row */}
-        <div className="mb-3 flex items-center justify-between">
-          <a href="/" className="font-semibold text-white underline-offset-4 hover:underline">
-            ← Zurück
-          </a>
+<div className="mb-3 flex items-center justify-between">
+  <button
+    onClick={() => router.push("/")}
+    className="text-[28px] leading-none text-white font-semibold hover:opacity-70 transition"
+    aria-label="Zurück"
+  >
+    ‹
+  </button>
 
-          <ProfileButton />
-        </div>
+  <ProfileButton />
+</div>
 
         {/* Header */}
         <div className="text-center mb-6">
