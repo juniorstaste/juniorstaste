@@ -118,8 +118,8 @@ export default function SpotDetailPage() {
       <div className="flex items-center justify-between mb-6">
 
   <button
-  onClick={() => router.push(spot?.city_slug ? `/city/${spot.city_slug}` : "/")}
-  className="text-[28px] leading-none text-white font-semibold hover:opacity-70 transition"
+  onClick={() => router.push("/")}
+className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-none text-white font-semibold active:scale-90 transition"
   aria-label="Zurück"
 >
   ‹

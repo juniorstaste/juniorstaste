@@ -226,9 +226,13 @@ export default function NearPage() {
     return (
       <main className="mx-auto max-w-[560px] p-4 pb-28">
         <div className="mb-3 flex items-center justify-between">
-          <a href="/" className={`font-semibold ${topText} underline-offset-4 hover:underline`}>
-            ← Zurück
-          </a>
+          <button
+  onClick={() => router.push("/")}
+className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-none text-white font-semibold active:scale-90 transition"
+  aria-label="Zurück"
+>
+  ‹
+</button>
 
           <ProfileButton />
         </div>
