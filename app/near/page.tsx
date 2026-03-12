@@ -254,9 +254,13 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
   return (
     <main className="mx-auto max-w-[560px] p-4 pb-28">
       <div className="mb-3 flex items-center justify-between">
-        <a href="/" className={`font-semibold ${topText} underline-offset-4 hover:underline`}>
-          ← Zurück
-        </a>
+        <button
+  onClick={() => router.push("/")}
+  className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-none text-white font-semibold active:scale-90 transition"
+  aria-label="Zurück"
+>
+  ‹
+</button>
 
         <ProfileButton />
       </div>
@@ -271,6 +275,8 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
       {view !== "tasteDesMonats" && (
         <>
           <div className="mb-5">
+  <label className={`block mb-2 font-extrabold ${topText}`}>Filter</label>
+
   <div className="overflow-x-auto no-scrollbar">
     <div className="flex gap-3 min-w-max">
 
