@@ -427,7 +427,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                       onClick={() => setView("list")}
                       className={`min-w-[180px] px-4 py-3 rounded-2xl whitespace-nowrap border transition-all font-semibold shrink-0 ${
                         view === "list"
-                          ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
+  ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
                           : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
                       }`}
                     >
@@ -439,7 +439,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                       onClick={() => setView("map")}
                       className={`min-w-[180px] px-4 py-3 rounded-2xl border transition-all font-semibold shrink-0 ${
                         view === "map"
-                          ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
+  ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
                           : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
                       }`}
                     >

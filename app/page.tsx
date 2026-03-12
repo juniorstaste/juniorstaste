@@ -97,19 +97,19 @@ export default function Home() {
     <ProfileButton />
   </div>
       {/* Logo */}
-      <div className="w-full max-w-sm mb-10">
+      <div className="w-full max-w-[420px] mb-14">
   
 
-  <div className="text-center">
-    <SiteHeader />
-  </div>
+  <div className="text-center scale-150">
+  <SiteHeader />
+</div>
 </div>
 
-      <h1 className="mt-4 mb-6 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide fade-up">
+      <h1 className="mt-8 mb-6 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide fade-up">
   Wähle deine Stadt  
 </h1>
 
-      <div className="flex flex-col gap-4 w-full max-w-sm">
+      <div className="flex flex-col gap-4 w-full max-w-sm mt-2">
 
         {/* 🔥 Standort Button GANZ OBEN */}
         <button
