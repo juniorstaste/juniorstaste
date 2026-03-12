@@ -89,7 +89,7 @@ export default function BottomTabs({ view, onChange }: Props) {
   }, []);
 
   const baseBtn =
-    "flex-1 h-[56px] rounded-2xl font-semibold flex items-center justify-center gap-1.5 transition text-[14px]";
+  "h-[56px] rounded-2xl font-semibold flex items-center justify-center gap-1.5 transition text-[14px] whitespace-nowrap";
 
   return (
     <div
@@ -102,7 +102,7 @@ export default function BottomTabs({ view, onChange }: Props) {
           <div className="flex gap-1">
             <button
               onClick={() => onChange("list")}
-              className={`${baseBtn} ${
+              className={`flex-[0.9] ${baseBtn} ${
                 view === "list"
                   ? "bg-white/60 text-[#0f3b2e]"
                   : "text-[#0f3b2e]/80 hover:text-[#0f3b2e] hover:bg-white/20"
@@ -114,7 +114,7 @@ export default function BottomTabs({ view, onChange }: Props) {
 
             <button
               onClick={() => onChange("map")}
-              className={`${baseBtn} ${
+              className={`flex-[0.9] ${baseBtn} ${
                 view === "map"
                   ? "bg-white/60 text-[#0f3b2e]"
                   : "text-[#0f3b2e]/80 hover:text-[#0f3b2e] hover:bg-white/20"
@@ -126,7 +126,7 @@ export default function BottomTabs({ view, onChange }: Props) {
 
             <button
               onClick={() => onChange("tasteDesMonats")}
-              className={`${baseBtn} ${
+              className={`flex-[1.2] ${baseBtn} ${
                 view === "tasteDesMonats"
                   ? "bg-white/60 text-[#0f3b2e]"
                   : "text-[#0f3b2e]/80 hover:text-[#0f3b2e] hover:bg-white/20"
