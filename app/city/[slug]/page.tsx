@@ -337,9 +337,12 @@ export default function CityPage() {
   return (
     <main className="mx-auto max-w-[560px] p-4 pb-28">
       <div className="mb-3 flex items-center justify-between">
-        <a href="/" className={`font-semibold ${topText} underline-offset-4 hover:underline`}>
-          ← Zurück
-        </a>
+        <button
+  onClick={() => router.back()}
+  className={`text-[28px] leading-none ${topText} font-semibold hover:opacity-70 transition`}
+>
+  ‹
+</button>
 
         <ProfileButton />
       </div>
