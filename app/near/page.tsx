@@ -270,54 +270,71 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
 
       {view !== "tasteDesMonats" && (
         <>
-          <div className="mb-4">
-            <label className={`block mb-2 font-extrabold ${topText}`}>Radius</label>
-            <select value={radius} onChange={(e) => setRadius(Number(e.target.value))} className={controlBase}>
-              <option value={2}>2 km</option>
-              <option value={5}>5 km</option>
-              <option value={10}>10 km</option>
-              <option value={25}>25 km</option>
-            </select>
-          </div>
-
-          <div className="mb-4">
-            <label className={`block mb-2 font-extrabold ${topText}`}>Suche</label>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="z.B. Burger, Döner, Pizza…"
-              className={controlBase}
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className={`block mb-2 font-extrabold ${topText}`}>Kategorie</label>
-            <select
-              value={category}
-              onChange={(e) => {
-                setCategory(e.target.value);
-                setSearch("");
-              }}
-              className={controlBase}
-            >
-              <option value="all">Alle</option>
-              {categories.map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div className="mb-5">
-            <label className={`block mb-2 font-extrabold ${topText}`}>Sortierung</label>
-            <select value={sort} onChange={(e) => setSort(e.target.value as any)} className={controlBase}>
-              <option value="distance">Nähe</option>
-              <option value="rating">Best bewertet</option>
-              <option value="price">Preis</option>
-              <option value="newest">Neueste</option>
-            </select>
-          </div>
+  <div className="overflow-x-auto no-scrollbar">
+    <div className="flex gap-3 min-w-max">
+
+      {/* Radius */}
+      <div className="shrink-0">
+        <select
+          value={radius}
+          onChange={(e) => setRadius(Number(e.target.value))}
+          className={controlBase}
+        >
+          <option value={2}>Radius: 2 km</option>
+          <option value={5}>Radius: 5 km</option>
+          <option value={10}>Radius: 10 km</option>
+          <option value={25}>Radius: 25 km</option>
+        </select>
+      </div>
+
+      {/* Kategorie */}
+      <div className="shrink-0">
+        <select
+          value={category}
+          onChange={(e) => {
+            setCategory(e.target.value);
+            setSearch("");
+          }}
+          className={controlBase}
+        >
+          <option value="all">Kategorie: Alle</option>
+          {categories.map((c) => (
+            <option key={c.slug} value={c.slug}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Sortierung */}
+      <div className="shrink-0">
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as any)}
+          className={controlBase}
+        >
+          <option value="distance">Sortierung: Nähe</option>
+          <option value="rating">Best bewertet</option>
+          <option value="price">Preis</option>
+          <option value="newest">Neueste</option>
+        </select>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{/* Suche */}
+<div className="mb-4">
+  <label className={`block mb-2 font-extrabold ${topText}`}>Suche</label>
+  <input
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    placeholder="z.B. Burger, Döner, Pizza…"
+    className={controlBase}
+  />
+</div>
         </>
       )}
 
