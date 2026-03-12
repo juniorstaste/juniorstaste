@@ -11,7 +11,6 @@ import TikTokEmbed from "@/components/TikTokEmbed";
 import DistanceLabel from "@/components/DistanceLabel";
 import SiteHeader from "@/components/SiteHeader";
 import BottomTabs from "@/components/BottomTabs";
-import JuniorstasteProfileTab from "@/components/JuniorstasteProfileTab";
 import ProfileButton from "@/components/ProfileButton";
 import SaveSpotButton from "@/components/SaveSpotButton";
 
@@ -33,6 +32,7 @@ type Spot = {
 
   category_slug?: string | null;
   category_name?: string | null;
+  city_name?: string | null;
 
   wolt_url?: string | null;
   lieferando_url?: string | null;
@@ -41,6 +41,11 @@ type Spot = {
 
   created_at?: string | null;
 };
+
+const TASTE_DES_MONATS_IDS = [
+  "0f63bbc8-7050-4406-b512-3e133965a1e4",
+  "4eb57f03-101e-4d80-98cc-42d3f148b57a",
+];
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371;
@@ -63,11 +68,13 @@ export default function NearPage() {
 
   const lat = Number(params.get("lat"));
   const lng = Number(params.get("lng"));
+  const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lng);
   const initialRadius = Number(params.get("r")) || 5;
 
   const [radius, setRadius] = useState<number>(initialRadius);
 
   const [spots, setSpots] = useState<Spot[]>([]);
+  const [tasteDesMonatsSpots, setTasteDesMonatsSpots] = useState<Spot[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -76,43 +83,18 @@ export default function NearPage() {
   const [categories, setCategories] = useState<{ slug: string; name: string }[]>([]);
   const [sort, setSort] = useState<"distance" | "rating" | "price" | "newest">("distance");
 
-  const [view, setView] = useState<"list" | "map" | "juniorstaste">("list");
+  const [view, setView] = useState<"list" | "map" | "tasteDesMonats">("list");
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
 
-  // ====== UI Tokens (wie City) ======
   const topText = "text-white";
   const controlBase =
     "w-full px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] " +
     "text-[#0f2a22] placeholder:text-[#0f2a22]/50 font-semibold shadow-sm transition hover:bg-[#efe5d6] " +
     "focus:outline-none focus:ring-2 focus:ring-[#c6a85b]";
 
-  // ====== Safety: fehlende Koordinaten ======
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return (
-      <main className="mx-auto max-w-[560px] p-4 pb-28">
-        <div className="mb-3 flex items-center justify-between">
-  <a href="/" className={`font-semibold ${topText} underline-offset-4 hover:underline`}>
-    ← Zurück
-  </a>
-
-  <ProfileButton />
-</div>
-        <div className="text-center mb-6">
-  <SiteHeader />
-
-  <h1 className="mt-4 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide">
-    Spots in deiner Nähe
-  </h1>
-</div>
-        <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-900 mt-4">
-          Fehler: Standort-Koordinaten fehlen. Bitte gehe zurück und klicke „Standort verwenden“ erneut.
-        </div>
-      </main>
-    );
-  }
-
-  // ====== Spots laden ======
   useEffect(() => {
+    if (!hasValidCoords) return;
+
     async function loadSpots() {
       setLoading(true);
       setErrorMsg(null);
@@ -131,12 +113,16 @@ export default function NearPage() {
     }
 
     loadSpots();
-  }, []);
+  }, [hasValidCoords]);
 
-  // ====== Kategorien laden (global) ======
   useEffect(() => {
+    if (!hasValidCoords) return;
+
     async function loadCategories() {
-      const { data, error } = await supabase.from("spots_with_city").select("category_slug, category_name");
+      const { data, error } = await supabase
+        .from("spots_with_city")
+        .select("category_slug, category_name");
+
       if (error) return;
 
       const m = new Map<string, string>();
@@ -150,10 +136,31 @@ export default function NearPage() {
     }
 
     loadCategories();
+  }, [hasValidCoords]);
+
+  useEffect(() => {
+    async function loadTasteDesMonats() {
+      const { data, error } = await supabase
+        .from("spots_with_city")
+        .select("*")
+        .in("id", TASTE_DES_MONATS_IDS);
+
+      if (error) return;
+
+      const ordered =
+        (data as Spot[] | null)?.sort(
+          (a, b) => TASTE_DES_MONATS_IDS.indexOf(a.id) - TASTE_DES_MONATS_IDS.indexOf(b.id)
+        ) ?? [];
+
+      setTasteDesMonatsSpots(ordered);
+    }
+
+    loadTasteDesMonats();
   }, []);
 
-  // ====== Filter + Sort ======
   const filteredSpots = useMemo(() => {
+    if (!hasValidCoords) return [];
+
     const q = search.trim().toLowerCase();
 
     let list = spots.filter((s) => {
@@ -191,9 +198,8 @@ export default function NearPage() {
     }
 
     return list;
-  }, [spots, search, category, sort, radius, lat, lng]);
+  }, [spots, search, category, sort, radius, lat, lng, hasValidCoords]);
 
-  // ====== Map-Spots vorbereiten ======
   const mapSpots = useMemo(() => {
     return filteredSpots
       .filter((s) => typeof s.lat === "number" && typeof s.lng === "number")
@@ -216,31 +222,50 @@ export default function NearPage() {
       });
   }, [filteredSpots]);
 
+  if (!hasValidCoords) {
+    return (
+      <main className="mx-auto max-w-[560px] p-4 pb-28">
+        <div className="mb-3 flex items-center justify-between">
+          <a href="/" className={`font-semibold ${topText} underline-offset-4 hover:underline`}>
+            ← Zurück
+          </a>
+
+          <ProfileButton />
+        </div>
+
+        <div className="text-center mb-6">
+          <SiteHeader />
+          <h1 className="mt-4 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide">
+            Spots in deiner Nähe
+          </h1>
+        </div>
+
+        <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-900 mt-4">
+          Fehler: Standort-Koordinaten fehlen. Bitte gehe zurück und klicke „Standort verwenden“ erneut.
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-[560px] p-4 pb-28">
-      {/* Zurück */}
-      <a href="/" className={`inline-block mb-3 font-semibold ${topText} underline-offset-4 hover:underline`}>
-        ← Zurück
-      </a>
+      <div className="mb-3 flex items-center justify-between">
+        <a href="/" className={`font-semibold ${topText} underline-offset-4 hover:underline`}>
+          ← Zurück
+        </a>
 
-      {/* Header */}
+        <ProfileButton />
+      </div>
+
       <div className="text-center mb-6">
-  <SiteHeader />
+        <SiteHeader />
+        <h1 className="mt-4 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide">
+          Spots in deiner Nähe
+        </h1>
+      </div>
 
-  <h1 className="mt-4 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide">
-    Spots in deiner Nähe
-  </h1>
-</div>
-
-      {/* ====== JUNIORSTASTE TAB: NUR Profil + Videos (alles andere ausblenden) ====== */}
-      {view === "juniorstaste" ? (
+      {view !== "tasteDesMonats" && (
         <>
-          <JuniorstasteProfileTab />
-          <BottomTabs view={view} onChange={setView} />
-        </>
-      ) : (
-        <>
-          {/* Radius */}
           <div className="mb-4">
             <label className={`block mb-2 font-extrabold ${topText}`}>Radius</label>
             <select value={radius} onChange={(e) => setRadius(Number(e.target.value))} className={controlBase}>
@@ -251,7 +276,6 @@ export default function NearPage() {
             </select>
           </div>
 
-          {/* Suche */}
           <div className="mb-4">
             <label className={`block mb-2 font-extrabold ${topText}`}>Suche</label>
             <input
@@ -262,7 +286,6 @@ export default function NearPage() {
             />
           </div>
 
-          {/* Kategorie */}
           <div className="mb-4">
             <label className={`block mb-2 font-extrabold ${topText}`}>Kategorie</label>
             <select
@@ -282,7 +305,6 @@ export default function NearPage() {
             </select>
           </div>
 
-          {/* Sortierung */}
           <div className="mb-5">
             <label className={`block mb-2 font-extrabold ${topText}`}>Sortierung</label>
             <select value={sort} onChange={(e) => setSort(e.target.value as any)} className={controlBase}>
@@ -292,129 +314,189 @@ export default function NearPage() {
               <option value="newest">Neueste</option>
             </select>
           </div>
-
-          {/* Content */}
-          {loading ? (
-            <p className="text-[#f6efe3]">Lade Spots…</p>
-          ) : errorMsg ? (
-            <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-900">
-              <b>Supabase-Fehler:</b> {errorMsg}
-            </div>
-          ) : filteredSpots.length === 0 ? (
-            <p className="text-[#f6efe3]">Keine Spots im Radius gefunden.</p>
-          ) : view === "map" ? (
-            <div className="mt-2">
-              <CityMap
-                center={[lat, lng]}
-                spots={mapSpots}
-                userPos={{ lat, lng }}
-                activeSpotId={activeSpotId}
-                onActiveChange={(id: string) => setActiveSpotId(id)}
-                onSpotClick={(id: string) => router.push(`/spot/${id}`)}
-              />
-              <p className="mt-3 text-sm text-[#f6efe3]/80">Tipp: Marker anklicken, um den Namen zu sehen.</p>
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              {filteredSpots.map((s) => {
-                const wolt = s.wolt_url ?? s.wolt_link ?? null;
-                const lieferando = s.lieferando_url ?? s.lieferando_link ?? null;
-
-                return (
-                  <div
-                    key={s.id}
-                    onClick={() => router.push(`/spot/${s.id}`)}
-                    className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
-                  >
-                    <div className="absolute right-3 top-3 z-10">
-  <SaveSpotButton spotId={s.id} variant="list" />
-</div>
-                    <div className="flex gap-3">
-                      {s.image_url ? (
-                        <img
-                          src={s.image_url}
-                          alt={s.name}
-                          className="h-20 w-20 rounded-xl object-cover ring-1 ring-black/5"
-                        />
-                      ) : (
-                        <div className="h-20 w-20 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
-                      )}
-
-                      <div className="min-w-0 flex-1">
-                        <h2 className="truncate text-base font-extrabold text-[#1f1f1f]">{s.name}</h2>
-
-                        <div className="mt-1 text-sm text-[#5a5348]">
-                          <DistanceLabel
-                            km={haversineKm({ lat, lng }, { lat: s.lat as number, lng: s.lng as number })}
-                          />
-                        </div>
-
-                        {s.description ? <p className="mt-2 line-clamp-2 text-sm text-[#2f2a23]">{s.description}</p> : null}
-                        {s.address ? <p className="mt-1 truncate text-sm text-[#6b6256]">{s.address}</p> : null}
-
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {s.google_maps_link ? (
-                            <a
-                              href={s.google_maps_link}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-                            >
-                              Google Maps
-                            </a>
-                          ) : null}
-
-                          {wolt ? (
-                            <a
-                              href={wolt}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-                            >
-                              Wolt
-                            </a>
-                          ) : null}
-
-                          {lieferando ? (
-                            <a
-                              href={lieferando}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-                            >
-                              Lieferando
-                            </a>
-                          ) : null}
-                        </div>
-
-                        {s.tiktok_embed_id ? (
-  <div
-    className="mt-8 flex justify-center"
-    onClick={(e) => e.stopPropagation()}
-  >
-    <div className="w-full rounded-2xl overflow-hidden shadow-lg">
-      <TikTokEmbed
-        username="juniorstaste"
-        videoId={s.tiktok_embed_id}
-        height={760}
-      />
-    </div>
-  </div>
-) : null}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <BottomTabs view={view} onChange={setView} />
         </>
       )}
+
+      {loading ? (
+        <p className="text-[#f6efe3]">Lade Spots…</p>
+      ) : errorMsg ? (
+        <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-900">
+          <b>Supabase-Fehler:</b> {errorMsg}
+        </div>
+      ) : view === "map" ? (
+        <div className="mt-2">
+          <CityMap
+            center={[lat, lng]}
+            spots={mapSpots}
+            userPos={{ lat, lng }}
+            activeSpotId={activeSpotId}
+            onActiveChange={(id: string) => setActiveSpotId(id)}
+            onSpotClick={(id: string) => router.push(`/spot/${id}`)}
+          />
+          <p className="mt-3 text-sm text-[#f6efe3]/80">Tipp: Marker anklicken, um den Namen zu sehen.</p>
+        </div>
+      ) : view === "tasteDesMonats" ? (
+        <div className="grid gap-3">
+          <div className="mb-1">
+            <h2 className="text-xl font-extrabold text-white">Taste des Monats</h2>
+            <p className="text-sm italic text-white/80 mt-1">
+              Drei Spots, die ich diesen Monat besonders feiere.
+            </p>
+          </div>
+
+          {tasteDesMonatsSpots.length === 0 ? (
+            <p className="text-[#f6efe3]">Keine Spots für Taste des Monats hinterlegt.</p>
+          ) : (
+            tasteDesMonatsSpots.map((s) => (
+              <div
+                key={s.id}
+                onClick={() => router.push(`/spot/${s.id}`)}
+                className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
+              >
+                <div className="absolute right-3 top-3 z-10">
+                  <SaveSpotButton spotId={s.id} variant="list" />
+                </div>
+
+                <div className="flex gap-3">
+                  {s.image_url ? (
+                    <img
+                      src={s.image_url}
+                      alt={s.name}
+                      className="h-16 w-16 rounded-xl object-cover ring-1 ring-black/5"
+                    />
+                  ) : (
+                    <div className="h-16 w-16 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
+                  )}
+
+                  <div className="min-w-0 flex-1 pr-8">
+                    <h2 className="truncate text-sm font-extrabold text-[#1f1f1f]">{s.name}</h2>
+
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5a5348]">
+                      {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
+
+                      {typeof s.rating === "number" ? (
+                        <span className="flex items-center gap-1">
+                          <span className="text-[#d4a017]">★</span>
+                          <span className="font-semibold text-[#9a6b00]">{s.rating.toFixed(1)}</span>
+                        </span>
+                      ) : null}
+
+                      {typeof s.price_level === "number" ? (
+                        <span className="font-semibold text-[#3b342b]">
+                          {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {s.address ? <p className="mt-1 truncate text-xs text-[#6b6256]">{s.address}</p> : null}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : filteredSpots.length === 0 ? (
+        <p className="text-[#f6efe3]">Keine Spots im Radius gefunden.</p>
+      ) : (
+        <div className="grid gap-3">
+          {filteredSpots.map((s) => {
+            const wolt = s.wolt_url ?? s.wolt_link ?? null;
+            const lieferando = s.lieferando_url ?? s.lieferando_link ?? null;
+
+            return (
+              <div
+                key={s.id}
+                onClick={() => router.push(`/spot/${s.id}`)}
+                className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
+              >
+                <div className="absolute right-3 top-3 z-10">
+                  <SaveSpotButton spotId={s.id} variant="list" />
+                </div>
+
+                <div className="flex gap-3">
+                  {s.image_url ? (
+                    <img
+                      src={s.image_url}
+                      alt={s.name}
+                      className="h-20 w-20 rounded-xl object-cover ring-1 ring-black/5"
+                    />
+                  ) : (
+                    <div className="h-20 w-20 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate text-base font-extrabold text-[#1f1f1f]">{s.name}</h2>
+
+                    <div className="mt-1 text-sm text-[#5a5348]">
+                      <DistanceLabel
+                        km={haversineKm({ lat, lng }, { lat: s.lat as number, lng: s.lng as number })}
+                      />
+                    </div>
+
+                    {s.description ? (
+                      <p className="mt-2 line-clamp-2 text-sm text-[#2f2a23]">{s.description}</p>
+                    ) : null}
+
+                    {s.address ? <p className="mt-1 truncate text-sm text-[#6b6256]">{s.address}</p> : null}
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {s.google_maps_link ? (
+                        <a
+                          href={s.google_maps_link}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+                        >
+                          Google Maps
+                        </a>
+                      ) : null}
+
+                      {wolt ? (
+                        <a
+                          href={wolt}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+                        >
+                          Wolt
+                        </a>
+                      ) : null}
+
+                      {lieferando ? (
+                        <a
+                          href={lieferando}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+                        >
+                          Lieferando
+                        </a>
+                      ) : null}
+                    </div>
+
+                    {s.tiktok_embed_id ? (
+                      <div className="mt-8 flex justify-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="w-full rounded-2xl overflow-hidden shadow-lg">
+                          <TikTokEmbed
+                            username="juniorstaste"
+                            videoId={s.tiktok_embed_id}
+                            height={760}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <BottomTabs view={view} onChange={setView} />
     </main>
   );
 }
