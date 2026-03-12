@@ -8,7 +8,6 @@ import TikTokEmbed from "@/components/TikTokEmbed";
 import DistanceLabel from "@/components/DistanceLabel";
 import SiteHeader from "@/components/SiteHeader";
 import BottomTabs from "@/components/BottomTabs";
-import JuniorstasteGrid from "@/components/JuniorstasteGrid";
 import ProfileButton from "@/components/ProfileButton";
 import SaveSpotButton from "@/components/SaveSpotButton";
 
@@ -60,6 +59,11 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
   return R * c;
 }
 
+const TASTE_DES_MONATS_IDS = [
+  "0f63bbc8-7050-4406-b512-3e133965a1e4",
+  "4eb57f03-101e-4d80-98cc-42d3f148b57a",
+];
+
 export default function CityPage() {
   const router = useRouter();
   const params = useParams();
@@ -71,10 +75,10 @@ export default function CityPage() {
   }, [params]);
 
   const [spots, setSpots] = useState<Spot[]>([]);
+  const [tasteDesMonatsSpots, setTasteDesMonatsSpots] = useState<Spot[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // ✅ Cities für Dropdown
   const [cities, setCities] = useState<City[]>([]);
   const [citySelectValue, setCitySelectValue] = useState<string>("");
 
@@ -82,7 +86,7 @@ export default function CityPage() {
   const [categories, setCategories] = useState<{ slug: string; name: string }[]>([]);
 
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"list" | "map" | "juniorstaste">("list");
+  const [view, setView] = useState<"list" | "map" | "tasteDesMonats">("list");
   const [sort, setSort] = useState<"newest" | "rating" | "price" | "distance">("newest");
 
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -92,9 +96,6 @@ export default function CityPage() {
 
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
 
-  // =========================
-  // ✅ UI TOKENS (dein Style)
-  // =========================
   const topText = "text-white";
 
   const controlBase =
@@ -102,18 +103,10 @@ export default function CityPage() {
     "text-[#0f2a22] placeholder:text-[#0f2a22]/50 font-semibold shadow-sm transition hover:bg-[#efe5d6] " +
     "focus:outline-none focus:ring-2 focus:ring-[#c6a85b]";
 
-  const buttonBase =
-    "px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] " +
-    "text-[#0f2a22] font-semibold shadow-sm transition hover:bg-[#efe5d6]";
-
-  // =========================
-  // ✅ 0) Dropdown: immer aktuelle City als value
-  // =========================
   useEffect(() => {
     if (citySlug) setCitySelectValue(citySlug);
   }, [citySlug]);
 
-  // ✅ Cities laden (für Dropdown)
   useEffect(() => {
     async function loadCities() {
       const { data, error } = await supabase
@@ -130,7 +123,6 @@ export default function CityPage() {
   async function handleCitySelectChange(next: string) {
     setCitySelectValue(next);
 
-    // 1) Near ausgewählt -> Standort abfragen -> Near Page
     if (next === "__near__") {
       setGeoError(null);
 
@@ -156,13 +148,9 @@ export default function CityPage() {
       return;
     }
 
-    // 2) City ausgewählt -> City Page
     if (next) router.push(`/city/${next}`);
   }
 
-  // =========================
-  // ✅ 1) Spots laden
-  // =========================
   useEffect(() => {
     if (!citySlug) return;
 
@@ -194,9 +182,6 @@ export default function CityPage() {
     loadSpots();
   }, [citySlug, category]);
 
-  // =========================
-  // ✅ 2) Kategorien laden
-  // =========================
   useEffect(() => {
     if (!citySlug) return;
 
@@ -221,9 +206,27 @@ export default function CityPage() {
     loadCategories();
   }, [citySlug]);
 
-  // =========================
-  // ✅ 3) Search + Radius + Sort
-  // =========================
+  useEffect(() => {
+    async function loadTasteDesMonats() {
+      const { data, error } = await supabase
+        .from("spots_with_city")
+        .select("*")
+        .in("id", TASTE_DES_MONATS_IDS);
+
+      if (error) return;
+
+      const ordered =
+        (data as Spot[] | null)?.sort(
+          (a, b) =>
+            TASTE_DES_MONATS_IDS.indexOf(a.id) - TASTE_DES_MONATS_IDS.indexOf(b.id)
+        ) ?? [];
+
+      setTasteDesMonatsSpots(ordered);
+    }
+
+    loadTasteDesMonats();
+  }, []);
+
   const filteredSpots = useMemo(() => {
     const q = search.trim().toLowerCase();
 
@@ -278,9 +281,6 @@ export default function CityPage() {
     return map;
   }, [filteredSpots, userPos]);
 
-  // =========================
-  // ✅ Map-Spots vorbereiten
-  // =========================
   const mapSpots = useMemo(() => {
     return filteredSpots
       .filter((s) => typeof s.lat === "number" && typeof s.lng === "number")
@@ -310,195 +310,191 @@ export default function CityPage() {
   }, [mapSpots]);
 
   if (!citySlug) return <main className="p-4">Lade Stadt…</main>;
-  
+
   const selectedCityLabel =
-  citySelectValue === "__near__"
-    ? "📍 In meiner Nähe suchen…"
-    : cities.find((c) => c.slug === citySelectValue)?.name ?? "Stadt";
+    citySelectValue === "__near__"
+      ? "📍 In meiner Nähe suchen…"
+      : cities.find((c) => c.slug === citySelectValue)?.name ?? "Stadt";
 
-const selectedCategoryLabel =
-  category === "all"
-    ? "Kategorie: Alle"
-    : categories.find((c) => c.slug === category)?.name ?? "Kategorie";
+  const selectedCategoryLabel =
+    category === "all"
+      ? "Kategorie: Alle"
+      : categories.find((c) => c.slug === category)?.name ?? "Kategorie";
 
-const selectedSortLabel =
-  sort === "newest"
-    ? "Sortierung: Neueste"
-    : sort === "rating"
-    ? "Best bewertet"
-    : sort === "price"
-    ? "Preis"
-    : "Nähe (GPS)";
+  const selectedSortLabel =
+    sort === "newest"
+      ? "Sortierung: Neueste"
+      : sort === "rating"
+      ? "Best bewertet"
+      : sort === "price"
+      ? "Preis"
+      : "Nähe (GPS)";
 
-function getSelectWidth(label: string, min = 140) {
-  return `${Math.max(min, label.length * 9 + 48)}px`;
-}
+  function getSelectWidth(label: string, min = 140) {
+    return `${Math.max(min, label.length * 9 + 48)}px`;
+  }
 
   return (
     <main className="mx-auto max-w-[560px] p-4 pb-28">
       <div className="mb-3 flex items-center justify-between">
-  <a href="/" className={`font-semibold ${topText} underline-offset-4 hover:underline`}>
-    ← Zurück
-  </a>
+        <a href="/" className={`font-semibold ${topText} underline-offset-4 hover:underline`}>
+          ← Zurück
+        </a>
 
-  <ProfileButton />
-</div>
+        <ProfileButton />
+      </div>
 
       {/* Logo */}
       <div className="text-center mb-6">
         <SiteHeader subtitle={null as any} />
 
-        {/* ✅ Dropdown direkt unter dem Logo (Design wie vorher) */}
-        <div className="mb-5">
-  <div className="flex flex-col gap-4">
+        {view !== "tasteDesMonats" && (
+          <div className="mb-5">
+            <div className="flex flex-col gap-4">
+              {/* FILTER */}
+              <div className="text-left">
+                <label className={`block mb-2 font-extrabold ${topText}`}>Filter</label>
 
-{/* FILTER */}
-<div className="text-left">
-  <label className={`block mb-2 font-extrabold ${topText}`}>Filter</label>
+                <div className="overflow-x-auto no-scrollbar">
+                  <div className="flex gap-3 min-w-max">
+                    {/* Stadt */}
+                    <div className="shrink-0" style={{ width: getSelectWidth(selectedCityLabel, 150) }}>
+                      <select
+                        value={citySelectValue}
+                        onChange={(e) => handleCitySelectChange(e.target.value)}
+                        className={controlBase + " italic"}
+                      >
+                        <option value="__near__">📍 In meiner Nähe suchen…</option>
+                        <option disabled>──────────</option>
+                        {cities.map((c) => (
+                          <option key={c.id} value={c.slug}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-  <div className="overflow-x-auto no-scrollbar">
-    <div className="flex gap-3 min-w-max">
-      {/* Stadt */}
-      <div className="shrink-0" style={{ width: getSelectWidth(selectedCityLabel, 150) }}>
-        <select
-          value={citySelectValue}
-          onChange={(e) => handleCitySelectChange(e.target.value)}
-          className={controlBase + " italic"}
-        >
-          <option value="__near__">📍 In meiner Nähe suchen…</option>
-          <option disabled>──────────</option>
-          {cities.map((c) => (
-            <option key={c.id} value={c.slug}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+                    {/* Kategorie */}
+                    <div className="shrink-0" style={{ width: getSelectWidth(selectedCategoryLabel, 150) }}>
+                      <select
+                        value={category}
+                        onChange={(e) => {
+                          setCategory(e.target.value);
+                          setSearch("");
+                        }}
+                        className={controlBase}
+                      >
+                        <option value="all">Kategorie: Alle</option>
+                        {categories.map((c) => (
+                          <option key={c.slug} value={c.slug}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Sortierung */}
+                    <div className="shrink-0" style={{ width: getSelectWidth(selectedSortLabel, 170) }}>
+                      <select
+                        value={sort}
+                        onChange={(e) => setSort(e.target.value as any)}
+                        className={controlBase}
+                      >
+                        <option value="newest">Sortierung: Neueste</option>
+                        <option value="rating">Best bewertet</option>
+                        <option value="price">Preis</option>
+                        <option value="distance" disabled={!userPos}>
+                          Nähe (GPS)
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ANSICHT */}
+              <div className="mb-4 text-left">
+                <label className={`block mb-2 font-extrabold ${topText}`}>Ansicht</label>
+
+                <div className="overflow-x-auto no-scrollbar">
+                  <div className="flex gap-3 min-w-max">
+                    {/* Liste */}
+                    <button
+                      onClick={() => setView("list")}
+                      className={`min-w-[180px] px-4 py-3 rounded-2xl whitespace-nowrap border transition-all font-semibold shrink-0 ${
+                        view === "list"
+                          ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
+                          : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
+                      }`}
+                    >
+                      Liste
+                    </button>
+
+                    {/* Karte */}
+                    <button
+                      onClick={() => setView("map")}
+                      className={`min-w-[180px] px-4 py-3 rounded-2xl border transition-all font-semibold shrink-0 ${
+                        view === "map"
+                          ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
+                          : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
+                      }`}
+                    >
+                      Karte
+                    </button>
+
+                    {/* In meiner Nähe */}
+                    <button
+                      onClick={() => {
+                        setGeoError(null);
+
+                        if (!navigator.geolocation) {
+                          setGeoError("Dein Browser unterstützt Standort nicht.");
+                          return;
+                        }
+
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            const lat = pos.coords.latitude;
+                            const lng = pos.coords.longitude;
+                            setUserPos({ lat, lng });
+                            setSort("distance");
+                          },
+                          () => setGeoError("Standort konnte nicht abgerufen werden. Bitte Standort erlauben."),
+                          { enableHighAccuracy: true, timeout: 10000 }
+                        );
+                      }}
+                      className="min-w-[180px] px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] text-[#0f3b2e] font-semibold shadow-sm transition hover:bg-[#efe5d6] shrink-0 whitespace-nowrap"
+                    >
+                      📍 In meiner Nähe
+                    </button>
+
+                    {/* Reset */}
+                    {userPos ? (
+                      <button
+                        onClick={() => {
+                          setUserPos(null);
+                          setRadiusEnabled(false);
+                        }}
+                        className="px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] text-[#0f3b2e] font-semibold shadow-sm transition hover:bg-[#efe5d6] shrink-0"
+                        title="Standort zurücksetzen"
+                      >
+                        ✕
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Kategorie */}
-      <div className="shrink-0" style={{ width: getSelectWidth(selectedCategoryLabel, 150) }}>
-        <select
-          value={category}
-          onChange={(e) => {
-            setCategory(e.target.value);
-            setSearch("");
-          }}
-          className={controlBase}
-        >
-          <option value="all">Kategorie: Alle</option>
-          {categories.map((c) => (
-            <option key={c.slug} value={c.slug}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Sortierung */}
-      <div className="shrink-0" style={{ width: getSelectWidth(selectedSortLabel, 170) }}>
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value as any)}
-          className={controlBase}
-        >
-          <option value="newest">Sortierung: Neueste</option>
-          <option value="rating">Best bewertet</option>
-          <option value="price">Preis</option>
-          <option value="distance" disabled={!userPos}>
-            Nähe (GPS)
-          </option>
-        </select>
-      </div>
-    </div>
-  </div>
-
-  {geoError ? <div className="mt-2 text-sm text-red-200">{geoError}</div> : null}
-</div>
-
-{/* ANSICHT */}
-<div className="mb-4 text-left">
-  <label className={`block mb-2 font-extrabold ${topText}`}>Ansicht</label>
-
-  <div className="overflow-x-auto no-scrollbar">
-  <div className="flex gap-3 min-w-max">
-      {/* Liste */}
-      <button
-        onClick={() => setView("list")}
-        className={`min-w-[180px] px-4 py-3 rounded-2xl whitespace-nowrap border transition-all font-semibold shrink-0
-        ${
-          view === "list"
-            ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
-            : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
-        }`}
-      >
-        Liste
-      </button>
-
-      {/* Karte */}
-      <button
-        onClick={() => setView("map")}
-        className={`min-w-[180px] px-4 py-3 rounded-2xl border transition-all font-semibold shrink-0
-        ${
-          view === "map"
-            ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
-            : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
-        }`}
-      >
-        Karte
-      </button>
-
-      {/* In meiner Nähe */}
-      <button
-        onClick={() => {
-          setGeoError(null);
-
-          if (!navigator.geolocation) {
-            setGeoError("Dein Browser unterstützt Standort nicht.");
-            return;
-          }
-
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              const lat = pos.coords.latitude;
-              const lng = pos.coords.longitude;
-              setUserPos({ lat, lng });
-              setSort("distance");
-            },
-            () => setGeoError("Standort konnte nicht abgerufen werden. Bitte Standort erlauben."),
-            { enableHighAccuracy: true, timeout: 10000 }
-          );
-        }}
-className="min-w-[180px] px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] text-[#0f3b2e] font-semibold shadow-sm transition hover:bg-[#efe5d6] shrink-0 whitespace-nowrap"      >
-        📍 In meiner Nähe
-      </button>
-
-      {/* Reset nur anzeigen, wenn Standort aktiv ist */}
-      {userPos ? (
-        <button
-          onClick={() => {
-            setUserPos(null);
-            setRadiusEnabled(false);
-          }}
-          className="px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] text-[#0f3b2e] font-semibold shadow-sm transition hover:bg-[#efe5d6] shrink-0"
-          title="Standort zurücksetzen"
-        >
-          ✕
-        </button>
+      {view !== "tasteDesMonats" && geoError ? (
+        <div className="mb-3 text-sm text-red-200">{geoError}</div>
       ) : null}
-    </div>
-  </div>
-</div>
-</div>
-
-  {geoError ? <div className="mt-2 text-sm text-red-200">{geoError}</div> : null}
-</div>
-      </div>
-
-
-      {geoError ? <div className="mb-3 text-sm text-red-200">{geoError}</div> : null}
 
       {/* ✅ Umkreis */}
-      {userPos ? (
+      {view !== "tasteDesMonats" && userPos ? (
         <div className="mb-4 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] p-4 text-[#0f2a22] shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div className="font-extrabold">Umkreis</div>
@@ -530,25 +526,26 @@ className="min-w-[180px] px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6ef
             </select>
 
             <div className="mt-2 text-xs opacity-80">
-              {radiusEnabled ? `Zeige Spots im Umkreis von ${radiusKm} km.` : "Aktiviere den Umkreis, um Spots zu filtern."}
+              {radiusEnabled
+                ? `Zeige Spots im Umkreis von ${radiusKm} km.`
+                : "Aktiviere den Umkreis, um Spots zu filtern."}
             </div>
           </div>
         </div>
       ) : null}
 
-
       {/* ✅ Suche */}
-      <div className="mb-4">
-        <label className={`block mb-2 font-extrabold ${topText}`}>Suche</label>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="z.B. Burger, Döner, Pizza…"
-          className={controlBase}
-        />
-      </div>
-      
-
+      {view !== "tasteDesMonats" && (
+        <div className="mt-[-20px] mb-4">
+          <label className={`block mb-2 font-extrabold ${topText}`}>Suche</label>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="z.B. Burger, Döner, Pizza…"
+            className={controlBase}
+          />
+        </div>
+      )}
 
       {/* ✅ Content */}
       {loading ? (
@@ -557,8 +554,6 @@ className="min-w-[180px] px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6ef
         <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-900">
           <b>Supabase-Fehler:</b> {errorMsg}
         </div>
-      ) : filteredSpots.length === 0 ? (
-        <p className="text-[#f6efe3]">Keine Spots gefunden für diese Stadt.</p>
       ) : view === "map" ? (
         <div className="mt-2">
           <CityMap
@@ -571,8 +566,70 @@ className="min-w-[180px] px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6ef
           />
           <p className="mt-3 text-sm text-[#f6efe3]/80">Tipp: Marker anklicken, um den Namen zu sehen.</p>
         </div>
-      ) : view === "juniorstaste" ? (
-        <JuniorstasteGrid citySlug={citySlug} username="juniorstaste" />
+            ) : view === "tasteDesMonats" ? (
+        <div className="grid gap-3">
+          <div className="mb-1">
+            <h2 className="text-xl font-extrabold text-white">Taste des Monats</h2>
+            <p className="text-sm italic text-white/80 mt-1">
+  Drei Spots, die ich diesen Monat besonders feiere.
+</p>
+          </div>
+
+          {tasteDesMonatsSpots.length === 0 ? (
+            <p className="text-[#f6efe3]">Keine Spots für Taste des Monats hinterlegt.</p>
+          ) : (
+            tasteDesMonatsSpots.map((s) => (
+              <div
+  key={s.id}
+  onClick={() => router.push(`/spot/${s.id}`)}
+  className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
+>
+  <div className="absolute right-3 top-3 z-10">
+    <SaveSpotButton spotId={s.id} variant="list" />
+  </div>
+
+  <div className="flex gap-3">
+                  {s.image_url ? (
+                    <img
+                      src={s.image_url}
+                      alt={s.name}
+                      className="h-16 w-16 rounded-xl object-cover ring-1 ring-black/5"
+                    />
+                  ) : (
+                    <div className="h-16 w-16 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate text-sm font-extrabold text-[#1f1f1f]">{s.name}</h2>
+
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5a5348]">
+                      {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
+
+                      {typeof s.rating === "number" ? (
+                        <span className="flex items-center gap-1">
+                          <span className="text-[#d4a017]">★</span>
+                          <span className="font-semibold text-[#9a6b00]">{s.rating.toFixed(1)}</span>
+                        </span>
+                      ) : null}
+
+                      {typeof s.price_level === "number" ? (
+                        <span className="font-semibold text-[#3b342b]">
+                          {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {s.address ? (
+                      <p className="mt-1 truncate text-xs text-[#6b6256]">{s.address}</p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      ) : filteredSpots.length === 0 ? (
+        <p className="text-[#f6efe3]">Keine Spots gefunden für diese Stadt.</p>
       ) : (
         <div className="grid gap-3">
           {filteredSpots.map((s) => {
@@ -581,14 +638,15 @@ className="min-w-[180px] px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6ef
 
             return (
               <div
-  key={s.id}
-  onClick={() => router.push(`/spot/${s.id}`)}
-  className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
->
+                key={s.id}
+                onClick={() => router.push(`/spot/${s.id}`)}
+                className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
+              >
                 <div className="flex gap-3">
                   <div className="absolute right-3 top-3 z-10">
-  <SaveSpotButton spotId={s.id} variant="list" />
-</div>
+                    <SaveSpotButton spotId={s.id} variant="list" />
+                  </div>
+
                   {s.image_url ? (
                     <img
                       src={s.image_url}
@@ -682,19 +740,19 @@ className="min-w-[180px] px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6ef
                     </div>
 
                     {s.tiktok_embed_id ? (
-  <div
-    className="mt-8 flex justify-center"
-    onClick={(e) => e.stopPropagation()}
-  >
-    <div className="w-full rounded-2xl overflow-hidden shadow-lg">
-      <TikTokEmbed
-        username="juniorstaste"
-        videoId={s.tiktok_embed_id}
-        height={760}
-      />
-    </div>
-  </div>
-) : null}
+                      <div
+                        className="mt-8 flex justify-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="w-full rounded-2xl overflow-hidden shadow-lg">
+                          <TikTokEmbed
+                            username="juniorstaste"
+                            videoId={s.tiktok_embed_id}
+                            height={760}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>

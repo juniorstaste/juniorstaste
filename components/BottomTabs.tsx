@@ -1,8 +1,9 @@
 "use client";
 console.log("✅ BottomTabs ACTIVE: components/BottomTabs.tsx");
+
 import { useEffect, useRef, useState } from "react";
 
-type View = "list" | "map" | "juniorstaste";
+type View = "list" | "map" | "tasteDesMonats";
 
 type Props = {
   view: View;
@@ -37,22 +38,28 @@ function MapIcon() {
   );
 }
 
-// TikTok-ähnliches Icon (neutral, premium)
-function TikTokIcon() {
+function BurgerIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
       <path
-        d="M14 3v11.2a3.8 3.8 0 1 1-3.2-3.75V7.2c.7-.1 1.6-.1 3.2.1Z"
+        d="M5 10a7 7 0 0 1 14 0H5Z"
         stroke="#0f3b2e"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
-        d="M14 5c1.1 2.4 3 3.8 6 4"
+        d="M4 13h16"
         stroke="#0f3b2e"
         strokeWidth="2"
         strokeLinecap="round"
+      />
+      <path
+        d="M5 16h14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z"
+        stroke="#0f3b2e"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </svg>
   );
@@ -97,8 +104,8 @@ export default function BottomTabs({ view, onChange }: Props) {
               onClick={() => onChange("list")}
               className={`${baseBtn} ${
                 view === "list"
-  ? "bg-white/60 text-[#0f3b2e]"
-  : "text-[#0f3b2e]/80 hover:text-[#0f3b2e] hover:bg-white/20"
+                  ? "bg-white/60 text-[#0f3b2e]"
+                  : "text-[#0f3b2e]/80 hover:text-[#0f3b2e] hover:bg-white/20"
               }`}
             >
               <ListIcon />
@@ -108,9 +115,9 @@ export default function BottomTabs({ view, onChange }: Props) {
             <button
               onClick={() => onChange("map")}
               className={`${baseBtn} ${
-                view === "map" 
-                ? "bg-white/60 text-[#0f3b2e]"
-  : "text-[#0f3b2e]/80 hover:text-[#0f3b2e] hover:bg-white/20"
+                view === "map"
+                  ? "bg-white/60 text-[#0f3b2e]"
+                  : "text-[#0f3b2e]/80 hover:text-[#0f3b2e] hover:bg-white/20"
               }`}
             >
               <MapIcon />
@@ -118,16 +125,16 @@ export default function BottomTabs({ view, onChange }: Props) {
             </button>
 
             <button
-              onClick={() => onChange("juniorstaste")}
+              onClick={() => onChange("tasteDesMonats")}
               className={`${baseBtn} ${
-                view === "juniorstaste"
+                view === "tasteDesMonats"
                   ? "bg-white/60 text-[#0f3b2e]"
-  : "text-[#0f3b2e]/80 hover:text-[#0f3b2e] hover:bg-white/20"
+                  : "text-[#0f3b2e]/80 hover:text-[#0f3b2e] hover:bg-white/20"
               }`}
-              title="Juniorstaste"
+              title="Taste des Monats"
             >
-              <TikTokIcon />
-              Juniorstaste
+              <BurgerIcon />
+              Taste des Monats
             </button>
           </div>
         </div>
