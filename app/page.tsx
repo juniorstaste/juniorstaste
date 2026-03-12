@@ -19,6 +19,7 @@ export default function Home() {
   const [radiusOpen, setRadiusOpen] = useState<boolean>(false);
 
   const router = useRouter();
+  const [cityOpen, setCityOpen] = useState(false);
 
   useEffect(() => {
     async function loadCities() {
@@ -137,26 +138,32 @@ export default function Home() {
           </div>
         )}
 
-        {/* Städte */}
-        <select
-  defaultValue=""
-  onChange={(e) => {
-    const selectedSlug = e.target.value;
-    if (selectedSlug) {
-      router.push(`/city/${selectedSlug}`);
-    }
-  }}
-className="w-full h-[56px] rounded-2xl bg-[#e8decc] px-4 text-lg font-semibold text-[#0f3b2e] shadow-md transition cursor-pointer text-center text-center-last">
-  <option value="" disabled>
+        {/* Städte Dropdown (Custom) */}
+<div className="relative w-full">
+  <button
+    onClick={() => setCityOpen(!cityOpen)}
+    className="w-full h-[56px] rounded-2xl bg-[#e8decc] text-lg font-semibold text-[#0f3b2e] shadow-md transition hover:scale-[1.03]"
+  >
     Stadt auswählen
-  </option>
+  </button>
 
-  {cities.map((city) => (
-    <option key={city.slug} value={city.slug}>
-      {city.name}
-    </option>
-  ))}
-</select>
+  {cityOpen && (
+    <div className="absolute top-[64px] left-0 w-full rounded-2xl bg-[#e8decc] shadow-lg overflow-hidden z-20">
+      {cities.map((city) => (
+        <button
+          key={city.slug}
+          onClick={() => {
+            setCityOpen(false);
+            router.push(`/city/${city.slug}`);
+          }}
+          className="w-full px-4 py-3 text-center font-semibold text-[#0f3b2e] hover:bg-[#ded3be] transition"
+        >
+          {city.name}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
       </div>
 
       {geoError && (
