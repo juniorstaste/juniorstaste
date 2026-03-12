@@ -349,130 +349,151 @@ function getSelectWidth(label: string, min = 140) {
         <SiteHeader subtitle={null as any} />
 
         {/* ✅ Dropdown direkt unter dem Logo (Design wie vorher) */}
-        <div className="mb-5 overflow-x-auto no-scrollbar">
-  <div className="flex gap-3 min-w-max">
-    {/* Stadt */}
-    <div className="shrink-0" style={{ width: getSelectWidth(selectedCityLabel, 150) }}>
-      <select
-        value={citySelectValue}
-        onChange={(e) => handleCitySelectChange(e.target.value)}
-        className={controlBase + " italic"}
-      >
-        <option value="__near__">📍 In meiner Nähe suchen…</option>
-        <option disabled>──────────</option>
-        {cities.map((c) => (
-          <option key={c.id} value={c.slug}>
-            {c.name}
-          </option>
-        ))}
-      </select>
-    </div>
+        <div className="mb-5">
+  <div className="flex flex-col gap-4">
 
-    {/* Kategorie */}
-    <div className="shrink-0" style={{ width: getSelectWidth(selectedCategoryLabel, 150) }}>
-      <select
-        value={category}
-        onChange={(e) => {
-          setCategory(e.target.value);
-          setSearch("");
-        }}
-        className={controlBase}
-      >
-        <option value="all">Kategorie: Alle</option>
-        {categories.map((c) => (
-          <option key={c.slug} value={c.slug}>
-            {c.name}
-          </option>
-        ))}
-      </select>
-    </div>
+{/* FILTER */}
+<div className="text-left">
+  <label className={`block mb-2 font-extrabold ${topText}`}>Filter</label>
 
-    {/* Sortierung */}
-    <div className="shrink-0" style={{ width: getSelectWidth(selectedSortLabel, 170) }}>
-      <select
-        value={sort}
-        onChange={(e) => setSort(e.target.value as any)}
-        className={controlBase}
-      >
-        <option value="newest">Sortierung: Neueste</option>
-        <option value="rating">Best bewertet</option>
-        <option value="price">Preis</option>
-        <option value="distance" disabled={!userPos}>
-          Nähe (GPS)
-        </option>
-      </select>
+  <div className="overflow-x-auto no-scrollbar">
+    <div className="flex gap-3 min-w-max">
+      {/* Stadt */}
+      <div className="shrink-0" style={{ width: getSelectWidth(selectedCityLabel, 150) }}>
+        <select
+          value={citySelectValue}
+          onChange={(e) => handleCitySelectChange(e.target.value)}
+          className={controlBase + " italic"}
+        >
+          <option value="__near__">📍 In meiner Nähe suchen…</option>
+          <option disabled>──────────</option>
+          {cities.map((c) => (
+            <option key={c.id} value={c.slug}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Kategorie */}
+      <div className="shrink-0" style={{ width: getSelectWidth(selectedCategoryLabel, 150) }}>
+        <select
+          value={category}
+          onChange={(e) => {
+            setCategory(e.target.value);
+            setSearch("");
+          }}
+          className={controlBase}
+        >
+          <option value="all">Kategorie: Alle</option>
+          {categories.map((c) => (
+            <option key={c.slug} value={c.slug}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Sortierung */}
+      <div className="shrink-0" style={{ width: getSelectWidth(selectedSortLabel, 170) }}>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as any)}
+          className={controlBase}
+        >
+          <option value="newest">Sortierung: Neueste</option>
+          <option value="rating">Best bewertet</option>
+          <option value="price">Preis</option>
+          <option value="distance" disabled={!userPos}>
+            Nähe (GPS)
+          </option>
+        </select>
+      </div>
     </div>
   </div>
 
   {geoError ? <div className="mt-2 text-sm text-red-200">{geoError}</div> : null}
 </div>
-      </div>
 
-      {/* ✅ View Toggle */}
-      <div className="flex gap-3 mb-4">
-        <button
-          onClick={() => setView("list")}
-          className={`flex-1 px-4 py-2.5 rounded-xl border transition-all font-semibold
-          ${
-            view === "list"
-              ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
-              : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
-          }`}
-        >
-          Liste
-        </button>
+{/* ANSICHT */}
+<div className="mb-4 text-left">
+  <label className={`block mb-2 font-extrabold ${topText}`}>Ansicht</label>
 
-        <button
-          onClick={() => setView("map")}
-          className={`flex-1 px-4 py-2.5 rounded-xl border transition-all font-semibold
-          ${
-            view === "map"
-              ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
-              : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
-          }`}
-        >
-          Karte
-        </button>
-      </div>
+  <div className="overflow-x-auto no-scrollbar">
+  <div className="flex gap-3 min-w-max">
+      {/* Liste */}
+      <button
+        onClick={() => setView("list")}
+        className={`min-w-[180px] px-4 py-3 rounded-2xl whitespace-nowrap border transition-all font-semibold shrink-0
+        ${
+          view === "list"
+            ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
+            : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
+        }`}
+      >
+        Liste
+      </button>
 
-      {/* ✅ Standort (dein bestehender Bereich bleibt unverändert) */}
-      <div className="flex gap-3 mb-4">
-        <button
-          onClick={() => {
-            setGeoError(null);
+      {/* Karte */}
+      <button
+        onClick={() => setView("map")}
+        className={`min-w-[180px] px-4 py-3 rounded-2xl border transition-all font-semibold shrink-0
+        ${
+          view === "map"
+            ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
+            : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
+        }`}
+      >
+        Karte
+      </button>
 
-            if (!navigator.geolocation) {
-              setGeoError("Dein Browser unterstützt Standort nicht.");
-              return;
-            }
+      {/* In meiner Nähe */}
+      <button
+        onClick={() => {
+          setGeoError(null);
 
-            navigator.geolocation.getCurrentPosition(
-              (pos) => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
-                setUserPos({ lat, lng });
-                setSort("distance");
-              },
-              () => setGeoError("Standort konnte nicht abgerufen werden. Bitte Standort erlauben."),
-              { enableHighAccuracy: true, timeout: 10000 }
-            );
-          }}
-          className={`${buttonBase} flex-1`}
-        >
-          📍 In meiner Nähe
-        </button>
+          if (!navigator.geolocation) {
+            setGeoError("Dein Browser unterstützt Standort nicht.");
+            return;
+          }
 
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const lat = pos.coords.latitude;
+              const lng = pos.coords.longitude;
+              setUserPos({ lat, lng });
+              setSort("distance");
+            },
+            () => setGeoError("Standort konnte nicht abgerufen werden. Bitte Standort erlauben."),
+            { enableHighAccuracy: true, timeout: 10000 }
+          );
+        }}
+className="min-w-[180px] px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] text-[#0f3b2e] font-semibold shadow-sm transition hover:bg-[#efe5d6] shrink-0 whitespace-nowrap"      >
+        📍 In meiner Nähe
+      </button>
+
+      {/* Reset nur anzeigen, wenn Standort aktiv ist */}
+      {userPos ? (
         <button
           onClick={() => {
             setUserPos(null);
             setRadiusEnabled(false);
           }}
-          className={buttonBase}
+          className="px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] text-[#0f3b2e] font-semibold shadow-sm transition hover:bg-[#efe5d6] shrink-0"
           title="Standort zurücksetzen"
         >
           ✕
         </button>
+      ) : null}
+    </div>
+  </div>
+</div>
+</div>
+
+  {geoError ? <div className="mt-2 text-sm text-red-200">{geoError}</div> : null}
+</div>
       </div>
+
 
       {geoError ? <div className="mb-3 text-sm text-red-200">{geoError}</div> : null}
 
@@ -514,6 +535,7 @@ function getSelectWidth(label: string, min = 140) {
           </div>
         </div>
       ) : null}
+
 
       {/* ✅ Suche */}
       <div className="mb-4">
