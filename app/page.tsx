@@ -92,11 +92,13 @@ export default function Home() {
 
   return (
 <main className="min-h-screen bg-[#0f3b2e] flex flex-col items-center justify-center text-center px-6">
-      {/* Logo */}
-      <div className="w-full max-w-sm mb-10">
-  <div className="mb-3 flex items-center justify-end">
+  {/* Profil Button oben rechts */}
+  <div className="absolute top-6 right-6">
     <ProfileButton />
   </div>
+      {/* Logo */}
+      <div className="w-full max-w-sm mb-10">
+  
 
   <div className="text-center">
     <SiteHeader />
