@@ -51,8 +51,9 @@ export default function TikTokEmbed({ videoId, username, height }: Props) {
   const src = `https://www.tiktok.com/embed/v2/${videoId}?autoplay=1`;
 
   const link = username
-    ? `https://www.tiktok.com/@${username}/video/${videoId}`
-    : `https://www.tiktok.com/video/${videoId}`;
+  ? `https://www.tiktok.com/@${username}/video/${videoId}`
+  : `https://www.tiktok.com/video/${videoId}`;
+
 
   return (
     <div
@@ -94,19 +95,19 @@ export default function TikTokEmbed({ videoId, username, height }: Props) {
         }}
       >
         <a
-          href={link}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            fontSize: 13,
-            opacity: 1,
-            color: "#ffffff",
-            textDecoration: "none",
-            fontWeight: 600,
-          }}
-        >
-          Auf TikTok öffnen
-        </a>
+  href={link}
+  target="_blank"
+  rel="noreferrer"
+  style={{
+    fontSize: 13,
+    opacity: 1,
+    color: "#ffffff",
+    textDecoration: "none",
+    fontWeight: 600,
+  }}
+>
+  Auf TikTok öffnen
+</a>
       </div>
     </div>
   );
