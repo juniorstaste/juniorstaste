@@ -70,23 +70,28 @@ export default function BottomTabs({ view, onChange }: Props) {
   const lastY = useRef(0);
 
   useEffect(() => {
-    function handleScroll() {
-      const currentY = window.scrollY;
+  function handleScroll() {
+    const currentY = window.scrollY;
 
-      if (currentY < 20) {
-        setVisible(true);
-      } else if (currentY > lastY.current + 10) {
-        setVisible(false);
-      } else if (currentY < lastY.current - 10) {
-        setVisible(true);
-      }
-
-      lastY.current = currentY;
+    // Solange man noch relativ weit oben ist, Leiste immer zeigen
+    if (currentY < 80) {
+      setVisible(true);
+    }
+    // Erst nach deutlicherem Runterscrollen ausblenden
+    else if (currentY > lastY.current + 30) {
+      setVisible(false);
+    }
+    // Beim deutlichen Hochscrollen wieder einblenden
+    else if (currentY < lastY.current - 20) {
+      setVisible(true);
     }
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+    lastY.current = currentY;
+  }
+
+  window.addEventListener("scroll", handleScroll, { passive: true });
+  return () => window.removeEventListener("scroll", handleScroll);
+}, []);
 
   const baseBtn =
   "h-[56px] rounded-2xl font-semibold flex items-center justify-center gap-1.5 transition text-[14px] whitespace-nowrap";
