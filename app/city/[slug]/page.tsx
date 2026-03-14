@@ -641,126 +641,120 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
             const lieferando = s.lieferando_url ?? s.lieferando_link ?? null;
 
             return (
-              <div
-                key={s.id}
-                onClick={() => router.push(`/spot/${s.id}`)}
-                className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
-              >
-                <div className="flex gap-3">
-                  <div className="absolute right-3 top-3 z-10">
-                    <SaveSpotButton spotId={s.id} variant="list" />
-                  </div>
+  <div
+    key={s.id}
+    onClick={() => router.push(`/spot/${s.id}`)}
+    className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
+  >
+    <div className="absolute right-3 top-3 z-10">
+      <SaveSpotButton spotId={s.id} variant="list" />
+    </div>
 
-                  {s.image_url ? (
-                    <img
-                      src={s.image_url}
-                      alt={s.name}
-                      className="h-20 w-20 rounded-xl object-cover ring-1 ring-black/5"
-                    />
-                  ) : (
-                    <div className="h-20 w-20 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
-                  )}
+    {/* Oberer Infobereich */}
+    <div className="flex gap-3">
+      {s.image_url ? (
+        <img
+          src={s.image_url}
+          alt={s.name}
+          className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-black/5"
+        />
+      ) : (
+        <div className="h-20 w-20 shrink-0 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
+      )}
 
-                  <div className="min-w-0 flex-1">
-                    <h2 className="truncate text-base font-extrabold text-[#1f1f1f]">{s.name}</h2>
+      <div className="min-w-0 flex-1 pr-8">
+        <h2 className="truncate text-base font-extrabold text-[#1f1f1f]">{s.name}</h2>
 
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#5a5348]">
-                      {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#5a5348]">
+          {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
 
-                      {typeof s.rating === "number" ? (
-                        <span className="flex items-center gap-1">
-                          <span className="text-[#d4a017]">★</span>
-                          <span className="font-semibold text-[#9a6b00]">{s.rating.toFixed(1)}</span>
-                        </span>
-                      ) : null}
+          {typeof s.rating === "number" ? (
+            <span className="flex items-center gap-1">
+              <span className="text-[#d4a017]">★</span>
+              <span className="font-semibold text-[#9a6b00]">{s.rating.toFixed(1)}</span>
+            </span>
+          ) : null}
 
-                      {typeof s.price_level === "number" ? (
-                        <span className="font-semibold text-[#3b342b]">
-                          {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
-                        </span>
-                      ) : null}
-                    </div>
+          {typeof s.price_level === "number" ? (
+            <span className="font-semibold text-[#3b342b]">
+              {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
+            </span>
+          ) : null}
+        </div>
 
-                    {userPos && distanceById.has(s.id) ? (
-                      <div className="mt-1">
-                        <DistanceLabel km={distanceById.get(s.id)!} />
-                      </div>
-                    ) : null}
+        {userPos && distanceById.has(s.id) ? (
+          <div className="mt-1">
+            <DistanceLabel km={distanceById.get(s.id)!} />
+          </div>
+        ) : null}
 
-                    {s.description ? (
-                      <p className="mt-2 line-clamp-2 text-sm text-[#2f2a23]">{s.description}</p>
-                    ) : null}
+        {s.description ? (
+          <p className="mt-2 line-clamp-2 text-sm text-[#2f2a23]">{s.description}</p>
+        ) : null}
 
-                    {s.address ? <p className="mt-1 truncate text-sm text-[#6b6256]">{s.address}</p> : null}
+        {s.address ? <p className="mt-1 truncate text-sm text-[#6b6256]">{s.address}</p> : null}
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {s.google_maps_link ? (
-                        <a
-                          href={s.google_maps_link}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-                        >
-                          Google Maps
-                        </a>
-                      ) : null}
-
-                      {wolt ? (
-                        <a
-                          href={wolt}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-                        >
-                          Wolt
-                        </a>
-                      ) : null}
-
-                      {lieferando ? (
-                        <a
-                          href={lieferando}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-                        >
-                          Lieferando
-                        </a>
-                      ) : null}
-
-                      {s.tiktok_embed_id ? (
-                        <a
-                          href={`https://www.tiktok.com/@juniorstaste/video/${s.tiktok_embed_id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-                        >
-                          TikTok Video
-                        </a>
-                      ) : null}
-                    </div>
-
-                    {s.tiktok_embed_id ? (
-                      <div
-                        className="mt-8 flex justify-center"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="w-full rounded-2xl overflow-hidden shadow-lg">
-                          <TikTokEmbed
-                            username="juniorstaste"
-                            videoId={s.tiktok_embed_id}
-                            height={760}
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
               </div>
-            );
+    </div>
+
+    <div className="mt-4 flex flex-wrap gap-2">
+      {s.google_maps_link ? (
+        <a
+          href={s.google_maps_link}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+        >
+          Google Maps
+        </a>
+      ) : null}
+
+      {wolt ? (
+        <a
+          href={wolt}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+        >
+          Wolt
+        </a>
+      ) : null}
+
+      {lieferando ? (
+        <a
+          href={lieferando}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+        >
+          Lieferando
+        </a>
+      ) : null}
+
+    
+    </div>
+
+    {/* TikTok als eigener Bereich unterhalb */}
+    {s.tiktok_embed_id ? (
+      <div
+        className="mt-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+      
+        <div className="mx-auto w-full max-w-[420px]">
+  <TikTokEmbed
+    username="juniorstaste"
+    videoId={s.tiktok_embed_id}
+    height={760}
+  />
+</div>
+      </div>
+    ) : null}
+  </div>
+);
           })}
         </div>
       )}

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 type Props = {
   videoId: string;
   username?: string;
-  height?: number; // optional override
+  height?: number;
 };
 
 export default function TikTokEmbed({ videoId, username, height }: Props) {
@@ -20,12 +20,8 @@ export default function TikTokEmbed({ videoId, username, height }: Props) {
 
       const width = wrapRef.current.offsetWidth;
 
-      // ✅ Breiter auf Mobile, aber nicht unnötig hoch
-      // Formel:
-      // Video-Anteil + kompakter Caption-Zuschlag
       let nextHeight = Math.round(width * 1.62 + 105);
 
-      // Kleine Sicherheitsgrenzen
       if (nextHeight < 640) nextHeight = 640;
       if (nextHeight > 820) nextHeight = 820;
 
@@ -63,10 +59,12 @@ export default function TikTokEmbed({ videoId, username, height }: Props) {
       ref={wrapRef}
       style={{
         width: "100%",
-        maxWidth: 420, // ✅ breiter als vorher
         margin: "0 auto",
         borderRadius: 16,
         overflow: "hidden",
+        backgroundColor: "#f6efe3",
+        padding: 8,
+        boxSizing: "border-box",
       }}
     >
       <iframe
@@ -78,20 +76,33 @@ export default function TikTokEmbed({ videoId, username, height }: Props) {
           border: "none",
           display: "block",
           overflow: "hidden",
+          background: "transparent",
+          borderRadius: 12,
         }}
         allow="autoplay; encrypted-media"
         allowFullScreen
         title={`TikTok video ${videoId}`}
       />
 
-      <div style={{ marginTop: 6, textAlign: "center" }}>
+      <div
+        style={{
+          marginTop: 8,
+          textAlign: "center",
+          backgroundColor: "#0f3b2e",
+          borderRadius: 12,
+          padding: "10px 12px",
+        }}
+      >
         <a
           href={link}
           target="_blank"
           rel="noreferrer"
           style={{
             fontSize: 13,
-            opacity: 0.8,
+            opacity: 1,
+            color: "#ffffff",
+            textDecoration: "none",
+            fontWeight: 600,
           }}
         >
           Auf TikTok öffnen
