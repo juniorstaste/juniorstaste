@@ -97,7 +97,7 @@ export default function BottomTabs({ view, onChange }: Props) {
         visible ? "translate-y-0" : "translate-y-full"
       }`}
     >
-      <div className="mx-auto max-w-[560px] px-4 pb-4">
+      <div className="mx-auto max-w-[500px] px-6 pb-4">
         <div className="rounded-2xl bg-[#e8decc] shadow-sm p-1">
           <div className="flex gap-1">
             <button
