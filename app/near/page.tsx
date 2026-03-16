@@ -11,7 +11,7 @@ import TikTokEmbed from "@/components/TikTokEmbed";
 import DistanceLabel from "@/components/DistanceLabel";
 import SiteHeader from "@/components/SiteHeader";
 import BottomTabs from "@/components/BottomTabs";
-import ProfileButton from "@/components/ProfileButton";
+import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
 
 const CityMap = dynamicImport(() => import("@/components/CityMap"), { ssr: false });
@@ -85,6 +85,7 @@ export default function NearPage() {
 
   const [view, setView] = useState<"list" | "map" | "tasteDesMonats">("list");
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const topText = "text-white";
   const controlBase =
@@ -234,7 +235,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
   ‹
 </button>
 
-          <ProfileButton />
+          <TopRightMenu onOpenChange={setMenuOpen} />
         </div>
 
         <div className="text-center mb-6">
@@ -262,7 +263,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
   ‹
 </button>
 
-        <ProfileButton />
+        <TopRightMenu onOpenChange={setMenuOpen} />
       </div>
 
       <div className="text-center mb-6">
@@ -526,7 +527,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
         </div>
       )}
 
-      <BottomTabs view={view} onChange={setView} />
+      {!menuOpen ? <BottomTabs view={view} onChange={setView} /> : null}
     </main>
   );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import SiteHeader from "@/components/SiteHeader";
-import ProfileButton from "@/components/ProfileButton";
+import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
 import TikTokEmbed from "@/components/TikTokEmbed";
 import { useRouter } from "next/navigation";
@@ -139,7 +139,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
   ‹
 </button>
 
-  <ProfileButton />
+  <TopRightMenu />
 </div>
 
         {/* Header */}

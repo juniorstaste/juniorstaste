@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import SiteHeader from "@/components/SiteHeader";
 import { useRouter } from "next/navigation";
-import ProfileButton from "@/components/ProfileButton";
+import TopRightMenu from "@/components/TopRightMenu";
 
 
 type City = { id: string; name: string; slug: string };
@@ -94,7 +94,7 @@ export default function Home() {
 <main className="min-h-screen bg-[#0f3b2e] flex flex-col items-center justify-center text-center px-6">
   {/* Profil Button oben rechts */}
   <div className="absolute top-6 right-6">
-    <ProfileButton />
+    <TopRightMenu />
   </div>
       {/* Logo */}
       <div className="w-full max-w-[420px] mb-14">
