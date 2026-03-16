@@ -526,7 +526,10 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
               <option value={2}>2 km</option>
               <option value={5}>5 km</option>
               <option value={10}>10 km</option>
+              <option value={15}>15 km</option>
+              <option value={20}>20 km</option>
               <option value={25}>25 km</option>
+              <option value={30}>30 km</option>
             </select>
 
             <div className="mt-2 text-xs opacity-80">

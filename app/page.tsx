@@ -135,7 +135,10 @@ export default function Home() {
               <option value={2}>2 km</option>
               <option value={5}>5 km</option>
               <option value={10}>10 km</option>
+              <option value={15}>15 km</option>
+              <option value={20}>20 km</option>
               <option value={25}>25 km</option>
+              <option value={30}>30 km</option>
             </select>
 
             <div className="mt-4 flex gap-3">
