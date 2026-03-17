@@ -147,6 +147,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return nextProfile;
   }, []);
 
+  const resolveActiveUser = useCallback(async () => {
+    if (user) return user;
+
+    const {
+      data: { session: nextSession },
+      error,
+    } = await supabase.auth.getSession();
+
+    if (error) {
+      console.error("Konnte Supabase-Session nicht laden:", error);
+      return null;
+    }
+
+    if (!nextSession?.user) return null;
+
+    if (mountedRef.current) {
+      setSession(nextSession);
+      setUser(nextSession.user);
+      setAuthLoading(false);
+    }
+
+    return nextSession.user;
+  }, [user]);
+
   const handlePostAuthAction = useCallback(
     async (nextUser: User) => {
       if (typeof window === "undefined") return;
@@ -175,7 +199,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           );
 
-          if (!error && mountedRef.current) {
+          if (error) {
+            console.error("Konnte gespeicherten Spot nach Login nicht anlegen:", error);
+            return;
+          }
+
+          if (mountedRef.current) {
             setSavedSpotIds((current) =>
               current.includes(action.spotId) ? current : [...current, action.spotId]
             );
@@ -284,6 +313,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const toggleSavedSpot = useCallback(
     async (spotId: string) => {
       if (!user) {
+        const activeUser = await resolveActiveUser();
+
+        if (!activeUser) {
+          openAuthPrompt({ type: "save-spot", spotId, returnTo: pathname });
+          return false;
+        }
+
+        if (mountedRef.current) {
+          setUser(activeUser);
+        }
+
+        await ensureProfile(activeUser);
+      }
+
+      const activeUser = user ?? (await resolveActiveUser());
+
+      if (!activeUser) {
         openAuthPrompt({ type: "save-spot", spotId, returnTo: pathname });
         return false;
       }
@@ -294,10 +340,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { error } = await supabase
           .from("saved_spots")
           .delete()
-          .eq("user_id", user.id)
+          .eq("user_id", activeUser.id)
           .eq("spot_id", spotId);
 
-        if (error) return false;
+        if (error) {
+          console.error("Konnte gespeicherten Spot nicht entfernen:", error);
+          return false;
+        }
 
         if (mountedRef.current) {
           setSavedSpotIds((current) => current.filter((currentId) => currentId !== spotId));
@@ -308,7 +357,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const { error } = await supabase.from("saved_spots").upsert(
         {
-          user_id: user.id,
+          user_id: activeUser.id,
           spot_id: spotId,
         },
         {
@@ -316,7 +365,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       );
 
-      if (error) return false;
+      if (error) {
+        console.error("Konnte gespeicherten Spot nicht anlegen:", error);
+        return false;
+      }
 
       if (mountedRef.current) {
         setSavedSpotIds((current) =>
@@ -326,7 +378,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return true;
     },
-    [openAuthPrompt, pathname, savedSpotIdsSet, user]
+    [ensureProfile, openAuthPrompt, pathname, resolveActiveUser, savedSpotIdsSet, user]
   );
 
   const value = useMemo<AuthContextValue>(

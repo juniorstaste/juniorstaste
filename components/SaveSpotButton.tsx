@@ -55,6 +55,7 @@ export default function SaveSpotButton({
   const saved = isSavedSpot(spotId);
 
   async function toggleSave(e?: React.MouseEvent) {
+    e?.preventDefault();
     e?.stopPropagation();
     const changed = await toggleSavedSpot(spotId);
 
