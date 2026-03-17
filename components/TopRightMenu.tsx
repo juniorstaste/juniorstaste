@@ -2,6 +2,8 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import AuthForm from "@/components/AuthForm";
+import { useAuth } from "@/components/AuthProvider";
 import { usePathname, useRouter } from "next/navigation";
 
 type MenuItem = {
@@ -34,6 +36,27 @@ function SavedSpotsIcon() {
   );
 }
 
+function AccountIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"
+        stroke="#0f3b2e"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4 20a8 8 0 0 1 16 0"
+        stroke="#0f3b2e"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const menuItems: MenuItem[] = [
   {
     label: "Gespeicherte Spots",
@@ -49,7 +72,9 @@ type Props = {
 export default function TopRightMenu({ onOpenChange }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const { authLoading, user, profile, signOut, openAuthPrompt } = useAuth();
   const [open, setOpen] = useState(false);
+  const [authHint, setAuthHint] = useState<string | null>(null);
 
   useEffect(() => {
     onOpenChange?.(open);
@@ -76,11 +101,27 @@ export default function TopRightMenu({ onOpenChange }: Props) {
     if (pathname !== href) router.push(href);
   }
 
+  function handleSavedSpotsClick() {
+    if (!user) {
+      setAuthHint("Bitte melde dich an, um deine gespeicherten Spots zu sehen.");
+      openAuthPrompt({ type: "open-saved", returnTo: "/saved" });
+      return;
+    }
+
+    handleNavigate("/saved");
+  }
+
+  const displayName =
+    profile?.display_name?.trim() || (user?.email ? user.email.split("@")[0] : "Account");
+
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setAuthHint(null);
+          setOpen(true);
+        }}
         className="inline-flex items-center justify-center text-white transition hover:scale-110"
         aria-label="Menü öffnen"
         title="Menü"
@@ -116,18 +157,63 @@ export default function TopRightMenu({ onOpenChange }: Props) {
             </button>
           </div>
 
+          <div className="border-b border-[#ece6da] px-4 py-4">
+            <div className="rounded-2xl bg-[#fffaf2] p-4 shadow-sm">
+              <div className="mb-3 flex items-start gap-3">
+                <div className="mt-0.5 shrink-0">
+                  <AccountIcon />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="text-[15px] font-bold text-[#0f3b2e]">Account</div>
+
+                  {authLoading ? (
+                    <p className="mt-1 text-sm text-[#0f3b2e]/70">Account wird geladen…</p>
+                  ) : user ? (
+                    <>
+                      <p className="mt-1 truncate text-sm font-semibold text-[#0f3b2e]">
+                        {displayName}
+                      </p>
+                      <p className="truncate text-sm text-[#0f3b2e]/75">{user.email}</p>
+                    </>
+                  ) : (
+                    <p className="mt-1 text-sm text-[#0f3b2e]/75">
+                      Logge dich ein oder erstelle ein Konto. Wir senden dir dafür einen sicheren Link per E-Mail.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {user ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    void signOut();
+                  }}
+                  className="w-full rounded-2xl border border-[#d8ccb7] bg-[#e8decc] px-4 py-3 text-[15px] font-semibold text-[#0f3b2e] transition hover:bg-[#ded3be]"
+                >
+                  Logout
+                </button>
+              ) : (
+                <AuthForm mode="drawer" initialView="login" />
+              )}
+            </div>
+          </div>
+
           <nav className="px-3 py-3">
-            {menuItems.map((item) => (
-              <button
-                key={item.href}
-                type="button"
-                onClick={() => handleNavigate(item.href)}
-                className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
-              >
-                <span className="shrink-0">{item.icon}</span>
-                <span className="text-[15px] font-semibold">{item.label}</span>
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={handleSavedSpotsClick}
+              className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
+            >
+              <span className="shrink-0">{menuItems[0].icon}</span>
+              <span className="text-[15px] font-semibold">{menuItems[0].label}</span>
+            </button>
+
+            {!user && authHint ? (
+              <p className="px-3 pt-2 text-sm text-[#7b3a2a]">{authHint}</p>
+            ) : null}
           </nav>
         </aside>
       </div>

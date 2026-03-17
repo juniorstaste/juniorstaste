@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/components/AuthProvider";
 import SiteHeader from "@/components/SiteHeader";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
@@ -25,36 +26,21 @@ type Spot = {
 };
 
 export default function SavedPage() {
-  const [savedIds, setSavedIds] = useState<string[]>([]);
   const [spots, setSpots] = useState<Spot[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCity, setSelectedCity] = useState<string>("all");
   const router = useRouter();
+  const { authLoading, user, savedSpotIds, openAuthPrompt } = useAuth();
 
-  // 1) IDs aus localStorage laden
-  useEffect(() => {
-    const raw = localStorage.getItem("saved_spot_ids");
-
-    if (!raw) {
-      setSavedIds([]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-      const ids = Array.isArray(parsed) ? parsed : [];
-      setSavedIds(ids);
-    } catch {
-      setSavedIds([]);
-      setLoading(false);
-    }
-  }, []);
-
-  // 2) Gespeicherte Spots aus Supabase laden
   useEffect(() => {
     async function loadSavedSpots() {
-      if (savedIds.length === 0) {
+      if (!user) {
+        setSpots([]);
+        setLoading(false);
+        return;
+      }
+
+      if (savedSpotIds.length === 0) {
         setSpots([]);
         setLoading(false);
         return;
@@ -67,7 +53,7 @@ export default function SavedPage() {
         .select(
           "id, name, description, address, image_url, city_name, city_slug, tiktok_embed_id, google_maps_link, wolt_url, lieferando_url, wolt_link, lieferando_link"
         )
-        .in("id", savedIds);
+        .in("id", savedSpotIds);
 
       if (error) {
         setSpots([]);
@@ -77,8 +63,8 @@ export default function SavedPage() {
 
       // Reihenfolge wie gespeichert beibehalten
       const ordered =
-        savedIds
-          .map((id) => (data ?? []).find((spot: any) => spot.id === id))
+        savedSpotIds
+          .map((id) => (data ?? []).find((spot) => spot.id === id))
           .filter(Boolean) ?? [];
 
       setSpots(ordered as Spot[]);
@@ -86,34 +72,8 @@ export default function SavedPage() {
     }
 
     loadSavedSpots();
-  }, [savedIds]);
+  }, [savedSpotIds, user]);
 
-  // 3) Wenn ein Spot gespeichert/entfernt wird, localStorage neu lesen
-  useEffect(() => {
-    function handleStorageChange() {
-      const raw = localStorage.getItem("saved_spot_ids");
-
-      if (!raw) {
-        setSavedIds([]);
-        return;
-      }
-
-      try {
-        const parsed = JSON.parse(raw);
-        setSavedIds(Array.isArray(parsed) ? parsed : []);
-      } catch {
-        setSavedIds([]);
-      }
-    }
-
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("focus", handleStorageChange);
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("focus", handleStorageChange);
-    };
-  }, []);
 const savedCities = Array.from(
   new Set(
     spots
@@ -144,7 +104,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
 
         {/* Header */}
         <div className="text-center mb-6">
-  <SiteHeader subtitle={null as any} />
+  <SiteHeader subtitle={null} />
   <h1 className="mt-4 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide">
     Gespeicherte Spots
   </h1>
@@ -167,7 +127,24 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
   ) : null}
 </div>
 
-        {loading ? (
+        {authLoading ? (
+          <p className="text-white/80">Prüfe Login…</p>
+        ) : !user ? (
+  <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
+    <div className="font-semibold mb-2">Bitte melde dich an</div>
+    <p className="text-white/80 text-sm">
+      Melde dich an oder erstelle ein Konto, um deine gespeicherten Spots zu sehen.
+    </p>
+
+    <button
+      type="button"
+      onClick={() => openAuthPrompt({ type: "open-saved" })}
+      className="mt-4 rounded-2xl bg-[#e8decc] px-4 py-3 font-semibold text-[#0f3b2e]"
+    >
+      Einloggen / Konto erstellen
+    </button>
+  </div>
+ ) : loading ? (
           <p className="text-white/80">Lade gespeicherte Spots…</p>
         ) : spots.length === 0 ? (
   <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">

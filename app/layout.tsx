@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AuthProvider } from "@/components/AuthProvider";
 import "./globals.css";
 import { Montserrat } from "next/font/google";
 
@@ -28,7 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <meta name="theme-color" content="#0f3b2e" />
       <link rel="apple-touch-icon" href="/icon-512.png" />
     </head>
-    <body className={montserrat.className}>{children}</body>
+    <body className={montserrat.className}>
+      <AuthProvider>{children}</AuthProvider>
+    </body>
   </html>
 );
 }

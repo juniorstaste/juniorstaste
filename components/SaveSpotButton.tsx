@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useAuth } from "@/components/AuthProvider";
 
 type Props = {
   spotId: string;
@@ -49,57 +50,21 @@ export default function SaveSpotButton({
   spotId,
   variant = "detail",
 }: Props) {
-  const [saved, setSaved] = useState(false);
   const [animate, setAnimate] = useState(false);
+  const { isSavedSpot, toggleSavedSpot } = useAuth();
+  const saved = isSavedSpot(spotId);
 
-  useEffect(() => {
-    const raw = localStorage.getItem("saved_spot_ids");
-    if (!raw) {
-      setSaved(false);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-      setSaved(Array.isArray(parsed) ? parsed.includes(spotId) : false);
-    } catch {
-      setSaved(false);
-    }
-  }, [spotId]);
-
-  function toggleSave(e?: React.MouseEvent) {
+  async function toggleSave(e?: React.MouseEvent) {
     e?.stopPropagation();
+    const changed = await toggleSavedSpot(spotId);
 
-    const raw = localStorage.getItem("saved_spot_ids");
-    let ids: string[] = [];
-
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        ids = Array.isArray(parsed) ? parsed : [];
-      } catch {
-        ids = [];
-      }
-    }
-
-    const isCurrentlySaved = ids.includes(spotId);
-    let next: string[];
-
-    if (isCurrentlySaved) {
-      next = ids.filter((id) => id !== spotId);
-      setSaved(false);
-    } else {
-      next = [...ids, spotId];
-      setSaved(true);
-
+    if (changed && !saved) {
       setAnimate(false);
       requestAnimationFrame(() => {
         setAnimate(true);
         setTimeout(() => setAnimate(false), 280);
       });
     }
-
-    localStorage.setItem("saved_spot_ids", JSON.stringify(next));
   }
 
   const buttonClass =
