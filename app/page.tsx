@@ -93,7 +93,7 @@ export default function Home() {
   return (
 <main className="relative min-h-screen w-full overflow-x-hidden bg-[#0f3b2e] flex flex-col items-center justify-center text-center px-6">
   <div className="w-full max-w-[560px]">
-    <div className="relative z-20 mx-auto -mt-4 mb-4 flex w-full max-w-[420px] justify-end">
+    <div className="fixed right-4 top-6 z-50">
       <TopRightMenu />
     </div>
 
