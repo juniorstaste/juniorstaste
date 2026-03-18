@@ -70,10 +70,10 @@ export default function SaveSpotButton({
 
   const buttonClass =
     variant === "detail"
-      ? `inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 transition hover:bg-white/15 ${
+      ? `relative z-20 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 transition hover:bg-white/15 ${
           animate ? "save-bounce" : ""
         }`
-      : `inline-flex h-8 w-8 items-center justify-center transition ${
+      : `relative z-20 inline-flex h-8 w-8 items-center justify-center transition ${
           animate ? "save-bounce" : ""
         }`;
 

@@ -63,6 +63,13 @@ on public.saved_spots
 for insert
 with check (auth.uid() = user_id);
 
+drop policy if exists "saved_spots_update_own" on public.saved_spots;
+create policy "saved_spots_update_own"
+on public.saved_spots
+for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
 drop policy if exists "saved_spots_delete_own" on public.saved_spots;
 create policy "saved_spots_delete_own"
 on public.saved_spots

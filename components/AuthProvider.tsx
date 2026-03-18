@@ -80,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .order("created_at", { ascending: true });
 
     if (error) {
+      console.error("Konnte gespeicherte Spots nicht laden:", error);
       if (mountedRef.current) setSavedSpotIds([]);
       return;
     }
@@ -116,9 +117,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       );
 
-      if (!error) {
-        window.localStorage.removeItem("saved_spot_ids");
+      if (error) {
+        console.error("Konnte lokale gespeicherte Spots nicht migrieren:", error);
+        return;
       }
+
+      window.localStorage.removeItem("saved_spot_ids");
     } catch {
       window.localStorage.removeItem("saved_spot_ids");
     }
@@ -151,12 +155,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) return user;
 
     const {
+      data: { user: nextUser },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error("Konnte aktuellen Supabase-User nicht laden:", userError);
+    }
+
+    if (nextUser) {
+      if (mountedRef.current) {
+        setUser(nextUser);
+        setAuthLoading(false);
+      }
+
+      return nextUser;
+    }
+
+    const {
       data: { session: nextSession },
-      error,
+      error: sessionError,
     } = await supabase.auth.getSession();
 
-    if (error) {
-      console.error("Konnte Supabase-Session nicht laden:", error);
+    if (sessionError) {
+      console.error("Konnte Supabase-Session nicht laden:", sessionError);
       return null;
     }
 
@@ -189,17 +211,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (action.type === "save-spot") {
-          const { error } = await supabase.from("saved_spots").upsert(
-            {
-              user_id: nextUser.id,
-              spot_id: action.spotId,
-            },
-            {
-              onConflict: "user_id,spot_id",
-            }
-          );
+          const { error } = await supabase.from("saved_spots").insert({
+            user_id: nextUser.id,
+            spot_id: action.spotId,
+          });
 
-          if (error) {
+          if (error && error.code !== "23505") {
             console.error("Konnte gespeicherten Spot nach Login nicht anlegen:", error);
             return;
           }
@@ -312,6 +329,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const toggleSavedSpot = useCallback(
     async (spotId: string) => {
+      console.log("SaveSpotButton geklickt:", spotId);
+
       if (!user) {
         const activeUser = await resolveActiveUser();
 
@@ -334,6 +353,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
+      console.log("Aktiver User fuer SaveSpot:", activeUser.id);
+
       const currentlySaved = savedSpotIdsSet.has(spotId);
 
       if (currentlySaved) {
@@ -355,17 +376,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
 
-      const { error } = await supabase.from("saved_spots").upsert(
-        {
-          user_id: activeUser.id,
-          spot_id: spotId,
-        },
-        {
-          onConflict: "user_id,spot_id",
-        }
-      );
+      const { error } = await supabase.from("saved_spots").insert({
+        user_id: activeUser.id,
+        spot_id: spotId,
+      });
 
-      if (error) {
+      if (error && error.code !== "23505") {
         console.error("Konnte gespeicherten Spot nicht anlegen:", error);
         return false;
       }
