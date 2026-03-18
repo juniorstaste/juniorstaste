@@ -31,9 +31,9 @@ export default function AuthCallbackPage() {
           </>
         ) : (
           <>
-            <h1 className="text-2xl font-extrabold italic">Login konnte nicht bestaetigt werden</h1>
+            <h1 className="text-2xl font-extrabold italic">Aktion konnte nicht abgeschlossen werden</h1>
             <p className="mt-3 text-sm text-white/80">
-              Bitte oeffne den Link aus der E-Mail erneut oder kehre zur Startseite zurueck.
+              Bitte pruefe den Link aus deiner E-Mail oder kehre zur Startseite zurueck.
             </p>
             <Link
               href="/"

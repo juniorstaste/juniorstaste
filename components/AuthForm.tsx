@@ -11,29 +11,39 @@ type Props = {
 };
 
 function normalizeAuthError(message: string) {
-  if (message.toLowerCase().includes("email not confirmed")) {
-    return "Bitte bestaetige zuerst die E-Mail in deinem Postfach.";
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("email not confirmed")) {
+    return "Bitte bestaetige zuerst deine E-Mail-Adresse.";
   }
 
-  if (message.toLowerCase().includes("invalid login credentials")) {
-    return "Diese Anmeldedaten konnten wir nicht zuordnen.";
+  if (normalized.includes("invalid login credentials")) {
+    return "E-Mail oder Passwort stimmen nicht.";
   }
 
-  if (message.toLowerCase().includes("user not found")) {
+  if (normalized.includes("user not found")) {
     return "Zu dieser E-Mail gibt es noch kein Konto.";
+  }
+
+  if (normalized.includes("password")) {
+    return "Bitte pruefe dein Passwort und versuche es erneut.";
   }
 
   return message;
 }
+
+type AuthView = "signup" | "login" | "forgotPassword";
 
 export default function AuthForm({
   mode = "drawer",
   initialView = "signup",
   onSuccess,
 }: Props) {
-  const [view, setView] = useState<"signup" | "login">(initialView);
+  const [view, setView] = useState<AuthView>(initialView);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -49,6 +59,8 @@ export default function AuthForm({
 
     const trimmedEmail = email.trim();
     const trimmedName = name.trim();
+    const trimmedPassword = password.trim();
+    const trimmedPasswordConfirm = passwordConfirm.trim();
 
     if (view === "signup" && !trimmedName) {
       setErrorMsg("Bitte gib deinen Namen ein.");
@@ -62,25 +74,58 @@ export default function AuthForm({
       return;
     }
 
+    if (view !== "forgotPassword" && !trimmedPassword) {
+      setErrorMsg("Bitte gib dein Passwort ein.");
+      setSuccessMsg(null);
+      return;
+    }
+
+    if (view === "signup" && trimmedPassword.length < 8) {
+      setErrorMsg("Dein Passwort sollte mindestens 8 Zeichen lang sein.");
+      setSuccessMsg(null);
+      return;
+    }
+
+    if (view === "signup" && trimmedPassword !== trimmedPasswordConfirm) {
+      setErrorMsg("Die Passwoerter stimmen nicht ueberein.");
+      setSuccessMsg(null);
+      return;
+    }
+
     setSubmitting(true);
     setErrorMsg(null);
     setSuccessMsg(null);
 
     const emailRedirectTo = getAuthRedirectUrl();
+    let error: { message: string } | null = null;
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: trimmedEmail,
-      options: {
-        emailRedirectTo,
-        shouldCreateUser: view === "signup",
-        data:
-          view === "signup"
-            ? {
-                display_name: trimmedName,
-              }
-            : undefined,
-      },
-    });
+    if (view === "signup") {
+      const result = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password: trimmedPassword,
+        options: {
+          emailRedirectTo,
+          data: {
+            display_name: trimmedName,
+          },
+        },
+      });
+
+      error = result.error;
+    } else if (view === "login") {
+      const result = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password: trimmedPassword,
+      });
+
+      error = result.error;
+    } else {
+      const result = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: getAuthRedirectUrl("/reset-password"),
+      });
+
+      error = result.error;
+    }
 
     setSubmitting(false);
 
@@ -90,11 +135,18 @@ export default function AuthForm({
       return;
     }
 
-    setSuccessMsg(
-      view === "signup"
-        ? "Dein Konto wird vorbereitet. Pruefe jetzt deine E-Mails und bestaetige den Link."
-        : "Wir haben dir einen Login-Link per E-Mail geschickt."
-    );
+    if (view === "signup") {
+      setSuccessMsg(
+        "Dein Konto wurde erstellt. Bitte bestaetige jetzt die E-Mail in deinem Postfach."
+      );
+    } else if (view === "login") {
+      setSuccessMsg("Du bist jetzt eingeloggt.");
+    } else {
+      setSuccessMsg(
+        "Wir haben dir eine E-Mail zum Zuruecksetzen deines Passworts geschickt."
+      );
+    }
+
     setErrorMsg(null);
     onSuccess?.();
   }
@@ -138,7 +190,9 @@ export default function AuthForm({
       <div className="text-sm text-[#0f3b2e]/80">
         {view === "signup"
           ? "Erstelle dein Konto mit Name und E-Mail. Danach bestaetigst du den Link in deinem Postfach."
-          : "Für bestehende Konten senden wir einen sicheren Login-Link per E-Mail."}
+          : view === "login"
+          ? "Logge dich mit deiner E-Mail-Adresse und deinem Passwort ein."
+          : "Gib deine E-Mail-Adresse ein. Wir schicken dir einen Link zum Zuruecksetzen deines Passworts."}
       </div>
 
       {view === "signup" ? (
@@ -161,17 +215,69 @@ export default function AuthForm({
         autoComplete="email"
       />
 
+      {view !== "forgotPassword" ? (
+        <input
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          className={inputClass}
+          placeholder="Passwort"
+          autoComplete={view === "signup" ? "new-password" : "current-password"}
+        />
+      ) : null}
+
+      {view === "signup" ? (
+        <input
+          type="password"
+          value={passwordConfirm}
+          onChange={(event) => setPasswordConfirm(event.target.value)}
+          className={inputClass}
+          placeholder="Passwort wiederholen"
+          autoComplete="new-password"
+        />
+      ) : null}
+
       <button
         type="submit"
         disabled={submitting}
         className="w-full rounded-2xl bg-[#0f3b2e] px-4 py-3 text-[15px] font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {submitting
-          ? "Sende Link..."
+          ? "Sende..."
           : view === "signup"
           ? "Konto erstellen"
-          : "Login-Link senden"}
+          : view === "login"
+          ? "Einloggen"
+          : "Passwort zuruecksetzen"}
       </button>
+
+      {view === "login" ? (
+        <button
+          type="button"
+          onClick={() => {
+            setView("forgotPassword");
+            setErrorMsg(null);
+            setSuccessMsg(null);
+          }}
+          className="w-full text-sm font-semibold text-[#0f3b2e] transition hover:opacity-75"
+        >
+          Passwort vergessen?
+        </button>
+      ) : null}
+
+      {view === "forgotPassword" ? (
+        <button
+          type="button"
+          onClick={() => {
+            setView("login");
+            setErrorMsg(null);
+            setSuccessMsg(null);
+          }}
+          className="w-full text-sm font-semibold text-[#0f3b2e] transition hover:opacity-75"
+        >
+          Zurueck zum Login
+        </button>
+      ) : null}
 
       {errorMsg ? <p className="text-sm text-red-700">{errorMsg}</p> : null}
       {successMsg ? <p className="text-sm text-[#0f3b2e]">{successMsg}</p> : null}

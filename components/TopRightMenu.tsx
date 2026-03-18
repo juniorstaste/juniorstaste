@@ -178,7 +178,7 @@ export default function TopRightMenu({ onOpenChange }: Props) {
                     </>
                   ) : (
                     <p className="mt-1 text-sm text-[#0f3b2e]/75">
-                      Logge dich ein oder erstelle ein Konto. Wir senden dir dafür einen sicheren Link per E-Mail.
+                      Logge dich mit E-Mail und Passwort ein oder erstelle ein neues Konto.
                     </p>
                   )}
                 </div>

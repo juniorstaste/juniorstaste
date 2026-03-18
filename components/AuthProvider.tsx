@@ -432,7 +432,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   Willkommen bei JuniorsTaste
                 </div>
                 <p className="mt-1 text-sm text-[#0f3b2e]/80">
-                  Erstelle ein Konto oder logge dich mit einem sicheren Link in deiner E-Mail ein.
+                  Erstelle ein Konto oder logge dich mit E-Mail und Passwort ein.
                 </p>
               </div>
 
