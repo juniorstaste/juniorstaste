@@ -10,7 +10,7 @@ export default function SiteHeader({ subtitle }: Props) {
   const router = useRouter();
 
   return (
-    <div className="text-center">
+    <div className="text-center mb-6">
       {/* ✅ Logo klickbar -> Startseite */}
       <button
         type="button"

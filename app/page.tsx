@@ -93,12 +93,12 @@ export default function Home() {
   return (
 <main className="relative min-h-screen w-full overflow-x-hidden bg-[#0f3b2e] flex flex-col items-center justify-center text-center px-6">
   <div className="w-full max-w-[560px]">
-    <div className="mb-8 flex justify-end">
+    <div className="mx-auto -mt-4 mb-4 flex w-full max-w-[420px] justify-end">
       <TopRightMenu />
     </div>
 
       {/* Logo */}
-      <div className="w-full max-w-[420px] mb-14 overflow-x-hidden overflow-y-visible pb-3">
+      <div className="mx-auto w-full max-w-[420px] mb-14 -mt-8 overflow-hidden">
   
 
   <div className="origin-top text-center scale-150">
@@ -106,11 +106,11 @@ export default function Home() {
 </div>
 </div>
 
-      <h1 className="mt-8 mb-6 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide fade-up">
+      <h1 className="mx-auto mt-8 mb-6 w-full max-w-[420px] text-center text-3xl md:text-4xl font-extrabold italic text-white tracking-wide fade-up">
   Wähle deine Stadt  
 </h1>
 
-      <div className="flex flex-col gap-4 w-full max-w-sm mt-2">
+      <div className="mx-auto mt-2 flex w-full max-w-sm flex-col gap-4">
 
         {/* 🔥 Standort Button GANZ OBEN */}
         <button
