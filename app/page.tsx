@@ -92,12 +92,13 @@ export default function Home() {
 
   return (
 <main className="relative min-h-screen w-full overflow-x-hidden bg-[#0f3b2e] flex flex-col items-center justify-center text-center px-6">
-  {/* Profil Button oben rechts */}
-  <div className="absolute top-6 right-6">
-    <TopRightMenu />
-  </div>
+  <div className="w-full max-w-[560px]">
+    <div className="mb-8 flex justify-end">
+      <TopRightMenu />
+    </div>
+
       {/* Logo */}
-      <div className="w-full max-w-[420px] mb-14 overflow-hidden">
+      <div className="w-full max-w-[420px] mb-14 overflow-x-hidden overflow-y-visible pb-3">
   
 
   <div className="origin-top text-center scale-150">
@@ -201,6 +202,7 @@ export default function Home() {
           {errorMsg}
         </div>
       )}
+    </div>
     </main>
   );
 }
