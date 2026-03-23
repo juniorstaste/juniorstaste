@@ -239,7 +239,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
         </div>
 
         <div className="text-center mb-6">
-          <SiteHeader />
+          <SiteHeader compact />
           <h1 className="mt-4 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide">
             Spots in deiner Nähe
           </h1>
@@ -267,7 +267,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
       </div>
 
       <div className="text-center mb-6">
-        <SiteHeader />
+        <SiteHeader compact />
         <h1 className="mt-4 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide">
           Spots in deiner Nähe
         </h1>

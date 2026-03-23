@@ -382,7 +382,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
 
       {/* Logo */}
       <div className="text-center mb-6">
-        <SiteHeader subtitle={null as any} />
+        <SiteHeader subtitle={null as any} compact />
 
         {view !== "tasteDesMonats" && (
           <div className="mb-5">

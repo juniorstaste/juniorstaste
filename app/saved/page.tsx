@@ -104,7 +104,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
 
         {/* Header */}
         <div className="text-center mb-6">
-  <SiteHeader subtitle={null} />
+  <SiteHeader subtitle={null} compact />
   <h1 className="mt-4 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide">
     Gespeicherte Spots
   </h1>
