@@ -1,8 +1,6 @@
 "use client";
 console.log("✅ BottomTabs ACTIVE: components/BottomTabs.tsx");
 
-import { useEffect, useRef, useState } from "react";
-
 type View = "list" | "map" | "tasteDesMonats";
 
 type Props = {
@@ -66,43 +64,12 @@ function BurgerIcon() {
 }
 
 export default function BottomTabs({ view, onChange }: Props) {
-  const [visible, setVisible] = useState(true);
-  const lastY = useRef(0);
-
-  useEffect(() => {
-  function handleScroll() {
-    const currentY = window.scrollY;
-
-    // Solange man noch relativ weit oben ist, Leiste immer zeigen
-    if (currentY < 80) {
-      setVisible(true);
-    }
-    // Erst nach deutlicherem Runterscrollen ausblenden
-    else if (currentY > lastY.current + 30) {
-      setVisible(false);
-    }
-    // Beim deutlichen Hochscrollen wieder einblenden
-    else if (currentY < lastY.current - 20) {
-      setVisible(true);
-    }
-
-    lastY.current = currentY;
-  }
-
-  window.addEventListener("scroll", handleScroll, { passive: true });
-  return () => window.removeEventListener("scroll", handleScroll);
-}, []);
-
   const baseBtn =
   "h-[56px] rounded-2xl font-semibold flex items-center justify-center gap-1.5 transition text-[14px] whitespace-nowrap";
 
   return (
-    <div
-      className={`fixed bottom-0 left-0 right-0 z-50 transition-transform duration-300 ${
-        visible ? "translate-y-0" : "translate-y-full"
-      }`}
-    >
-      <div className="mx-auto max-w-[500px] px-6 pb-4">
+    <div className="fixed bottom-0 left-0 right-0 z-50">
+      <div className="mx-auto max-w-[560px] px-4 pb-[max(env(safe-area-inset-bottom),8px)]">
         <div className="rounded-2xl bg-[#e8decc] shadow-sm p-1">
           <div className="flex gap-1">
             <button

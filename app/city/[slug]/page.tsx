@@ -40,6 +40,10 @@ type Spot = {
   lieferando_url?: string | null;
   wolt_link?: string | null;
   lieferando_link?: string | null;
+  uber_eats_url?: string | null;
+  uber_eats_link?: string | null;
+  ubereats_url?: string | null;
+  ubereats_link?: string | null;
 };
 
 type City = { id: string; name: string; slug: string };
@@ -57,6 +61,19 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
 
   const c = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
   return R * c;
+}
+
+function hasDeliveryOption(spot: Spot) {
+  return Boolean(
+    spot.wolt_url ||
+      spot.wolt_link ||
+      spot.lieferando_url ||
+      spot.lieferando_link ||
+      spot.uber_eats_url ||
+      spot.uber_eats_link ||
+      spot.ubereats_url ||
+      spot.ubereats_link
+  );
 }
 
 const TASTE_DES_MONATS_IDS = [
@@ -88,6 +105,7 @@ export default function CityPage() {
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"list" | "map" | "tasteDesMonats">("list");
   const [sort, setSort] = useState<"newest" | "rating" | "price" | "distance">("newest");
+  const [deliveryFilter, setDeliveryFilter] = useState<"all" | "with" | "without">("all");
 
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusKm, setRadiusKm] = useState<number>(5);
@@ -246,6 +264,12 @@ export default function CityPage() {
       });
     }
 
+    if (deliveryFilter === "with") {
+      list = list.filter((s) => hasDeliveryOption(s));
+    } else if (deliveryFilter === "without") {
+      list = list.filter((s) => !hasDeliveryOption(s));
+    }
+
     if (sort === "rating") {
       list.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
     } else if (sort === "price") {
@@ -267,7 +291,7 @@ export default function CityPage() {
     }
 
     return list;
-  }, [spots, search, sort, userPos, radiusKm, radiusEnabled]);
+  }, [spots, search, sort, userPos, radiusKm, radiusEnabled, deliveryFilter]);
 
   const distanceById = useMemo(() => {
     const map = new Map<string, number>();
@@ -330,6 +354,13 @@ export default function CityPage() {
       : sort === "price"
       ? "Preis"
       : "Nähe (GPS)";
+
+  const selectedDeliveryLabel =
+    deliveryFilter === "all"
+      ? "Lieferung: Alle"
+      : deliveryFilter === "with"
+      ? "Mit Lieferung"
+      : "Vor Ort essen";
 
   function getSelectWidth(label: string, min = 140) {
     return `${Math.max(min, label.length * 9 + 48)}px`;
@@ -411,6 +442,21 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                         <option value="distance" disabled={!userPos}>
                           Nähe (GPS)
                         </option>
+                      </select>
+                    </div>
+
+                    {/* Lieferung */}
+                    <div className="shrink-0" style={{ width: getSelectWidth(selectedDeliveryLabel, 170) }}>
+                      <select
+                        value={deliveryFilter}
+                        onChange={(e) =>
+                          setDeliveryFilter(e.target.value as "all" | "with" | "without")
+                        }
+                        className={controlBase}
+                      >
+                        <option value="all">Lieferung: Alle</option>
+                        <option value="with">Mit Lieferung</option>
+                        <option value="without">Vor Ort essen</option>
                       </select>
                     </div>
                   </div>
