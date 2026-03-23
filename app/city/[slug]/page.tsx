@@ -563,7 +563,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
           <b>Supabase-Fehler:</b> {errorMsg}
         </div>
       ) : view === "map" ? (
-        <div className="mt-2">
+        <div className="relative z-0 mt-2">
           <CityMap
             center={mapCenter}
             spots={mapSpots}
