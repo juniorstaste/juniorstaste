@@ -284,6 +284,14 @@ export default function CityPage() {
       });
     } else {
       list.sort((a, b) => {
+        if (citySlug === "stuttgart") {
+          const aIsBun = a.name === "Bun'n Smash";
+          const bIsBun = b.name === "Bun'n Smash";
+
+          if (aIsBun && !bIsBun) return -1;
+          if (!aIsBun && bIsBun) return 1;
+        }
+
         const ad = a.created_at ? new Date(a.created_at).getTime() : 0;
         const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
         return bd - ad;
@@ -391,7 +399,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
               <div className="text-left">
                 <label className={`block mb-2 font-extrabold ${topText}`}>Filter</label>
 
-                <div className="overflow-x-auto no-scrollbar">
+                <div className="w-full max-w-full overflow-x-auto no-scrollbar">
                   <div className="flex gap-3 min-w-max">
                     {/* Stadt */}
                     <div className="shrink-0" style={{ width: getSelectWidth(selectedCityLabel, 150) }}>
@@ -467,7 +475,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
               <div className="mb-4 text-left">
                 <label className={`block mb-2 font-extrabold ${topText}`}>Ansicht</label>
 
-                <div className="overflow-x-auto no-scrollbar">
+                <div className="w-full max-w-full overflow-x-auto no-scrollbar">
                   <div className="flex gap-3 min-w-max">
                     {/* Liste */}
                     <button
@@ -636,13 +644,13 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
               <div
   key={s.id}
   onClick={() => router.push(`/spot/${s.id}`)}
-  className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
+  className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
 >
   <div className="absolute right-3 top-3 z-10">
     <SaveSpotButton spotId={s.id} variant="list" />
   </div>
 
-  <div className="flex gap-3">
+  <div className="min-w-0 flex gap-3">
                   {s.image_url ? (
                     <img
                       src={s.image_url}
@@ -674,7 +682,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                     </div>
 
                     {s.address ? (
-                      <p className="mt-1 truncate text-xs text-[#6b6256]">{s.address}</p>
+                      <p className="mt-1 break-words text-xs text-[#6b6256]">{s.address}</p>
                     ) : null}
                   </div>
                 </div>
@@ -694,14 +702,14 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
   <div
     key={s.id}
     onClick={() => router.push(`/spot/${s.id}`)}
-    className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
+    className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
   >
     <div className="absolute right-3 top-3 z-10">
       <SaveSpotButton spotId={s.id} variant="list" />
     </div>
 
     {/* Oberer Infobereich */}
-    <div className="flex gap-3">
+    <div className="min-w-0 flex gap-3">
       {s.image_url ? (
         <img
           src={s.image_url}
@@ -713,7 +721,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
       )}
 
       <div className="min-w-0 flex-1 pr-8">
-        <h2 className="truncate text-base font-extrabold text-[#1f1f1f]">{s.name}</h2>
+        <h2 className="break-words text-base font-extrabold text-[#1f1f1f] sm:truncate">{s.name}</h2>
 
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#5a5348]">
           {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
@@ -742,19 +750,19 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
           <p className="mt-2 line-clamp-2 text-sm text-[#2f2a23]">{s.description}</p>
         ) : null}
 
-        {s.address ? <p className="mt-1 truncate text-sm text-[#6b6256]">{s.address}</p> : null}
+        {s.address ? <p className="mt-1 break-words text-sm text-[#6b6256]">{s.address}</p> : null}
 
               </div>
     </div>
 
-    <div className="mt-4 flex flex-wrap gap-2">
+    <div className="mt-4 min-w-0 flex flex-wrap gap-2">
       {s.google_maps_link ? (
         <a
           href={s.google_maps_link}
           target="_blank"
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+          className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
         >
           Google Maps
         </a>
@@ -766,7 +774,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
           target="_blank"
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+          className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
         >
           Wolt
         </a>
@@ -778,7 +786,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
           target="_blank"
           rel="noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+          className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
         >
           Lieferando
         </a>
@@ -794,7 +802,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
         onClick={(e) => e.stopPropagation()}
       >
       
-        <div className="mx-auto w-full max-w-[420px]">
+        <div className="mx-auto min-w-0 w-full max-w-[420px]">
   <TikTokEmbed
     username="juniorstaste"
     videoId={s.tiktok_embed_id}
