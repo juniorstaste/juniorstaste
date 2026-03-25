@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import TikTokEmbed from "@/components/TikTokEmbed";
@@ -10,6 +10,11 @@ import SiteHeader from "@/components/SiteHeader";
 import BottomTabs from "@/components/BottomTabs";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
+import {
+  getColorForCategory,
+  labelFromCategorySlug,
+  normalizeCategorySlug,
+} from "@/components/CityMap";
 
 const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
 
@@ -113,7 +118,9 @@ export default function CityPage() {
   const [geoError, setGeoError] = useState<string | null>(null);
 
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
+  const [selectedMapLegendSlug, setSelectedMapLegendSlug] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const legendListRef = useRef<HTMLDivElement | null>(null);
 
   const topText = "text-white";
 
@@ -299,7 +306,7 @@ export default function CityPage() {
     }
 
     return list;
-  }, [spots, search, sort, userPos, radiusKm, radiusEnabled, deliveryFilter]);
+  }, [spots, search, sort, userPos, radiusKm, radiusEnabled, deliveryFilter, citySlug]);
 
   const distanceById = useMemo(() => {
     const map = new Map<string, number>();
@@ -341,6 +348,29 @@ export default function CityPage() {
     if (first) return [first.lat, first.lng];
     return [52.52, 13.405];
   }, [mapSpots]);
+
+  const legendCategorySpots = useMemo(() => {
+    if (!selectedMapLegendSlug) return [];
+
+    return filteredSpots.filter(
+      (spot) => normalizeCategorySlug(spot.category_slug) === selectedMapLegendSlug
+    );
+  }, [filteredSpots, selectedMapLegendSlug]);
+
+  useEffect(() => {
+    if (!selectedMapLegendSlug || !legendListRef.current) return;
+
+    const timeoutId = window.setTimeout(() => {
+      legendListRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [selectedMapLegendSlug, legendCategorySpots.length]);
 
   if (!citySlug) return <main className="p-4">Lade Stadt…</main>;
 
@@ -625,8 +655,95 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
             activeSpotId={activeSpotId}
             onActiveChange={(id: string) => setActiveSpotId(id)}
             onSpotClick={(id: string) => router.push(`/spot/${id}`)}
+            selectedLegendSlug={selectedMapLegendSlug}
+            onLegendSelect={setSelectedMapLegendSlug}
           />
           <p className="mt-3 text-sm text-[#f6efe3]/80">Tipp: Marker anklicken, um den Namen zu sehen.</p>
+
+          {selectedMapLegendSlug ? (
+            <div
+              ref={legendListRef}
+              className="mt-4 grid gap-3 scroll-mt-4"
+            >
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-extrabold text-white">
+                    {labelFromCategorySlug(selectedMapLegendSlug)}
+                  </h2>
+                  <p className="mt-1 text-sm italic text-white/80">
+                    {legendCategorySpots.length} Spots in dieser Kategorie.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedMapLegendSlug(null)}
+                  className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/15"
+                >
+                  Auswahl aufheben
+                </button>
+              </div>
+
+              {legendCategorySpots.map((s) => (
+                <div
+                  key={s.id}
+                  onClick={() => router.push(`/spot/${s.id}`)}
+                  className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
+                >
+                  <div className="absolute right-3 top-3 z-10">
+                    <SaveSpotButton spotId={s.id} variant="list" />
+                  </div>
+
+                  <div className="min-w-0 flex gap-3">
+                    {s.image_url ? (
+                      <img
+                        src={s.image_url}
+                        alt={s.name}
+                        className="h-16 w-16 rounded-xl object-cover ring-1 ring-black/5"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-center gap-2">
+                        <span
+                          className="inline-block h-3 w-3 rounded-full"
+                          style={{ backgroundColor: getColorForCategory(s.category_slug) }}
+                        />
+                        <h3 className="truncate text-sm font-extrabold text-[#1f1f1f]">
+                          {s.name}
+                        </h3>
+                      </div>
+
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5a5348]">
+                        {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
+
+                        {typeof s.rating === "number" ? (
+                          <span className="flex items-center gap-1">
+                            <span className="text-[#d4a017]">★</span>
+                            <span className="font-semibold text-[#9a6b00]">
+                              {s.rating.toFixed(1)}
+                            </span>
+                          </span>
+                        ) : null}
+
+                        {typeof s.price_level === "number" ? (
+                          <span className="font-semibold text-[#3b342b]">
+                            {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {s.address ? (
+                        <p className="mt-1 break-words text-xs text-[#6b6256]">{s.address}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
             ) : view === "tasteDesMonats" ? (
         <div className="grid gap-3">

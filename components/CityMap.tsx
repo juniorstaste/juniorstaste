@@ -31,14 +31,19 @@ type Props = {
 
   activeSpotId?: string | null;
   onActiveChange?: (id: string) => void;
+  selectedLegendSlug?: string | null;
+  onLegendSelect?: (slug: string | null) => void;
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
   burger: "#e11d48",
   pizza: "#f97316",
   coffee: "#a16207",
+  "fruehstueck-kaffee": "#b45309",
+  breakfast: "#b45309",
   dessert: "#db2777",
   chicken: "#ca8a04",
+  "fried-chicken": "#ca8a04",
   doener: "#0f766e",
   döner: "#0f766e",
   doner: "#0f766e",
@@ -46,16 +51,43 @@ const CATEGORY_COLORS: Record<string, string> = {
   vegan: "#22c55e",
   asian: "#2563eb",
   italian: "#16a34a",
-  other: "#6b7280",
+  sushi: "#0891b2",
+  mexican: "#ea580c",
+  pasta: "#15803d",
+  bakery: "#c2410c",
+  sandwiches: "#7c3aed",
+  bowls: "#0d9488",
+  icecream: "#ec4899",
+  other: "#475569",
 };
 
-function normalizeSlug(slug?: string | null) {
+const FALLBACK_CATEGORY_COLORS = [
+  "#ef4444",
+  "#f97316",
+  "#eab308",
+  "#84cc16",
+  "#22c55e",
+  "#14b8a6",
+  "#06b6d4",
+  "#3b82f6",
+  "#6366f1",
+  "#8b5cf6",
+  "#d946ef",
+  "#ec4899",
+];
+
+export function normalizeCategorySlug(slug?: string | null) {
   return (slug ?? "other").toString().trim().toLowerCase();
 }
 
-function getColorForCategory(slug?: string | null) {
-  const s = normalizeSlug(slug);
-  return CATEGORY_COLORS[s] ?? CATEGORY_COLORS.other;
+function colorFromSlugHash(slug: string) {
+  const hash = Array.from(slug).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return FALLBACK_CATEGORY_COLORS[hash % FALLBACK_CATEGORY_COLORS.length];
+}
+
+export function getColorForCategory(slug?: string | null) {
+  const s = normalizeCategorySlug(slug);
+  return CATEGORY_COLORS[s] ?? colorFromSlugHash(s);
 }
 
 // ✅ farbiger Punkt als Icon
@@ -123,9 +155,11 @@ function FitToSpots({ spots, userPos }: { spots: MapSpot[]; userPos?: { lat: num
 }
 
 // ✅ Label für Legende
-function labelFromSlug(slug: string) {
+export function labelFromCategorySlug(slug: string) {
   if (!slug) return "Other";
   if (["döner", "doner", "doener", "kebab"].includes(slug)) return "Döner/Kebab";
+  if (slug === "fruehstueck-kaffee") return "Frühstück / Kaffee";
+  if (slug === "fried-chicken") return "Fried Chicken";
   return slug.charAt(0).toUpperCase() + slug.slice(1);
 }
 
@@ -136,13 +170,15 @@ export default function CityMap({
   userPos,
   activeSpotId,
   onActiveChange,
+  selectedLegendSlug,
+  onLegendSelect,
 }: Props) {
   const legendItems = useMemo(() => {
     const m = new Map<string, string>();
 
     spots.forEach((s) => {
-      const slug = normalizeSlug(s.category_slug);
-      if (!m.has(slug)) m.set(slug, labelFromSlug(slug));
+      const slug = normalizeCategorySlug(s.category_slug);
+      if (!m.has(slug)) m.set(slug, labelFromCategorySlug(slug));
     });
 
     return Array.from(m.entries())
@@ -170,7 +206,7 @@ export default function CityMap({
 
           {/* ✅ Spot Marker */}
           {spots.map((s) => {
-            const slug = normalizeSlug(s.category_slug);
+            const slug = normalizeCategorySlug(s.category_slug);
             const color = getColorForCategory(slug);
 
             const wolt = s.wolt_url ?? s.wolt_link ?? null;
@@ -334,7 +370,27 @@ export default function CityMap({
         ) : (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {legendItems.map((item) => (
-              <div key={item.slug} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                key={item.slug}
+                type="button"
+                onClick={() =>
+                  onLegendSelect?.(selectedLegendSlug === item.slug ? null : item.slug)
+                }
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  borderRadius: 999,
+                  border:
+                    selectedLegendSlug === item.slug
+                      ? "1px solid #0f3b2e"
+                      : "1px solid #e5e7eb",
+                  background:
+                    selectedLegendSlug === item.slug ? "#f6efe3" : "white",
+                  padding: "8px 10px",
+                  cursor: "pointer",
+                }}
+              >
                 <span
                   style={{
                     width: 12,
@@ -346,8 +402,8 @@ export default function CityMap({
                     display: "inline-block",
                   }}
                 />
-                <span style={{ fontSize: 13, color: "#333" }}>{item.name}</span>
-              </div>
+                <span style={{ fontSize: 13, color: "#333", fontWeight: 700 }}>{item.name}</span>
+              </button>
             ))}
           </div>
         )}
