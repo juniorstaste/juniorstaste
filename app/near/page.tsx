@@ -13,6 +13,7 @@ import SiteHeader from "@/components/SiteHeader";
 import BottomTabs from "@/components/BottomTabs";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
+import ShareSpotButton from "@/components/ShareSpotButton";
 import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 
 const CityMap = dynamicImport(() => import("@/components/CityMap"), { ssr: false });
@@ -392,7 +393,8 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                 onClick={() => router.push(`/spot/${s.id}`)}
                 className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
               >
-                <div className="absolute right-3 top-3 z-10">
+                <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+                  <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
                   <SaveSpotButton spotId={s.id} variant="list" />
                 </div>
 
@@ -450,7 +452,8 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                 onClick={() => router.push(`/spot/${s.id}`)}
                 className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
               >
-                <div className="absolute right-3 top-3 z-10">
+                <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+                  <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
                   <SaveSpotButton spotId={s.id} variant="list" />
                 </div>
 

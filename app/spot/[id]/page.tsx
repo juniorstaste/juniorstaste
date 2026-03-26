@@ -10,6 +10,7 @@ import DistanceLabel from "@/components/DistanceLabel";
 import TikTokEmbed from "@/components/TikTokEmbed";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
+import ShareSpotButton from "@/components/ShareSpotButton";
 import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 
 const SpotMiniMap = dynamic(() => import("@/components/SpotMiniMap"), { ssr: false });
@@ -140,6 +141,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
 </button>
 
   <div className="flex items-center gap-2">
+    {spot?.id && <ShareSpotButton spotId={spot.id} spotName={spot.name} />}
     {spot?.id && <SaveSpotButton spotId={spot.id} />}
     <TopRightMenu />
   </div>
