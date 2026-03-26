@@ -5,6 +5,12 @@ import L from "leaflet";
 import { useEffect, useMemo } from "react";
 import StarRating from "@/components/StarRating";
 import PriceLevel from "@/components/PriceLevel";
+import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
+import {
+  getColorForCategory,
+  labelFromCategorySlug,
+  normalizeCategorySlug,
+} from "@/lib/cityMapCategories";
 
 type MapSpot = {
   id: string;
@@ -21,6 +27,10 @@ type MapSpot = {
   lieferando_url?: string | null;
   wolt_link?: string | null;
   lieferando_link?: string | null;
+  uber_eats_url?: string | null;
+  uber_eats_link?: string | null;
+  ubereats_url?: string | null;
+  ubereats_link?: string | null;
 };
 
 type Props = {
@@ -28,6 +38,7 @@ type Props = {
   spots: MapSpot[];
   onSpotClick?: (id: string) => void;
   userPos?: { lat: number; lng: number } | null;
+  userRadiusKm?: number;
 
   activeSpotId?: string | null;
   onActiveChange?: (id: string) => void;
@@ -35,60 +46,6 @@ type Props = {
   onLegendSelect?: (slug: string | null) => void;
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  burger: "#e11d48",
-  pizza: "#f97316",
-  coffee: "#a16207",
-  "fruehstueck-kaffee": "#b45309",
-  breakfast: "#b45309",
-  dessert: "#db2777",
-  chicken: "#ca8a04",
-  "fried-chicken": "#ca8a04",
-  doener: "#0f766e",
-  döner: "#0f766e",
-  doner: "#0f766e",
-  kebab: "#0f766e",
-  vegan: "#22c55e",
-  asian: "#2563eb",
-  italian: "#16a34a",
-  sushi: "#0891b2",
-  mexican: "#ea580c",
-  pasta: "#15803d",
-  bakery: "#c2410c",
-  sandwiches: "#7c3aed",
-  bowls: "#0d9488",
-  icecream: "#ec4899",
-  other: "#475569",
-};
-
-const FALLBACK_CATEGORY_COLORS = [
-  "#ef4444",
-  "#f97316",
-  "#eab308",
-  "#84cc16",
-  "#22c55e",
-  "#14b8a6",
-  "#06b6d4",
-  "#3b82f6",
-  "#6366f1",
-  "#8b5cf6",
-  "#d946ef",
-  "#ec4899",
-];
-
-export function normalizeCategorySlug(slug?: string | null) {
-  return (slug ?? "other").toString().trim().toLowerCase();
-}
-
-function colorFromSlugHash(slug: string) {
-  const hash = Array.from(slug).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  return FALLBACK_CATEGORY_COLORS[hash % FALLBACK_CATEGORY_COLORS.length];
-}
-
-export function getColorForCategory(slug?: string | null) {
-  const s = normalizeCategorySlug(slug);
-  return CATEGORY_COLORS[s] ?? colorFromSlugHash(s);
-}
 
 // ✅ farbiger Punkt als Icon
 function makeDotIcon(color: string) {
@@ -124,10 +81,40 @@ const userIcon = L.divIcon({
 });
 
 // ✅ Auto-Zoom auf alle Spots
-function FitToSpots({ spots, userPos }: { spots: MapSpot[]; userPos?: { lat: number; lng: number } | null }) {
+function getBoundsAroundUser(
+  userPos: { lat: number; lng: number },
+  radiusKm: number
+): L.LatLngBounds {
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / (111 * Math.cos((userPos.lat * Math.PI) / 180));
+
+  return L.latLngBounds(
+    [userPos.lat - latDelta, userPos.lng - lngDelta],
+    [userPos.lat + latDelta, userPos.lng + lngDelta]
+  );
+}
+
+function FitToSpots({
+  spots,
+  userPos,
+  userRadiusKm = 15,
+}: {
+  spots: MapSpot[];
+  userPos?: { lat: number; lng: number } | null;
+  userRadiusKm?: number;
+}) {
   const map = useMap();
 
   useEffect(() => {
+    if (userPos && typeof userPos.lat === "number" && typeof userPos.lng === "number") {
+      const userBounds = getBoundsAroundUser(userPos, userRadiusKm);
+      map.flyToBounds(userBounds, {
+        padding: [40, 40],
+        duration: 0.8,
+      });
+      return;
+    }
+
     const points: [number, number][] = [];
 
     // Spots
@@ -149,18 +136,9 @@ function FitToSpots({ spots, userPos }: { spots: MapSpot[]; userPos?: { lat: num
     if (points.length === 1) {
       map.setView(points[0], 15);
     }
-  }, [spots, userPos, map]);
+  }, [spots, userPos, userRadiusKm, map]);
 
   return null;
-}
-
-// ✅ Label für Legende
-export function labelFromCategorySlug(slug: string) {
-  if (!slug) return "Other";
-  if (["döner", "doner", "doener", "kebab"].includes(slug)) return "Döner/Kebab";
-  if (slug === "fruehstueck-kaffee") return "Frühstück / Kaffee";
-  if (slug === "fried-chicken") return "Fried Chicken";
-  return slug.charAt(0).toUpperCase() + slug.slice(1);
 }
 
 export default function CityMap({
@@ -168,6 +146,7 @@ export default function CityMap({
   spots,
   onSpotClick,
   userPos,
+  userRadiusKm = 15,
   activeSpotId,
   onActiveChange,
   selectedLegendSlug,
@@ -195,7 +174,7 @@ export default function CityMap({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          <FitToSpots spots={spots} userPos={userPos} />
+          <FitToSpots spots={spots} userPos={userPos} userRadiusKm={userRadiusKm} />
 
           {/* ✅ User Standort Marker (genau 1x) */}
           {userPos ? (
@@ -211,6 +190,8 @@ export default function CityMap({
 
             const wolt = s.wolt_url ?? s.wolt_link ?? null;
             const lieferando = s.lieferando_url ?? s.lieferando_link ?? null;
+            const uberEats =
+              s.uber_eats_url ?? s.uber_eats_link ?? s.ubereats_url ?? s.ubereats_link ?? null;
 
             // Optional: aktiver Spot etwas “kräftiger” anzeigen
             const isActive = activeSpotId === s.id;
@@ -304,14 +285,22 @@ export default function CityMap({
                         </button>
                       </div>
 
-                      {/* ✅ Zeile 2: Wolt / Lieferando */}
-                      {wolt || lieferando ? (
+                      {/* ✅ Zeile 2: Lieferdienste */}
+                      {wolt || lieferando || uberEats ? (
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                           {wolt ? (
                             <a
                               href={wolt}
                               target="_blank"
                               rel="noreferrer"
+                              onClick={(event) =>
+                                void trackAndOpenExternalLink({
+                                  event,
+                                  url: wolt,
+                                  spotId: s.id,
+                                  buttonType: "wolt",
+                                })
+                              }
                               style={{
                                 padding: "7px 10px",
                                 borderRadius: 10,
@@ -334,6 +323,14 @@ export default function CityMap({
                               href={lieferando}
                               target="_blank"
                               rel="noreferrer"
+                              onClick={(event) =>
+                                void trackAndOpenExternalLink({
+                                  event,
+                                  url: lieferando,
+                                  spotId: s.id,
+                                  buttonType: "lieferando",
+                                })
+                              }
                               style={{
                                 padding: "7px 10px",
                                 borderRadius: 10,
@@ -348,6 +345,36 @@ export default function CityMap({
                               }}
                             >
                               Lieferando
+                            </a>
+                          ) : null}
+
+                          {uberEats ? (
+                            <a
+                              href={uberEats}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(event) =>
+                                void trackAndOpenExternalLink({
+                                  event,
+                                  url: uberEats,
+                                  spotId: s.id,
+                                  buttonType: "ubereats",
+                                })
+                              }
+                              style={{
+                                padding: "7px 10px",
+                                borderRadius: 10,
+                                border: "1px solid #ddd",
+                                background: "white",
+                                textDecoration: "none",
+                                fontWeight: 800,
+                                fontSize: 12,
+                                lineHeight: 1,
+                                display: "inline-flex",
+                                alignItems: "center",
+                              }}
+                            >
+                              Uber Eats
                             </a>
                           ) : null}
                         </div>

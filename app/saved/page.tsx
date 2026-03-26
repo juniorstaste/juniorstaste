@@ -8,6 +8,7 @@ import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
 import TikTokEmbed from "@/components/TikTokEmbed";
 import { useRouter } from "next/navigation";
+import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 
 type Spot = {
   id: string;
@@ -23,6 +24,10 @@ type Spot = {
   lieferando_url?: string | null;
   wolt_link?: string | null;
   lieferando_link?: string | null;
+  uber_eats_url?: string | null;
+  uber_eats_link?: string | null;
+  ubereats_url?: string | null;
+  ubereats_link?: string | null;
 };
 
 export default function SavedPage() {
@@ -51,7 +56,7 @@ export default function SavedPage() {
       const { data, error } = await supabase
         .from("spots_with_city")
         .select(
-          "id, name, description, address, image_url, city_name, city_slug, tiktok_embed_id, google_maps_link, wolt_url, lieferando_url, wolt_link, lieferando_link"
+          "id, name, description, address, image_url, city_name, city_slug, tiktok_embed_id, google_maps_link, wolt_url, lieferando_url, wolt_link, lieferando_link, uber_eats_url, uber_eats_link, ubereats_url, ubereats_link"
         )
         .in("id", savedSpotIds);
 
@@ -165,6 +170,8 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
             {filteredSpots.map((spot) => {
               const wolt = spot.wolt_url ?? spot.wolt_link ?? null;
               const lieferando = spot.lieferando_url ?? spot.lieferando_link ?? null;
+              const uberEats =
+                spot.uber_eats_url ?? spot.uber_eats_link ?? spot.ubereats_url ?? spot.ubereats_link ?? null;
 
               return (
                 <div
@@ -221,6 +228,14 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                         href={spot.google_maps_link}
                         target="_blank"
                         rel="noreferrer"
+                        onClick={(e) =>
+                          void trackAndOpenExternalLink({
+                            event: e,
+                            url: spot.google_maps_link!,
+                            spotId: spot.id,
+                            buttonType: "maps",
+                          })
+                        }
                         className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
                       >
                         Google Maps
@@ -232,6 +247,14 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                         href={wolt}
                         target="_blank"
                         rel="noreferrer"
+                        onClick={(e) =>
+                          void trackAndOpenExternalLink({
+                            event: e,
+                            url: wolt,
+                            spotId: spot.id,
+                            buttonType: "wolt",
+                          })
+                        }
                         className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
                       >
                         Wolt
@@ -243,9 +266,36 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                         href={lieferando}
                         target="_blank"
                         rel="noreferrer"
+                        onClick={(e) =>
+                          void trackAndOpenExternalLink({
+                            event: e,
+                            url: lieferando,
+                            spotId: spot.id,
+                            buttonType: "lieferando",
+                          })
+                        }
                         className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
                       >
                         Lieferando
+                      </a>
+                    ) : null}
+
+                    {uberEats ? (
+                      <a
+                        href={uberEats}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) =>
+                          void trackAndOpenExternalLink({
+                            event: e,
+                            url: uberEats,
+                            spotId: spot.id,
+                            buttonType: "ubereats",
+                          })
+                        }
+                        className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+                      >
+                        Uber Eats
                       </a>
                     ) : null}
                   </div>

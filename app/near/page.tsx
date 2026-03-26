@@ -13,6 +13,7 @@ import SiteHeader from "@/components/SiteHeader";
 import BottomTabs from "@/components/BottomTabs";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
+import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 
 const CityMap = dynamicImport(() => import("@/components/CityMap"), { ssr: false });
 
@@ -38,6 +39,10 @@ type Spot = {
   lieferando_url?: string | null;
   wolt_link?: string | null;
   lieferando_link?: string | null;
+  uber_eats_url?: string | null;
+  uber_eats_link?: string | null;
+  ubereats_url?: string | null;
+  ubereats_link?: string | null;
 
   created_at?: string | null;
 };
@@ -207,6 +212,8 @@ export default function NearPage() {
       .map((s) => {
         const wolt = s.wolt_url ?? s.wolt_link ?? null;
         const lieferando = s.lieferando_url ?? s.lieferando_link ?? null;
+        const uberEats =
+          s.uber_eats_url ?? s.uber_eats_link ?? s.ubereats_url ?? s.ubereats_link ?? null;
 
         return {
           id: s.id,
@@ -219,6 +226,7 @@ export default function NearPage() {
           category_slug: (s.category_slug ?? "other").toString().trim().toLowerCase(),
           wolt_url: wolt,
           lieferando_url: lieferando,
+          uber_eats_url: uberEats,
         };
       });
   }, [filteredSpots]);
@@ -433,6 +441,8 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
           {filteredSpots.map((s) => {
             const wolt = s.wolt_url ?? s.wolt_link ?? null;
             const lieferando = s.lieferando_url ?? s.lieferando_link ?? null;
+            const uberEats =
+              s.uber_eats_url ?? s.uber_eats_link ?? s.ubereats_url ?? s.ubereats_link ?? null;
 
             return (
               <div
@@ -476,7 +486,14 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                           href={s.google_maps_link}
                           target="_blank"
                           rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) =>
+                            void trackAndOpenExternalLink({
+                              event: e,
+                              url: s.google_maps_link!,
+                              spotId: s.id,
+                              buttonType: "maps",
+                            })
+                          }
                           className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
                         >
                           Google Maps
@@ -488,7 +505,14 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                           href={wolt}
                           target="_blank"
                           rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) =>
+                            void trackAndOpenExternalLink({
+                              event: e,
+                              url: wolt,
+                              spotId: s.id,
+                              buttonType: "wolt",
+                            })
+                          }
                           className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
                         >
                           Wolt
@@ -500,10 +524,36 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                           href={lieferando}
                           target="_blank"
                           rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
+                          onClick={(e) =>
+                            void trackAndOpenExternalLink({
+                              event: e,
+                              url: lieferando,
+                              spotId: s.id,
+                              buttonType: "lieferando",
+                            })
+                          }
                           className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
                         >
                           Lieferando
+                        </a>
+                      ) : null}
+
+                      {uberEats ? (
+                        <a
+                          href={uberEats}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) =>
+                            void trackAndOpenExternalLink({
+                              event: e,
+                              url: uberEats,
+                              spotId: s.id,
+                              buttonType: "ubereats",
+                            })
+                          }
+                          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+                        >
+                          Uber Eats
                         </a>
                       ) : null}
                     </div>

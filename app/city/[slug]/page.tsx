@@ -10,11 +10,12 @@ import SiteHeader from "@/components/SiteHeader";
 import BottomTabs from "@/components/BottomTabs";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
+import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 import {
   getColorForCategory,
   labelFromCategorySlug,
   normalizeCategorySlug,
-} from "@/components/CityMap";
+} from "@/lib/cityMapCategories";
 
 const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
 
@@ -121,6 +122,7 @@ export default function CityPage() {
   const [selectedMapLegendSlug, setSelectedMapLegendSlug] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const legendListRef = useRef<HTMLDivElement | null>(null);
+  const mapLocationRequestedRef = useRef(false);
 
   const topText = "text-white";
 
@@ -327,6 +329,8 @@ export default function CityPage() {
       .map((s) => {
         const wolt = s.wolt_url ?? s.wolt_link ?? null;
         const lieferando = s.lieferando_url ?? s.lieferando_link ?? null;
+        const uberEats =
+          s.uber_eats_url ?? s.uber_eats_link ?? s.ubereats_url ?? s.ubereats_link ?? null;
 
         return {
           id: s.id,
@@ -339,6 +343,7 @@ export default function CityPage() {
           category_slug: (s.category_slug ?? "other").toString().trim().toLowerCase(),
           wolt_url: wolt,
           lieferando_url: lieferando,
+          uber_eats_url: uberEats,
         };
       });
   }, [filteredSpots]);
@@ -371,6 +376,28 @@ export default function CityPage() {
       window.clearTimeout(timeoutId);
     };
   }, [selectedMapLegendSlug, legendCategorySpots.length]);
+
+  useEffect(() => {
+    if (view !== "map") return;
+    if (userPos) return;
+    if (mapLocationRequestedRef.current) return;
+    if (typeof window === "undefined" || !navigator.geolocation) return;
+
+    mapLocationRequestedRef.current = true;
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserPos({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+      },
+      () => {
+        // Ohne Berechtigung oder Standort bleibt die Karte beim bisherigen Verhalten.
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [userPos, view]);
 
   if (!citySlug) return <main className="p-4">Lade Stadt…</main>;
 
@@ -652,6 +679,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
             center={mapCenter}
             spots={mapSpots}
             userPos={userPos}
+            userRadiusKm={15}
             activeSpotId={activeSpotId}
             onActiveChange={(id: string) => setActiveSpotId(id)}
             onSpotClick={(id: string) => router.push(`/spot/${id}`)}
@@ -814,6 +842,8 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
           {filteredSpots.map((s) => {
             const wolt = s.wolt_url ?? s.wolt_link ?? null;
             const lieferando = s.lieferando_url ?? s.lieferando_link ?? null;
+            const uberEats =
+              s.uber_eats_url ?? s.uber_eats_link ?? s.ubereats_url ?? s.ubereats_link ?? null;
 
             return (
   <div
@@ -878,7 +908,14 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
           href={s.google_maps_link}
           target="_blank"
           rel="noreferrer"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) =>
+            void trackAndOpenExternalLink({
+              event: e,
+              url: s.google_maps_link!,
+              spotId: s.id,
+              buttonType: "maps",
+            })
+          }
           className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
         >
           Google Maps
@@ -890,7 +927,14 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
           href={wolt}
           target="_blank"
           rel="noreferrer"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) =>
+            void trackAndOpenExternalLink({
+              event: e,
+              url: wolt,
+              spotId: s.id,
+              buttonType: "wolt",
+            })
+          }
           className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
         >
           Wolt
@@ -902,10 +946,36 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
           href={lieferando}
           target="_blank"
           rel="noreferrer"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(e) =>
+            void trackAndOpenExternalLink({
+              event: e,
+              url: lieferando,
+              spotId: s.id,
+              buttonType: "lieferando",
+            })
+          }
           className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
         >
           Lieferando
+        </a>
+      ) : null}
+
+      {uberEats ? (
+        <a
+          href={uberEats}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) =>
+            void trackAndOpenExternalLink({
+              event: e,
+              url: uberEats,
+              spotId: s.id,
+              buttonType: "ubereats",
+            })
+          }
+          className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+        >
+          Uber Eats
         </a>
       ) : null}
 

@@ -3,16 +3,18 @@
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import L from "leaflet";
 import { useMemo } from "react";
+import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 
 type Props = {
   lat: number;
   lng: number;
   name: string;
+  spotId?: string | null;
   googleMapsLink?: string | null;
   userPos?: { lat: number; lng: number } | null;
 };
 
-export default function SpotMiniMap({ lat, lng, name, googleMapsLink, userPos }: Props) {
+export default function SpotMiniMap({ lat, lng, name, spotId, googleMapsLink, userPos }: Props) {
   const center: [number, number] = [lat, lng];
 
   // ✅ Icons erst im Browser erzeugen (stabiler in Next.js)
@@ -63,7 +65,20 @@ export default function SpotMiniMap({ lat, lng, name, googleMapsLink, userPos }:
             <b>{name}</b>
             {googleMapsLink ? (
               <div style={{ marginTop: 6 }}>
-                <a href={googleMapsLink} target="_blank" rel="noreferrer">
+                <a
+                  href={googleMapsLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => {
+                    if (!spotId) return;
+                    void trackAndOpenExternalLink({
+                      event: e,
+                      url: googleMapsLink,
+                      spotId,
+                      buttonType: "maps",
+                    });
+                  }}
+                >
                   In Google Maps öffnen
                 </a>
               </div>

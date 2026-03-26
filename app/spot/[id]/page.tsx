@@ -10,6 +10,7 @@ import DistanceLabel from "@/components/DistanceLabel";
 import TikTokEmbed from "@/components/TikTokEmbed";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
+import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 
 const SpotMiniMap = dynamic(() => import("@/components/SpotMiniMap"), { ssr: false });
 
@@ -31,6 +32,10 @@ type Spot = {
   lieferando_url?: string | null;
   wolt_link?: string | null;
   lieferando_link?: string | null;
+  uber_eats_url?: string | null;
+  uber_eats_link?: string | null;
+  ubereats_url?: string | null;
+  ubereats_link?: string | null;
 };
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
@@ -111,6 +116,8 @@ export default function SpotDetailPage() {
 
   const wolt = spot?.wolt_url ?? spot?.wolt_link ?? null;
   const lieferando = spot?.lieferando_url ?? spot?.lieferando_link ?? null;
+  const uberEats =
+    spot?.uber_eats_url ?? spot?.uber_eats_link ?? spot?.ubereats_url ?? spot?.ubereats_link ?? null;
 
   return (
     <main className="min-h-screen bg-[#0f3b2e] text-white px-6 py-8 max-w-xl mx-auto">
@@ -153,6 +160,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                 lng={spot.lng}
                 name={spot.name}
                 googleMapsLink={spot.google_maps_link}
+                spotId={spot.id}
                 userPos={userPos}
               />
             </div>
@@ -184,6 +192,14 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                 href={spot.google_maps_link}
                 target="_blank"
                 rel="noreferrer"
+                onClick={(e) =>
+                  void trackAndOpenExternalLink({
+                    event: e,
+                    url: spot.google_maps_link!,
+                    spotId: spot.id,
+                    buttonType: "maps",
+                  })
+                }
                 className="rounded-2xl bg-[#e8decc] px-4 py-2 font-semibold text-[#0f3b2e]"
               >
                 Google Maps
@@ -195,6 +211,14 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                 href={wolt}
                 target="_blank"
                 rel="noreferrer"
+                onClick={(e) =>
+                  void trackAndOpenExternalLink({
+                    event: e,
+                    url: wolt,
+                    spotId: spot.id,
+                    buttonType: "wolt",
+                  })
+                }
                 className="rounded-2xl bg-[#e8decc] px-4 py-2 font-semibold text-[#0f3b2e]"
               >
                 Wolt
@@ -206,9 +230,36 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                 href={lieferando}
                 target="_blank"
                 rel="noreferrer"
+                onClick={(e) =>
+                  void trackAndOpenExternalLink({
+                    event: e,
+                    url: lieferando,
+                    spotId: spot.id,
+                    buttonType: "lieferando",
+                  })
+                }
                 className="rounded-2xl bg-[#e8decc] px-4 py-2 font-semibold text-[#0f3b2e]"
               >
                 Lieferando
+              </a>
+            )}
+
+            {uberEats && (
+              <a
+                href={uberEats}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) =>
+                  void trackAndOpenExternalLink({
+                    event: e,
+                    url: uberEats,
+                    spotId: spot.id,
+                    buttonType: "ubereats",
+                  })
+                }
+                className="rounded-2xl bg-[#e8decc] px-4 py-2 font-semibold text-[#0f3b2e]"
+              >
+                Uber Eats
               </a>
             )}
           </div>

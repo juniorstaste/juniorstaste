@@ -116,7 +116,7 @@ export default function Home() {
         <button
           onClick={requestLocation}
           disabled={geoLoading}
-          className="w-full h-[56px] rounded-2xl bg-[#e8decc] text-lg font-semibold text-[#0f3b2e] shadow-md transition hover:scale-[1.03] disabled:opacity-70"
+          className="w-full h-[56px] rounded-2xl bg-[#e8decc] text-lg font-semibold text-[#0f3b2e] shadow-md transition active:scale-[1.03] md:hover:scale-[1.03] disabled:opacity-70"
         >
           {geoLoading ? "Standort wird geladen…" : "📍 Standort verwenden"}
         </button>
@@ -145,7 +145,7 @@ export default function Home() {
             <div className="mt-4 flex gap-3">
               <button
                 onClick={goToNearPage}
-                className="flex-1 h-[48px] rounded-xl bg-[#e8decc] text-[#0f3b2e] font-semibold shadow-md transition hover:scale-[1.02]"
+                className="flex-1 h-[48px] rounded-xl bg-[#e8decc] text-[#0f3b2e] font-semibold shadow-md transition active:scale-[1.02] md:hover:scale-[1.02]"
               >
                 Weiter →
               </button>
@@ -167,7 +167,7 @@ export default function Home() {
 <div ref={dropdownRef} className="relative w-full">
   <button
     onClick={() => setCityOpen(!cityOpen)}
-    className="w-full h-[56px] rounded-2xl bg-[#e8decc] text-lg font-semibold text-[#0f3b2e] shadow-md transition hover:scale-[1.03]"
+    className="w-full h-[56px] rounded-2xl bg-[#e8decc] text-lg font-semibold text-[#0f3b2e] shadow-md transition active:scale-[1.03] md:hover:scale-[1.03]"
   >
     Stadt auswählen
   </button>
@@ -181,7 +181,7 @@ export default function Home() {
     setCityOpen(false);
     router.push(`/city/${city.slug}`);
   }}
-  className="w-full px-4 py-3 text-center font-semibold text-[#0f3b2e] hover:bg-[#ded3be] transition"
+  className="w-full px-4 py-3 text-center font-semibold text-[#0f3b2e] transition active:bg-[#ded3be] md:hover:bg-[#ded3be]"
 >
           {city.name}
         </button>
