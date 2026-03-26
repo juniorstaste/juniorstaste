@@ -221,11 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          if (mountedRef.current) {
-            setSavedSpotIds((current) =>
-              current.includes(action.spotId) ? current : [...current, action.spotId]
-            );
-          }
+          await loadSavedSpotIds(nextUser.id);
 
           if (action.returnTo) {
             router.push(action.returnTo);
@@ -235,7 +231,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         window.localStorage.removeItem(POST_AUTH_KEY);
       }
     },
-    [router]
+    [loadSavedSpotIds, router]
   );
 
   const syncUserState = useCallback(
@@ -369,9 +365,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return false;
         }
 
-        if (mountedRef.current) {
-          setSavedSpotIds((current) => current.filter((currentId) => currentId !== spotId));
-        }
+        await loadSavedSpotIds(activeUser.id);
 
         return true;
       }
@@ -386,15 +380,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      if (mountedRef.current) {
-        setSavedSpotIds((current) =>
-          current.includes(spotId) ? current : [...current, spotId]
-        );
-      }
+      await loadSavedSpotIds(activeUser.id);
 
       return true;
     },
-    [ensureProfile, openAuthPrompt, pathname, resolveActiveUser, savedSpotIdsSet, user]
+    [ensureProfile, loadSavedSpotIds, openAuthPrompt, pathname, resolveActiveUser, savedSpotIdsSet, user]
   );
 
   const value = useMemo<AuthContextValue>(

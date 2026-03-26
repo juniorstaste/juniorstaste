@@ -46,7 +46,22 @@ export default function SavedPage() {
         return;
       }
 
-      if (savedSpotIds.length === 0) {
+      const { data: savedRows, error: savedError } = await supabase
+        .from("saved_spots")
+        .select("spot_id, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+
+      if (savedError) {
+        console.error("Konnte saved_spots nicht laden:", savedError);
+        setSpots([]);
+        setLoading(false);
+        return;
+      }
+
+      const savedIds = (savedRows ?? []).map((row: { spot_id: string }) => row.spot_id);
+
+      if (savedIds.length === 0) {
         setSpots([]);
         setLoading(false);
         return;
@@ -59,9 +74,10 @@ export default function SavedPage() {
         .select(
           "id, name, description, address, image_url, city_name, city_slug, tiktok_embed_id, google_maps_link, wolt_url, lieferando_url, wolt_link, lieferando_link, uber_eats_url, uber_eats_link, ubereats_url, ubereats_link"
         )
-        .in("id", savedSpotIds);
+        .in("id", savedIds);
 
       if (error) {
+        console.error("Konnte Spot-Daten fuer gespeicherte Spots nicht laden:", error);
         setSpots([]);
         setLoading(false);
         return;
@@ -69,7 +85,7 @@ export default function SavedPage() {
 
       // Reihenfolge wie gespeichert beibehalten
       const ordered =
-        savedSpotIds
+        savedIds
           .map((id) => (data ?? []).find((spot) => spot.id === id))
           .filter(Boolean) ?? [];
 
