@@ -68,8 +68,11 @@ export default function BottomTabs({ view, onChange }: Props) {
   "h-[56px] rounded-2xl font-semibold flex items-center justify-center gap-1.5 transition text-[14px] whitespace-nowrap";
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50">
-      <div className="mx-auto max-w-[560px] px-4 pb-[max(env(safe-area-inset-bottom),8px)]">
+    <div
+      className="fixed left-0 right-0 z-50"
+      style={{ bottom: "max(env(safe-area-inset-bottom), 8px)" }}
+    >
+      <div className="mx-auto max-w-[560px] px-4 pb-0">
         <div className="rounded-2xl bg-[#e8decc] shadow-sm p-1">
           <div className="flex gap-1">
             <button
