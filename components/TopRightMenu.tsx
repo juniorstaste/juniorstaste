@@ -57,11 +57,47 @@ function AccountIcon() {
   );
 }
 
+function LegalIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M7 4.5h8.5L19 8v11.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1Z"
+        stroke="#0f3b2e"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M15 4.5V8h3.5"
+        stroke="#0f3b2e"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M9 12h6" stroke="#0f3b2e" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M9 16h6" stroke="#0f3b2e" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 const menuItems: MenuItem[] = [
   {
     label: "Gespeicherte Spots",
     href: "/saved",
     icon: <SavedSpotsIcon />,
+  },
+];
+
+const legalItems: MenuItem[] = [
+  {
+    label: "Impressum",
+    href: "/impressum",
+    icon: <LegalIcon />,
+  },
+  {
+    label: "Datenschutz",
+    href: "/datenschutz",
+    icon: <LegalIcon />,
   },
 ];
 
@@ -141,7 +177,7 @@ export default function TopRightMenu({ onOpenChange }: Props) {
         />
 
         <aside
-          className={`absolute right-0 top-0 h-full w-[280px] max-w-[82vw] bg-[#e8decc] shadow-2xl transition-transform duration-300 ease-out ${
+          className={`absolute right-0 top-0 flex h-full w-[280px] max-w-[82vw] flex-col bg-[#e8decc] shadow-2xl transition-transform duration-300 ease-out ${
             open ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -201,20 +237,36 @@ export default function TopRightMenu({ onOpenChange }: Props) {
             </div>
           </div>
 
-          <nav className="px-3 py-3">
-            <button
-              type="button"
-              onClick={handleSavedSpotsClick}
-              className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
-            >
-              <span className="shrink-0">{menuItems[0].icon}</span>
-              <span className="text-[15px] font-semibold">{menuItems[0].label}</span>
-            </button>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <nav className="px-3 py-3">
+              <button
+                type="button"
+                onClick={handleSavedSpotsClick}
+                className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
+              >
+                <span className="shrink-0">{menuItems[0].icon}</span>
+                <span className="text-[15px] font-semibold">{menuItems[0].label}</span>
+              </button>
 
-            {!user && authHint ? (
-              <p className="px-3 pt-2 text-sm text-[#7b3a2a]">{authHint}</p>
-            ) : null}
-          </nav>
+              {!user && authHint ? (
+                <p className="px-3 pt-2 text-sm text-[#7b3a2a]">{authHint}</p>
+              ) : null}
+            </nav>
+
+            <nav className="mt-auto border-t border-[#d8ccb7] px-3 py-3">
+              {legalItems.map((item) => (
+                <button
+                  key={item.href}
+                  type="button"
+                  onClick={() => handleNavigate(item.href)}
+                  className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
+                >
+                  <span className="shrink-0">{item.icon}</span>
+                  <span className="text-[15px] font-semibold">{item.label}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
         </aside>
       </div>
     </>
