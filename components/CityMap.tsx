@@ -25,12 +25,7 @@ type MapSpot = {
   // ✅ Bestell-Links (optional)
   wolt_url?: string | null;
   lieferando_url?: string | null;
-  wolt_link?: string | null;
-  lieferando_link?: string | null;
   uber_eats_url?: string | null;
-  uber_eats_link?: string | null;
-  ubereats_url?: string | null;
-  ubereats_link?: string | null;
 };
 
 type Props = {
@@ -188,10 +183,9 @@ export default function CityMap({
             const slug = normalizeCategorySlug(s.category_slug);
             const color = getColorForCategory(slug);
 
-            const wolt = s.wolt_url ?? s.wolt_link ?? null;
-            const lieferando = s.lieferando_url ?? s.lieferando_link ?? null;
-            const uberEats =
-              s.uber_eats_url ?? s.uber_eats_link ?? s.ubereats_url ?? s.ubereats_link ?? null;
+            const wolt = s.wolt_url ?? null;
+            const lieferando = s.lieferando_url ?? null;
+            const uberEats = s.uber_eats_url ?? null;
 
             // Optional: aktiver Spot etwas “kräftiger” anzeigen
             const isActive = activeSpotId === s.id;

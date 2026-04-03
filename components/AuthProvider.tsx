@@ -43,6 +43,13 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const POST_AUTH_KEY = "post_auth_action";
+const SAVED_SPOT_IDS_KEY = "saved_spot_ids";
+
+function isUuidLike(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
 
 function getDisplayName(user: User) {
   const fromMetadata =
@@ -94,17 +101,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const migrateLocalSavedSpots = useCallback(async (userId: string) => {
     if (typeof window === "undefined") return;
 
-    const raw = window.localStorage.getItem("saved_spot_ids");
+    const raw = window.localStorage.getItem(SAVED_SPOT_IDS_KEY);
     if (!raw) return;
 
     try {
       const parsed = JSON.parse(raw);
       const spotIds = Array.isArray(parsed)
-        ? parsed.filter((value): value is string => typeof value === "string")
+        ? Array.from(
+            new Set(
+              parsed
+                .filter((value): value is string => typeof value === "string")
+                .map((value) => value.trim())
+                .filter((value) => value.length > 0 && isUuidLike(value))
+            )
+          )
         : [];
 
       if (spotIds.length === 0) {
-        window.localStorage.removeItem("saved_spot_ids");
+        window.localStorage.removeItem(SAVED_SPOT_IDS_KEY);
         return;
       }
 
@@ -118,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           "Konnte gueltige Spots fuer lokale Migration nicht pruefen:",
           existingSpotsError
         );
+        window.localStorage.removeItem(SAVED_SPOT_IDS_KEY);
         return;
       }
 
@@ -128,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const migratableSpotIds = spotIds.filter((spotId) => validSpotIds.has(spotId));
 
       if (migratableSpotIds.length === 0) {
-        window.localStorage.removeItem("saved_spot_ids");
+        window.localStorage.removeItem(SAVED_SPOT_IDS_KEY);
         return;
       }
 
@@ -144,12 +159,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         logSupabaseError("Konnte lokale gespeicherte Spots nicht migrieren:", error);
+        window.localStorage.removeItem(SAVED_SPOT_IDS_KEY);
         return;
       }
 
-      window.localStorage.removeItem("saved_spot_ids");
-    } catch {
-      window.localStorage.removeItem("saved_spot_ids");
+      window.localStorage.removeItem(SAVED_SPOT_IDS_KEY);
+    } catch (error) {
+      console.error("Konnte lokale gespeicherte Spots nicht migrieren:", {
+        error,
+        message: error instanceof Error ? error.message : undefined,
+        json: (() => {
+          try {
+            return JSON.stringify(error, null, 2);
+          } catch {
+            return undefined;
+          }
+        })(),
+      });
+      window.localStorage.removeItem(SAVED_SPOT_IDS_KEY);
     }
   }, []);
 

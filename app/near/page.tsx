@@ -39,12 +39,7 @@ type Spot = {
 
   wolt_url?: string | null;
   lieferando_url?: string | null;
-  wolt_link?: string | null;
-  lieferando_link?: string | null;
   uber_eats_url?: string | null;
-  uber_eats_link?: string | null;
-  ubereats_url?: string | null;
-  ubereats_link?: string | null;
 
   created_at?: string | null;
 };
@@ -230,10 +225,9 @@ export default function NearPage() {
     return filteredSpots
       .filter((s) => typeof s.lat === "number" && typeof s.lng === "number")
       .map((s) => {
-        const wolt = s.wolt_url ?? s.wolt_link ?? null;
-        const lieferando = s.lieferando_url ?? s.lieferando_link ?? null;
-        const uberEats =
-          s.uber_eats_url ?? s.uber_eats_link ?? s.ubereats_url ?? s.ubereats_link ?? null;
+        const wolt = s.wolt_url ?? null;
+        const lieferando = s.lieferando_url ?? null;
+        const uberEats = s.uber_eats_url ?? null;
 
         return {
           id: s.id,
@@ -462,10 +456,9 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
       ) : (
         <div className="grid gap-3">
           {filteredSpots.map((s) => {
-            const wolt = s.wolt_url ?? s.wolt_link ?? null;
-            const lieferando = s.lieferando_url ?? s.lieferando_link ?? null;
-            const uberEats =
-              s.uber_eats_url ?? s.uber_eats_link ?? s.ubereats_url ?? s.ubereats_link ?? null;
+            const wolt = s.wolt_url ?? null;
+            const lieferando = s.lieferando_url ?? null;
+            const uberEats = s.uber_eats_url ?? null;
 
             return (
               <div

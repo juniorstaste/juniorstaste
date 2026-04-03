@@ -31,12 +31,7 @@ type Spot = {
   city_slug: string | null;
   wolt_url?: string | null;
   lieferando_url?: string | null;
-  wolt_link?: string | null;
-  lieferando_link?: string | null;
   uber_eats_url?: string | null;
-  uber_eats_link?: string | null;
-  ubereats_url?: string | null;
-  ubereats_link?: string | null;
 };
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
@@ -115,10 +110,9 @@ export default function SpotDetailPage() {
 
   if (!spotId) return null;
 
-  const wolt = spot?.wolt_url ?? spot?.wolt_link ?? null;
-  const lieferando = spot?.lieferando_url ?? spot?.lieferando_link ?? null;
-  const uberEats =
-    spot?.uber_eats_url ?? spot?.uber_eats_link ?? spot?.ubereats_url ?? spot?.ubereats_link ?? null;
+  const wolt = spot?.wolt_url ?? null;
+  const lieferando = spot?.lieferando_url ?? null;
+  const uberEats = spot?.uber_eats_url ?? null;
 
   return (
     <main className="min-h-screen bg-[#0f3b2e] text-white px-6 py-8 max-w-xl mx-auto">

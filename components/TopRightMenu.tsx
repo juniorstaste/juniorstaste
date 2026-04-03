@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import AuthForm from "@/components/AuthForm";
 import { useAuth } from "@/components/AuthProvider";
 import { usePathname, useRouter } from "next/navigation";
@@ -111,6 +112,12 @@ export default function TopRightMenu({ onOpenChange }: Props) {
   const { authLoading, user, profile, signOut, openAuthPrompt } = useAuth();
   const [open, setOpen] = useState(false);
   const [authHint, setAuthHint] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   useEffect(() => {
     onOpenChange?.(open);
@@ -150,6 +157,113 @@ export default function TopRightMenu({ onOpenChange }: Props) {
   const displayName =
     profile?.display_name?.trim() || (user?.email ? user.email.split("@")[0] : "Account");
 
+  const menuLayer = (
+    <div
+      className={`fixed inset-0 z-[2000] transition ${open ? "pointer-events-auto" : "pointer-events-none"}`}
+      aria-hidden={!open}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        className={`absolute inset-0 bg-black/20 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
+        aria-label="Menü schließen"
+      />
+
+      <aside
+        className={`absolute right-0 top-0 flex h-full w-[280px] max-w-[82vw] flex-col bg-[#e8decc] shadow-2xl transition-transform duration-300 ease-out ${
+          open ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-[#ece6da] px-5 py-4">
+          <div className="text-[15px] font-bold text-[#0f3b2e]">Menü</div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="text-[26px] leading-none text-[#0f3b2e] transition hover:opacity-70"
+            aria-label="Menü schließen"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="border-b border-[#ece6da] px-4 py-4">
+          <div className="rounded-2xl bg-[#fffaf2] p-4 shadow-sm">
+            <div className="mb-3 flex items-start gap-3">
+              <div className="mt-0.5 shrink-0">
+                <AccountIcon />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="text-[15px] font-bold text-[#0f3b2e]">Account</div>
+
+                {authLoading ? (
+                  <p className="mt-1 text-sm text-[#0f3b2e]/70">Account wird geladen…</p>
+                ) : user ? (
+                  <>
+                    <p className="mt-1 truncate text-sm font-semibold text-[#0f3b2e]">
+                      {displayName}
+                    </p>
+                    <p className="truncate text-sm text-[#0f3b2e]/75">{user.email}</p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-[#0f3b2e]/75">
+                    Logge dich mit E-Mail und Passwort ein oder erstelle ein neues Konto.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {user ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  void signOut();
+                }}
+                className="w-full rounded-2xl border border-[#d8ccb7] bg-[#e8decc] px-4 py-3 text-[15px] font-semibold text-[#0f3b2e] transition hover:bg-[#ded3be]"
+              >
+                Logout
+              </button>
+            ) : (
+              <AuthForm mode="drawer" initialView="login" />
+            )}
+          </div>
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col">
+          <nav className="px-3 py-3">
+            <button
+              type="button"
+              onClick={handleSavedSpotsClick}
+              className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
+            >
+              <span className="shrink-0">{menuItems[0].icon}</span>
+              <span className="text-[15px] font-semibold">{menuItems[0].label}</span>
+            </button>
+
+            {!user && authHint ? (
+              <p className="px-3 pt-2 text-sm text-[#7b3a2a]">{authHint}</p>
+            ) : null}
+          </nav>
+
+          <nav className="mt-auto border-t border-[#d8ccb7] px-3 py-3">
+            {legalItems.map((item) => (
+              <button
+                key={item.href}
+                type="button"
+                onClick={() => handleNavigate(item.href)}
+                className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
+              >
+                <span className="shrink-0">{item.icon}</span>
+                <span className="text-[15px] font-semibold">{item.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+      </aside>
+    </div>
+  );
+
   return (
     <>
       <button
@@ -165,110 +279,7 @@ export default function TopRightMenu({ onOpenChange }: Props) {
         <MenuIcon />
       </button>
 
-      <div
-        className={`fixed inset-0 z-50 transition ${open ? "pointer-events-auto" : "pointer-events-none"}`}
-        aria-hidden={!open}
-      >
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className={`absolute inset-0 bg-black/20 transition-opacity ${open ? "opacity-100" : "opacity-0"}`}
-          aria-label="Menü schließen"
-        />
-
-        <aside
-          className={`absolute right-0 top-0 flex h-full w-[280px] max-w-[82vw] flex-col bg-[#e8decc] shadow-2xl transition-transform duration-300 ease-out ${
-            open ? "translate-x-0" : "translate-x-full"
-          }`}
-        >
-          <div className="flex items-center justify-between border-b border-[#ece6da] px-5 py-4">
-            <div className="text-[15px] font-bold text-[#0f3b2e]">Menü</div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="text-[26px] leading-none text-[#0f3b2e] transition hover:opacity-70"
-              aria-label="Menü schließen"
-            >
-              ×
-            </button>
-          </div>
-
-          <div className="border-b border-[#ece6da] px-4 py-4">
-            <div className="rounded-2xl bg-[#fffaf2] p-4 shadow-sm">
-              <div className="mb-3 flex items-start gap-3">
-                <div className="mt-0.5 shrink-0">
-                  <AccountIcon />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="text-[15px] font-bold text-[#0f3b2e]">Account</div>
-
-                  {authLoading ? (
-                    <p className="mt-1 text-sm text-[#0f3b2e]/70">Account wird geladen…</p>
-                  ) : user ? (
-                    <>
-                      <p className="mt-1 truncate text-sm font-semibold text-[#0f3b2e]">
-                        {displayName}
-                      </p>
-                      <p className="truncate text-sm text-[#0f3b2e]/75">{user.email}</p>
-                    </>
-                  ) : (
-                    <p className="mt-1 text-sm text-[#0f3b2e]/75">
-                      Logge dich mit E-Mail und Passwort ein oder erstelle ein neues Konto.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {user ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpen(false);
-                    void signOut();
-                  }}
-                  className="w-full rounded-2xl border border-[#d8ccb7] bg-[#e8decc] px-4 py-3 text-[15px] font-semibold text-[#0f3b2e] transition hover:bg-[#ded3be]"
-                >
-                  Logout
-                </button>
-              ) : (
-                <AuthForm mode="drawer" initialView="login" />
-              )}
-            </div>
-          </div>
-
-          <div className="flex min-h-0 flex-1 flex-col">
-            <nav className="px-3 py-3">
-              <button
-                type="button"
-                onClick={handleSavedSpotsClick}
-                className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
-              >
-                <span className="shrink-0">{menuItems[0].icon}</span>
-                <span className="text-[15px] font-semibold">{menuItems[0].label}</span>
-              </button>
-
-              {!user && authHint ? (
-                <p className="px-3 pt-2 text-sm text-[#7b3a2a]">{authHint}</p>
-              ) : null}
-            </nav>
-
-            <nav className="mt-auto border-t border-[#d8ccb7] px-3 py-3">
-              {legalItems.map((item) => (
-                <button
-                  key={item.href}
-                  type="button"
-                  onClick={() => handleNavigate(item.href)}
-                  className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
-                >
-                  <span className="shrink-0">{item.icon}</span>
-                  <span className="text-[15px] font-semibold">{item.label}</span>
-                </button>
-              ))}
-            </nav>
-          </div>
-        </aside>
-      </div>
+      {mounted ? createPortal(menuLayer, document.body) : null}
     </>
   );
 }
