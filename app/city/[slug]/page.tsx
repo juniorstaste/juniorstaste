@@ -993,11 +993,12 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
         onClick={(e) => e.stopPropagation()}
       >
       
-        <div className="mx-auto min-w-0 w-full max-w-[420px]">
+<div className="mx-auto min-w-0 w-full max-w-[420px]">
   <TikTokEmbed
     username="juniorstaste"
     videoId={s.tiktok_embed_id}
     height={760}
+    loadMode="nearby"
   />
 </div>
       </div>

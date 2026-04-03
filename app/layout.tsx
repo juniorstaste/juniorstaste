@@ -28,6 +28,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <meta name="apple-mobile-web-app-title" content="JuniorsTaste" />
       <meta name="theme-color" content="#0f3b2e" />
       <link rel="apple-touch-icon" href="/icon-512.png" />
+      <link rel="preconnect" href="https://www.tiktok.com" />
+      <link rel="dns-prefetch" href="https://www.tiktok.com" />
     </head>
     <body className={montserrat.className}>
       <AuthProvider>{children}</AuthProvider>

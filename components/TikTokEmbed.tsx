@@ -6,11 +6,18 @@ type Props = {
   videoId: string;
   username?: string;
   height?: number;
+  loadMode?: "eager" | "nearby";
 };
 
-export default function TikTokEmbed({ videoId, username, height }: Props) {
+export default function TikTokEmbed({
+  videoId,
+  username,
+  height,
+  loadMode = "eager",
+}: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [dynamicHeight, setDynamicHeight] = useState(760);
+  const [shouldLoadIframe, setShouldLoadIframe] = useState(loadMode === "eager");
 
   useEffect(() => {
     if (height) return;
@@ -46,6 +53,37 @@ export default function TikTokEmbed({ videoId, username, height }: Props) {
     };
   }, [height]);
 
+  useEffect(() => {
+    if (loadMode === "eager") {
+      setShouldLoadIframe(true);
+      return;
+    }
+
+    if (shouldLoadIframe || !wrapRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (!entry) return;
+
+        if (entry.isIntersecting) {
+          setShouldLoadIframe(true);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: "700px 0px",
+        threshold: 0.01,
+      }
+    );
+
+    observer.observe(wrapRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [loadMode, shouldLoadIframe]);
+
   const finalHeight = height ?? dynamicHeight;
 
   const src = `https://www.tiktok.com/embed/v2/${videoId}?autoplay=1`;
@@ -68,22 +106,36 @@ export default function TikTokEmbed({ videoId, username, height }: Props) {
         boxSizing: "border-box",
       }}
     >
-      <iframe
-        src={src}
-        width="100%"
-        height={finalHeight}
-        scrolling="no"
-        style={{
-          border: "none",
-          display: "block",
-          overflow: "hidden",
-          background: "transparent",
-          borderRadius: 12,
-        }}
-        allow="autoplay; encrypted-media"
-        allowFullScreen
-        title={`TikTok video ${videoId}`}
-      />
+      {shouldLoadIframe ? (
+        <iframe
+          src={src}
+          width="100%"
+          height={finalHeight}
+          scrolling="no"
+          loading={loadMode === "nearby" ? "lazy" : "eager"}
+          style={{
+            border: "none",
+            display: "block",
+            overflow: "hidden",
+            background: "transparent",
+            borderRadius: 12,
+          }}
+          allow="autoplay; encrypted-media"
+          allowFullScreen
+          title={`TikTok video ${videoId}`}
+        />
+      ) : (
+        <div
+          style={{
+            width: "100%",
+            height: finalHeight,
+            borderRadius: 12,
+            background:
+              "linear-gradient(180deg, rgba(15,59,46,0.14) 0%, rgba(15,59,46,0.06) 100%)",
+          }}
+          aria-hidden="true"
+        />
+      )}
 
       <div
         style={{

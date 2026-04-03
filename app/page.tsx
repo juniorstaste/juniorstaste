@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import TopRightMenu from "@/components/TopRightMenu";
 
 
-type City = { id: string; name: string; slug: string };
+type City = { id: string; name: string; slug: string; spotCount: number };
 
 export default function Home() {
   const [cities, setCities] = useState<City[]>([]);
@@ -25,17 +25,42 @@ export default function Home() {
 
   useEffect(() => {
     async function loadCities() {
-      const { data, error } = await supabase
+      const { data: cityRows, error: citiesError } = await supabase
         .from("cities")
-        .select("id, name, slug")
-        .order("name", { ascending: true });
+        .select("id, name, slug");
 
-      if (error) {
-        setErrorMsg(error.message);
+      if (citiesError) {
+        setErrorMsg(citiesError.message);
         return;
       }
 
-      setCities(data ?? []);
+      const { data: spotRows, error: spotsError } = await supabase
+        .from("spots")
+        .select("city_id");
+
+      if (spotsError) {
+        setErrorMsg(spotsError.message);
+        return;
+      }
+
+      const spotCounts = new Map<string, number>();
+
+      (spotRows ?? []).forEach((spot: { city_id: string | null }) => {
+        if (!spot.city_id) return;
+        spotCounts.set(spot.city_id, (spotCounts.get(spot.city_id) ?? 0) + 1);
+      });
+
+      const sortedCities = ((cityRows ?? []) as Array<{ id: string; name: string; slug: string }>)
+        .map((city) => ({
+          ...city,
+          spotCount: spotCounts.get(city.id) ?? 0,
+        }))
+        .sort((a, b) => {
+          if (b.spotCount !== a.spotCount) return b.spotCount - a.spotCount;
+          return a.name.localeCompare(b.name);
+        });
+
+      setCities(sortedCities);
     }
 
     loadCities();
