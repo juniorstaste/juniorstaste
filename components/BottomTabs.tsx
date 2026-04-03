@@ -69,7 +69,7 @@ export default function BottomTabs({ view, onChange }: Props) {
 
   return (
     <div
-      className="fixed left-0 right-0 z-50"
+      className="fixed left-0 right-0 z-[1100]"
       style={{ bottom: "max(env(safe-area-inset-bottom), 8px)" }}
     >
       <div className="mx-auto max-w-[560px] px-4 pb-0">

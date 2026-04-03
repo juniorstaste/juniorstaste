@@ -2,21 +2,27 @@
 
 import { supabase } from "@/lib/supabaseClient";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import TikTokEmbed from "@/components/TikTokEmbed";
 import DistanceLabel from "@/components/DistanceLabel";
 import SiteHeader from "@/components/SiteHeader";
 import BottomTabs from "@/components/BottomTabs";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
 import ShareSpotButton from "@/components/ShareSpotButton";
+import SpotTikTokSection from "@/components/SpotTikTokSection";
 import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 import {
   getColorForCategory,
   labelFromCategorySlug,
   normalizeCategorySlug,
 } from "@/lib/cityMapCategories";
+import {
+  isCityTabView,
+  LAST_CITY_SLUG_KEY,
+  LAST_CITY_VIEW_KEY,
+} from "@/lib/lastCityNavigation";
+import { prioritizeSpots } from "@/lib/prioritySpot";
 
 const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
 
@@ -90,6 +96,7 @@ const TASTE_DES_MONATS_IDS = [
 
 export default function CityPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const params = useParams();
 
   const citySlug = useMemo(() => {
@@ -116,7 +123,6 @@ export default function CityPage() {
 
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusKm, setRadiusKm] = useState<number>(5);
-  const [radiusEnabled, setRadiusEnabled] = useState<boolean>(false);
   const [geoError, setGeoError] = useState<string | null>(null);
 
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
@@ -135,6 +141,18 @@ export default function CityPage() {
   useEffect(() => {
     if (citySlug) setCitySelectValue(citySlug);
   }, [citySlug]);
+
+  useEffect(() => {
+    const requestedView = searchParams.get("view");
+    if (!isCityTabView(requestedView)) return;
+    setView(requestedView);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !citySlug) return;
+    window.localStorage.setItem(LAST_CITY_SLUG_KEY, citySlug);
+    window.localStorage.setItem(LAST_CITY_VIEW_KEY, view);
+  }, [citySlug, view]);
 
   useEffect(() => {
     async function loadCities() {
@@ -250,7 +268,7 @@ export default function CityPage() {
             TASTE_DES_MONATS_IDS.indexOf(a.id) - TASTE_DES_MONATS_IDS.indexOf(b.id)
         ) ?? [];
 
-      setTasteDesMonatsSpots(ordered);
+      setTasteDesMonatsSpots(prioritizeSpots(ordered));
     }
 
     loadTasteDesMonats();
@@ -266,7 +284,7 @@ export default function CityPage() {
           return haystack.includes(q);
         });
 
-    if (radiusEnabled && userPos) {
+    if (userPos) {
       list = list.filter((s) => {
         if (typeof s.lat !== "number" || typeof s.lng !== "number") return false;
         const d = haversineKm(userPos, { lat: s.lat as number, lng: s.lng as number });
@@ -294,22 +312,14 @@ export default function CityPage() {
       });
     } else {
       list.sort((a, b) => {
-        if (citySlug === "stuttgart") {
-          const aIsBun = a.name === "Bun'n Smash";
-          const bIsBun = b.name === "Bun'n Smash";
-
-          if (aIsBun && !bIsBun) return -1;
-          if (!aIsBun && bIsBun) return 1;
-        }
-
         const ad = a.created_at ? new Date(a.created_at).getTime() : 0;
         const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
         return bd - ad;
       });
     }
 
-    return list;
-  }, [spots, search, sort, userPos, radiusKm, radiusEnabled, deliveryFilter, citySlug]);
+    return prioritizeSpots(list);
+  }, [spots, search, sort, userPos, radiusKm, deliveryFilter]);
 
   const distanceById = useMemo(() => {
     const map = new Map<string, number>();
@@ -358,8 +368,10 @@ export default function CityPage() {
   const legendCategorySpots = useMemo(() => {
     if (!selectedMapLegendSlug) return [];
 
-    return filteredSpots.filter(
-      (spot) => normalizeCategorySlug(spot.category_slug) === selectedMapLegendSlug
+    return prioritizeSpots(
+      filteredSpots.filter(
+        (spot) => normalizeCategorySlug(spot.category_slug) === selectedMapLegendSlug
+      )
     );
   }, [filteredSpots, selectedMapLegendSlug]);
 
@@ -585,19 +597,6 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                       📍 In meiner Nähe
                     </button>
 
-                    {/* Reset */}
-                    {userPos ? (
-                      <button
-                        onClick={() => {
-                          setUserPos(null);
-                          setRadiusEnabled(false);
-                        }}
-                        className="px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] text-[#0f3b2e] font-semibold shadow-sm transition hover:bg-[#efe5d6] shrink-0"
-                        title="Standort zurücksetzen"
-                      >
-                        ✕
-                      </button>
-                    ) : null}
                   </div>
                 </div>
               </div>
@@ -615,25 +614,27 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
         <div className="mb-4 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] p-4 text-[#0f2a22] shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div className="font-extrabold">Umkreis</div>
-            <label className="flex items-center gap-2 text-sm font-semibold">
-              <input
-                type="checkbox"
-                checked={radiusEnabled}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setRadiusEnabled(checked);
-                  if (checked) setSort("distance");
-                }}
-              />
-              aktiv
-            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setUserPos(null);
+                setRadiusKm(5);
+              }}
+              className="rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] px-3 py-2 text-sm font-semibold text-[#0f3b2e] shadow-sm transition hover:bg-[#efe5d6]"
+              title="Standort zurücksetzen"
+              aria-label="Standort zurücksetzen"
+            >
+              ✕
+            </button>
           </div>
 
           <div className="mt-3">
             <select
               value={radiusKm}
-              onChange={(e) => setRadiusKm(Number(e.target.value))}
-              disabled={!radiusEnabled}
+              onChange={(e) => {
+                setRadiusKm(Number(e.target.value));
+                setSort("distance");
+              }}
               className={controlBase}
             >
               <option value={2}>2 km</option>
@@ -646,9 +647,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
             </select>
 
             <div className="mt-2 text-xs opacity-80">
-              {radiusEnabled
-                ? `Zeige Spots im Umkreis von ${radiusKm} km.`
-                : "Aktiviere den Umkreis, um Spots zu filtern."}
+              {`Zeige Spots im Umkreis von ${radiusKm} km.`}
             </div>
           </div>
         </div>
@@ -988,20 +987,10 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
 
     {/* TikTok als eigener Bereich unterhalb */}
     {s.tiktok_embed_id ? (
-      <div
-        className="mt-6"
+      <SpotTikTokSection
+        videoId={s.tiktok_embed_id}
         onClick={(e) => e.stopPropagation()}
-      >
-      
-<div className="mx-auto min-w-0 w-full max-w-[420px]">
-  <TikTokEmbed
-    username="juniorstaste"
-    videoId={s.tiktok_embed_id}
-    height={760}
-    loadMode="nearby"
-  />
-</div>
-      </div>
+      />
     ) : null}
   </div>
 );

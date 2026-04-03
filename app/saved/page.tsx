@@ -7,9 +7,10 @@ import SiteHeader from "@/components/SiteHeader";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
 import ShareSpotButton from "@/components/ShareSpotButton";
-import TikTokEmbed from "@/components/TikTokEmbed";
 import { useRouter } from "next/navigation";
 import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
+import { logSupabaseError } from "@/lib/logSupabaseError";
+import { prioritizeSpots } from "@/lib/prioritySpot";
 
 type Spot = {
   id: string;
@@ -17,18 +18,18 @@ type Spot = {
   description: string | null;
   address: string | null;
   image_url: string | null;
+  city_id?: string | null;
   city_name?: string | null;
   city_slug?: string | null;
   tiktok_embed_id?: string | null;
   google_maps_link?: string | null;
   wolt_url?: string | null;
   lieferando_url?: string | null;
-  wolt_link?: string | null;
-  lieferando_link?: string | null;
   uber_eats_url?: string | null;
-  uber_eats_link?: string | null;
-  ubereats_url?: string | null;
-  ubereats_link?: string | null;
+  city?: {
+    name?: string | null;
+    slug?: string | null;
+  } | null;
 };
 
 export default function SavedPage() {
@@ -53,7 +54,7 @@ export default function SavedPage() {
         .order("created_at", { ascending: true });
 
       if (savedError) {
-        console.error("Konnte saved_spots nicht laden:", savedError);
+        logSupabaseError("Konnte saved_spots nicht laden:", savedError);
         setSpots([]);
         setLoading(false);
         return;
@@ -70,23 +71,56 @@ export default function SavedPage() {
       setLoading(true);
 
       const { data, error } = await supabase
-        .from("spots_with_city")
+        .from("spots")
         .select(
-          "id, name, description, address, image_url, city_name, city_slug, tiktok_embed_id, google_maps_link, wolt_url, lieferando_url, wolt_link, lieferando_link, uber_eats_url, uber_eats_link, ubereats_url, ubereats_link"
+          "id, name, description, address, image_url, city_id, tiktok_embed_id, google_maps_link, wolt_url, lieferando_url, uber_eats_url"
         )
         .in("id", savedIds);
 
       if (error) {
-        console.error("Konnte Spot-Daten fuer gespeicherte Spots nicht laden:", error);
+        logSupabaseError("Konnte Spot-Daten fuer gespeicherte Spots nicht laden:", error);
         setSpots([]);
         setLoading(false);
         return;
       }
 
-      // Reihenfolge wie gespeichert beibehalten
+      const cityIds = Array.from(
+        new Set(
+          ((data ?? []) as Spot[])
+            .map((spot) => spot.city_id)
+            .filter((cityId): cityId is string => typeof cityId === "string" && cityId.length > 0)
+        )
+      );
+
+      let cityMap = new Map<string, { name: string | null; slug: string | null }>();
+
+      if (cityIds.length > 0) {
+        const { data: cityRows, error: cityError } = await supabase
+          .from("cities")
+          .select("id, name, slug")
+          .in("id", cityIds);
+
+        if (cityError) {
+          logSupabaseError("Konnte Stadt-Daten fuer gespeicherte Spots nicht laden:", cityError);
+        } else {
+          cityMap = new Map(
+            (cityRows ?? []).map((city: { id: string; name: string | null; slug: string | null }) => [
+              city.id,
+              { name: city.name, slug: city.slug },
+            ])
+          );
+        }
+      }
+
+      const normalizedData = ((data ?? []) as Spot[]).map((spot) => ({
+        ...spot,
+        city_name: spot.city_id ? (cityMap.get(spot.city_id)?.name ?? null) : null,
+        city_slug: spot.city_id ? (cityMap.get(spot.city_id)?.slug ?? null) : null,
+      }));
+
       const ordered =
         savedIds
-          .map((id) => (data ?? []).find((spot) => spot.id === id))
+          .map((id) => normalizedData.find((spot) => spot.id === id))
           .filter(Boolean) ?? [];
 
       setSpots(ordered as Spot[]);
@@ -104,10 +138,11 @@ const savedCities = Array.from(
   )
 ).sort((a, b) => a.localeCompare(b));
 
-const filteredSpots =
+const filteredSpots = prioritizeSpots(
   selectedCity === "all"
     ? spots
-    : spots.filter((spot) => spot.city_name === selectedCity);
+    : spots.filter((spot) => spot.city_name === selectedCity)
+);
   return (
     <main className="min-h-screen bg-[#0f3b2e]">
       <div className="mx-auto max-w-[560px] p-4 pb-28">
@@ -185,15 +220,15 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
 ) : (
           <div className="grid gap-4">
             {filteredSpots.map((spot) => {
-              const wolt = spot.wolt_url ?? spot.wolt_link ?? null;
-              const lieferando = spot.lieferando_url ?? spot.lieferando_link ?? null;
-              const uberEats =
-                spot.uber_eats_url ?? spot.uber_eats_link ?? spot.ubereats_url ?? spot.ubereats_link ?? null;
+              const wolt = spot.wolt_url ?? null;
+              const lieferando = spot.lieferando_url ?? null;
+              const uberEats = spot.uber_eats_url ?? null;
 
               return (
                 <div
                   key={spot.id}
-                  className="relative rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm"
+                  onClick={() => router.push(`/spot/${spot.id}`)}
+                  className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
                 >
                   {/* Bookmark oben rechts */}
                   <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
@@ -201,43 +236,39 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                     <SaveSpotButton spotId={spot.id} variant="list" />
                   </div>
 
-                  <a href={`/spot/${spot.id}`} className="block">
-                    <div className="flex gap-3">
-                      {spot.image_url ? (
-                        <img
-                          src={spot.image_url}
-                          alt={spot.name}
-                          className="h-20 w-20 rounded-xl object-cover ring-1 ring-black/5"
-                        />
-                      ) : (
-                        <div className="h-20 w-20 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
-                      )}
+                  <div className="min-w-0 flex gap-3">
+                    {spot.image_url ? (
+                      <img
+                        src={spot.image_url}
+                        alt={spot.name}
+                        className="h-16 w-16 rounded-xl object-cover ring-1 ring-black/5"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
+                    )}
 
-                      <div className="min-w-0 flex-1 pr-8">
-                        <h2 className="truncate text-base font-extrabold text-[#1f1f1f]">
-                          {spot.name}
-                        </h2>
+                    <div className="min-w-0 flex-1 pr-14">
+                      <h2 className="truncate text-sm font-extrabold text-[#1f1f1f]">
+                        {spot.name}
+                      </h2>
 
-                        {spot.city_name ? (
-                          <div className="mt-1 text-sm text-[#5a5348] font-medium">
-                            {spot.city_name}
-                          </div>
-                        ) : null}
-
-                        {spot.description ? (
-                          <p className="mt-2 line-clamp-2 text-sm text-[#2f2a23]">
-                            {spot.description}
-                          </p>
-                        ) : null}
-
-                        {spot.address ? (
-                          <p className="mt-1 truncate text-sm text-[#6b6256]">
-                            {spot.address}
-                          </p>
-                        ) : null}
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5a5348]">
+                        {spot.city_name ? <span className="font-medium">{spot.city_name}</span> : null}
                       </div>
+
+                      {spot.description ? (
+                        <p className="mt-1 line-clamp-2 text-xs text-[#2f2a23]">
+                          {spot.description}
+                        </p>
+                      ) : null}
+
+                      {spot.address ? (
+                        <p className="mt-1 break-words text-xs text-[#6b6256]">
+                          {spot.address}
+                        </p>
+                      ) : null}
                     </div>
-                  </a>
+                  </div>
 
                   {/* Action Buttons */}
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -317,18 +348,6 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                       </a>
                     ) : null}
                   </div>
-
-                  {/* TikTok Video */}
-                  {spot.tiktok_embed_id ? (
-  <div className="mt-4 flex justify-center">
-    <div className="rounded-2xl overflow-hidden shadow-lg">
-      <TikTokEmbed
-        username="juniorstaste"
-        videoId={spot.tiktok_embed_id}
-      />
-    </div>
-  </div>
-) : null}
                 </div>
               );
             })}

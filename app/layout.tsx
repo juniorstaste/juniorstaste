@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "@/components/AuthProvider";
+import GlobalBottomTabs from "@/components/GlobalBottomTabs";
 import "./globals.css";
 import { Montserrat } from "next/font/google";
 
@@ -32,7 +33,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <link rel="dns-prefetch" href="https://www.tiktok.com" />
     </head>
     <body className={montserrat.className}>
-      <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>
+        {children}
+        <GlobalBottomTabs />
+      </AuthProvider>
     </body>
   </html>
 );

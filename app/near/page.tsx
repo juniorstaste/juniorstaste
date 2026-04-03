@@ -7,14 +7,15 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import dynamicImport from "next/dynamic";
 
-import TikTokEmbed from "@/components/TikTokEmbed";
 import DistanceLabel from "@/components/DistanceLabel";
 import SiteHeader from "@/components/SiteHeader";
 import BottomTabs from "@/components/BottomTabs";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
 import ShareSpotButton from "@/components/ShareSpotButton";
+import SpotTikTokSection from "@/components/SpotTikTokSection";
 import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
+import { prioritizeSpots } from "@/lib/prioritySpot";
 
 const CityMap = dynamicImport(() => import("@/components/CityMap"), { ssr: false });
 
@@ -99,6 +100,24 @@ export default function NearPage() {
     "text-[#0f2a22] placeholder:text-[#0f2a22]/50 font-semibold shadow-sm transition hover:bg-[#efe5d6] " +
     "focus:outline-none focus:ring-2 focus:ring-[#c6a85b]";
 
+  const selectedRadiusLabel = `Radius: ${radius} km`;
+  const selectedCategoryLabel =
+    category === "all"
+      ? "Kategorie: Alle"
+      : categories.find((c) => c.slug === category)?.name ?? "Kategorie";
+  const selectedSortLabel =
+    sort === "distance"
+      ? "Sortierung: Nähe"
+      : sort === "rating"
+      ? "Best bewertet"
+      : sort === "price"
+      ? "Preis"
+      : "Neueste";
+
+  function getSelectWidth(label: string, min = 140) {
+    return `${Math.max(min, label.length * 9 + 48)}px`;
+  }
+
   useEffect(() => {
     if (!hasValidCoords) return;
 
@@ -159,7 +178,7 @@ export default function NearPage() {
           (a, b) => TASTE_DES_MONATS_IDS.indexOf(a.id) - TASTE_DES_MONATS_IDS.indexOf(b.id)
         ) ?? [];
 
-      setTasteDesMonatsSpots(ordered);
+      setTasteDesMonatsSpots(prioritizeSpots(ordered));
     }
 
     loadTasteDesMonats();
@@ -204,7 +223,7 @@ export default function NearPage() {
       });
     }
 
-    return list;
+    return prioritizeSpots(list);
   }, [spots, search, category, sort, radius, lat, lng, hasValidCoords]);
 
   const mapSpots = useMemo(() => {
@@ -291,7 +310,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
     <div className="flex gap-3 min-w-max">
 
       {/* Radius */}
-      <div className="shrink-0">
+      <div className="shrink-0" style={{ width: getSelectWidth(selectedRadiusLabel, 150) }}>
         <select
           value={radius}
           onChange={(e) => setRadius(Number(e.target.value))}
@@ -308,7 +327,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
       </div>
 
       {/* Kategorie */}
-      <div className="shrink-0">
+      <div className="shrink-0" style={{ width: getSelectWidth(selectedCategoryLabel, 150) }}>
         <select
           value={category}
           onChange={(e) => {
@@ -327,7 +346,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
       </div>
 
       {/* Sortierung */}
-      <div className="shrink-0">
+      <div className="shrink-0" style={{ width: getSelectWidth(selectedSortLabel, 170) }}>
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as any)}
@@ -391,14 +410,14 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
               <div
                 key={s.id}
                 onClick={() => router.push(`/spot/${s.id}`)}
-                className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
+                className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
               >
                 <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
                   <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
                   <SaveSpotButton spotId={s.id} variant="list" />
                 </div>
 
-                <div className="flex gap-3">
+                <div className="min-w-0 flex gap-3">
                   {s.image_url ? (
                     <img
                       src={s.image_url}
@@ -409,7 +428,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                     <div className="h-16 w-16 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
                   )}
 
-                  <div className="min-w-0 flex-1 pr-8">
+                  <div className="min-w-0 flex-1">
                     <h2 className="truncate text-sm font-extrabold text-[#1f1f1f]">{s.name}</h2>
 
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5a5348]">
@@ -429,7 +448,9 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                       ) : null}
                     </div>
 
-                    {s.address ? <p className="mt-1 truncate text-xs text-[#6b6256]">{s.address}</p> : null}
+                    {s.address ? (
+                      <p className="mt-1 break-words text-xs text-[#6b6256]">{s.address}</p>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -450,28 +471,47 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
               <div
                 key={s.id}
                 onClick={() => router.push(`/spot/${s.id}`)}
-                className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
+                className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
               >
                 <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
                   <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
                   <SaveSpotButton spotId={s.id} variant="list" />
                 </div>
 
-                <div className="flex gap-3">
+                <div className="min-w-0 flex gap-3">
                   {s.image_url ? (
                     <img
                       src={s.image_url}
                       alt={s.name}
-                      className="h-20 w-20 rounded-xl object-cover ring-1 ring-black/5"
+                      className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-black/5"
                     />
                   ) : (
-                    <div className="h-20 w-20 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
+                    <div className="h-20 w-20 shrink-0 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
                   )}
 
-                  <div className="min-w-0 flex-1">
-                    <h2 className="truncate text-base font-extrabold text-[#1f1f1f]">{s.name}</h2>
+                  <div className="min-w-0 flex-1 pr-8">
+                    <h2 className="break-words text-base font-extrabold text-[#1f1f1f] sm:truncate">
+                      {s.name}
+                    </h2>
 
-                    <div className="mt-1 text-sm text-[#5a5348]">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#5a5348]">
+                      {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
+
+                      {typeof s.rating === "number" ? (
+                        <span className="flex items-center gap-1">
+                          <span className="text-[#d4a017]">★</span>
+                          <span className="font-semibold text-[#9a6b00]">{s.rating.toFixed(1)}</span>
+                        </span>
+                      ) : null}
+
+                      {typeof s.price_level === "number" ? (
+                        <span className="font-semibold text-[#3b342b]">
+                          {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-1">
                       <DistanceLabel
                         km={haversineKm({ lat, lng }, { lat: s.lat as number, lng: s.lng as number })}
                       />
@@ -481,99 +521,97 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                       <p className="mt-2 line-clamp-2 text-sm text-[#2f2a23]">{s.description}</p>
                     ) : null}
 
-                    {s.address ? <p className="mt-1 truncate text-sm text-[#6b6256]">{s.address}</p> : null}
-
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {s.google_maps_link ? (
-                        <a
-                          href={s.google_maps_link}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) =>
-                            void trackAndOpenExternalLink({
-                              event: e,
-                              url: s.google_maps_link!,
-                              spotId: s.id,
-                              buttonType: "maps",
-                            })
-                          }
-                          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-                        >
-                          Google Maps
-                        </a>
-                      ) : null}
-
-                      {wolt ? (
-                        <a
-                          href={wolt}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) =>
-                            void trackAndOpenExternalLink({
-                              event: e,
-                              url: wolt,
-                              spotId: s.id,
-                              buttonType: "wolt",
-                            })
-                          }
-                          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-                        >
-                          Wolt
-                        </a>
-                      ) : null}
-
-                      {lieferando ? (
-                        <a
-                          href={lieferando}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) =>
-                            void trackAndOpenExternalLink({
-                              event: e,
-                              url: lieferando,
-                              spotId: s.id,
-                              buttonType: "lieferando",
-                            })
-                          }
-                          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-                        >
-                          Lieferando
-                        </a>
-                      ) : null}
-
-                      {uberEats ? (
-                        <a
-                          href={uberEats}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) =>
-                            void trackAndOpenExternalLink({
-                              event: e,
-                              url: uberEats,
-                              spotId: s.id,
-                              buttonType: "ubereats",
-                            })
-                          }
-                          className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-                        >
-                          Uber Eats
-                        </a>
-                      ) : null}
-                    </div>
-
-                    {s.tiktok_embed_id ? (
-                      <div className="mt-8 flex justify-center" onClick={(e) => e.stopPropagation()}>
-                        <div className="w-full rounded-2xl overflow-hidden shadow-lg">
-                          <TikTokEmbed
-                            username="juniorstaste"
-                            videoId={s.tiktok_embed_id}
-                            height={760}
-                          />
-                        </div>
-                      </div>
+                    {s.address ? (
+                      <p className="mt-1 break-words text-sm text-[#6b6256]">{s.address}</p>
                     ) : null}
+
                   </div>
                 </div>
+
+                <div className="mt-4 min-w-0 flex flex-wrap gap-2">
+                  {s.google_maps_link ? (
+                    <a
+                      href={s.google_maps_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) =>
+                        void trackAndOpenExternalLink({
+                          event: e,
+                          url: s.google_maps_link!,
+                          spotId: s.id,
+                          buttonType: "maps",
+                        })
+                      }
+                      className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+                    >
+                      Google Maps
+                    </a>
+                  ) : null}
+
+                  {wolt ? (
+                    <a
+                      href={wolt}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) =>
+                        void trackAndOpenExternalLink({
+                          event: e,
+                          url: wolt,
+                          spotId: s.id,
+                          buttonType: "wolt",
+                        })
+                      }
+                      className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+                    >
+                      Wolt
+                    </a>
+                  ) : null}
+
+                  {lieferando ? (
+                    <a
+                      href={lieferando}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) =>
+                        void trackAndOpenExternalLink({
+                          event: e,
+                          url: lieferando,
+                          spotId: s.id,
+                          buttonType: "lieferando",
+                        })
+                      }
+                      className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+                    >
+                      Lieferando
+                    </a>
+                  ) : null}
+
+                  {uberEats ? (
+                    <a
+                      href={uberEats}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) =>
+                        void trackAndOpenExternalLink({
+                          event: e,
+                          url: uberEats,
+                          spotId: s.id,
+                          buttonType: "ubereats",
+                        })
+                      }
+                      className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+                    >
+                      Uber Eats
+                    </a>
+                  ) : null}
+                </div>
+
+                {s.tiktok_embed_id ? (
+                  <SpotTikTokSection
+                    videoId={s.tiktok_embed_id}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : null}
               </div>
             );
           })}

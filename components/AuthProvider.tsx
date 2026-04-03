@@ -13,6 +13,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import AuthForm from "@/components/AuthForm";
 import { supabase } from "@/lib/supabaseClient";
+import { logSupabaseError } from "@/lib/logSupabaseError";
 
 type Profile = {
   id: string;
@@ -80,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .order("created_at", { ascending: true });
 
     if (error) {
-      console.error("Konnte gespeicherte Spots nicht laden:", error);
+      logSupabaseError("Konnte gespeicherte Spots nicht laden:", error);
       if (mountedRef.current) setSavedSpotIds([]);
       return;
     }
@@ -107,8 +108,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      const { data: existingSpots, error: existingSpotsError } = await supabase
+        .from("spots")
+        .select("id")
+        .in("id", spotIds);
+
+      if (existingSpotsError) {
+        logSupabaseError(
+          "Konnte gueltige Spots fuer lokale Migration nicht pruefen:",
+          existingSpotsError
+        );
+        return;
+      }
+
+      const validSpotIds = new Set(
+        (existingSpots ?? []).map((spot: { id: string }) => spot.id)
+      );
+
+      const migratableSpotIds = spotIds.filter((spotId) => validSpotIds.has(spotId));
+
+      if (migratableSpotIds.length === 0) {
+        window.localStorage.removeItem("saved_spot_ids");
+        return;
+      }
+
       const { error } = await supabase.from("saved_spots").upsert(
-        spotIds.map((spotId) => ({
+        migratableSpotIds.map((spotId) => ({
           user_id: userId,
           spot_id: spotId,
         })),
@@ -118,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
 
       if (error) {
-        console.error("Konnte lokale gespeicherte Spots nicht migrieren:", error);
+        logSupabaseError("Konnte lokale gespeicherte Spots nicht migrieren:", error);
         return;
       }
 
@@ -160,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = await supabase.auth.getUser();
 
     if (userError) {
-      console.error("Konnte aktuellen Supabase-User nicht laden:", userError);
+      logSupabaseError("Konnte aktuellen Supabase-User nicht laden:", userError);
     }
 
     if (nextUser) {
@@ -178,7 +203,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = await supabase.auth.getSession();
 
     if (sessionError) {
-      console.error("Konnte Supabase-Session nicht laden:", sessionError);
+      logSupabaseError("Konnte Supabase-Session nicht laden:", sessionError);
       return null;
     }
 
@@ -217,7 +242,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
 
           if (error && error.code !== "23505") {
-            console.error("Konnte gespeicherten Spot nach Login nicht anlegen:", error);
+            logSupabaseError("Konnte gespeicherten Spot nach Login nicht anlegen:", error);
             return;
           }
 
@@ -361,7 +386,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq("spot_id", spotId);
 
         if (error) {
-          console.error("Konnte gespeicherten Spot nicht entfernen:", error);
+          logSupabaseError("Konnte gespeicherten Spot nicht entfernen:", error);
           return false;
         }
 
@@ -376,7 +401,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error && error.code !== "23505") {
-        console.error("Konnte gespeicherten Spot nicht anlegen:", error);
+        logSupabaseError("Konnte gespeicherten Spot nicht anlegen:", error);
         return false;
       }
 
