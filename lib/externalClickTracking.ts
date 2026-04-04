@@ -11,6 +11,21 @@ type TrackExternalClickParams = {
   buttonType: ExternalButtonType;
 };
 
+function isMobileExternalNavigation() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+
+  const mobileUserAgent =
+    /Android|iPhone|iPad|iPod|Mobile|CriOS|FxiOS|EdgiOS|SamsungBrowser/i.test(
+      navigator.userAgent
+    );
+
+  const coarsePointer =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(pointer: coarse)").matches;
+
+  return mobileUserAgent || coarsePointer;
+}
+
 export async function trackAndOpenExternalLink({
   event,
   url,
@@ -20,9 +35,7 @@ export async function trackAndOpenExternalLink({
   event?.preventDefault();
   event?.stopPropagation();
 
-  const newWindow = typeof window !== "undefined"
-    ? window.open("", "_blank", "noopener,noreferrer")
-    : null;
+  const shouldUseDirectNavigation = isMobileExternalNavigation();
 
   try {
     const {
@@ -42,12 +55,12 @@ export async function trackAndOpenExternalLink({
     console.error("Fehler beim Click-Tracking:", error);
   }
 
-  if (newWindow) {
-    newWindow.location.href = url;
+  if (typeof window === "undefined") return;
+
+  if (shouldUseDirectNavigation) {
+    window.location.href = url;
     return;
   }
 
-  if (typeof window !== "undefined") {
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
+  window.open(url, "_blank", "noopener,noreferrer");
 }

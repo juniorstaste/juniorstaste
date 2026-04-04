@@ -71,7 +71,7 @@ export default function NearPage() {
   const lat = Number(params.get("lat"));
   const lng = Number(params.get("lng"));
   const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lng);
-  const initialRadius = Number(params.get("r")) || 5;
+  const initialRadius = Number(params.get("r")) || 30;
 
   const [radius, setRadius] = useState<number>(initialRadius);
 

@@ -16,7 +16,7 @@ export default function Home() {
 
   const [geoLoading, setGeoLoading] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [radiusKm, setRadiusKm] = useState<number>(5);
+  const [radiusKm, setRadiusKm] = useState<number>(30);
   const [radiusOpen, setRadiusOpen] = useState<boolean>(false);
   const [cityOpen, setCityOpen] = useState<boolean>(false);
 

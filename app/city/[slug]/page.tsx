@@ -112,7 +112,7 @@ export default function CityPage() {
   const [deliveryFilter, setDeliveryFilter] = useState<"all" | "with" | "without">("all");
 
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
-  const [radiusKm, setRadiusKm] = useState<number>(5);
+  const [radiusKm, setRadiusKm] = useState<number>(30);
   const [geoError, setGeoError] = useState<string | null>(null);
 
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
@@ -173,7 +173,7 @@ export default function CityPage() {
         (pos) => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
-          router.push(`/near?lat=${lat}&lng=${lng}&r=5`);
+          router.push(`/near?lat=${lat}&lng=${lng}&r=30`);
         },
         () => {
           setGeoError("Standort konnte nicht abgerufen werden. Bitte Standort erlauben.");
@@ -607,7 +607,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
               type="button"
               onClick={() => {
                 setUserPos(null);
-                setRadiusKm(5);
+                setRadiusKm(30);
               }}
               className="rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] px-3 py-2 text-sm font-semibold text-[#0f3b2e] shadow-sm transition hover:bg-[#efe5d6]"
               title="Standort zurücksetzen"
