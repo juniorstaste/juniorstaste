@@ -5,7 +5,7 @@ import L from "leaflet";
 import { useEffect, useMemo } from "react";
 import StarRating from "@/components/StarRating";
 import PriceLevel from "@/components/PriceLevel";
-import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
+import DeliveryButtons from "@/components/DeliveryButtons";
 import {
   getColorForCategory,
   labelFromCategorySlug,
@@ -282,95 +282,24 @@ export default function CityMap({
                       {/* ✅ Zeile 2: Lieferdienste */}
                       {wolt || lieferando || uberEats ? (
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          {wolt ? (
-                            <a
-                              href={wolt}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(event) =>
-                                void trackAndOpenExternalLink({
-                                  event,
-                                  url: wolt,
-                                  spotId: s.id,
-                                  buttonType: "wolt",
-                                })
-                              }
-                              style={{
-                                padding: "7px 10px",
-                                borderRadius: 10,
-                                border: "1px solid #ddd",
-                                background: "white",
-                                textDecoration: "none",
-                                fontWeight: 800,
-                                fontSize: 12,
-                                lineHeight: 1,
-                                display: "inline-flex",
-                                alignItems: "center",
-                              }}
-                            >
-                              Wolt
-                            </a>
-                          ) : null}
-
-                          {lieferando ? (
-                            <a
-                              href={lieferando}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(event) =>
-                                void trackAndOpenExternalLink({
-                                  event,
-                                  url: lieferando,
-                                  spotId: s.id,
-                                  buttonType: "lieferando",
-                                })
-                              }
-                              style={{
-                                padding: "7px 10px",
-                                borderRadius: 10,
-                                border: "1px solid #ddd",
-                                background: "white",
-                                textDecoration: "none",
-                                fontWeight: 800,
-                                fontSize: 12,
-                                lineHeight: 1,
-                                display: "inline-flex",
-                                alignItems: "center",
-                              }}
-                            >
-                              Lieferando
-                            </a>
-                          ) : null}
-
-                          {uberEats ? (
-                            <a
-                              href={uberEats}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(event) =>
-                                void trackAndOpenExternalLink({
-                                  event,
-                                  url: uberEats,
-                                  spotId: s.id,
-                                  buttonType: "ubereats",
-                                })
-                              }
-                              style={{
-                                padding: "7px 10px",
-                                borderRadius: 10,
-                                border: "1px solid #ddd",
-                                background: "white",
-                                textDecoration: "none",
-                                fontWeight: 800,
-                                fontSize: 12,
-                                lineHeight: 1,
-                                display: "inline-flex",
-                                alignItems: "center",
-                              }}
-                            >
-                              Uber Eats
-                            </a>
-                          ) : null}
+                          <DeliveryButtons
+                            spotId={s.id}
+                            woltUrl={wolt}
+                            lieferandoUrl={lieferando}
+                            uberEatsUrl={uberEats}
+                            buttonStyle={{
+                              padding: "7px 10px",
+                              borderRadius: 10,
+                              border: "1px solid #ddd",
+                              background: "white",
+                              textDecoration: "none",
+                              fontWeight: 800,
+                              fontSize: 12,
+                              lineHeight: 1,
+                              display: "inline-flex",
+                              alignItems: "center",
+                            }}
+                          />
                         </div>
                       ) : null}
                     </div>

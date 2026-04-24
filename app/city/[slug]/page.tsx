@@ -11,6 +11,7 @@ import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
 import ShareSpotButton from "@/components/ShareSpotButton";
 import SpotTikTokSection from "@/components/SpotTikTokSection";
+import DeliveryButtons from "@/components/DeliveryButtons";
 import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 import {
   getColorForCategory,
@@ -913,62 +914,12 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
         </a>
       ) : null}
 
-      {wolt ? (
-        <a
-          href={wolt}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) =>
-            void trackAndOpenExternalLink({
-              event: e,
-              url: wolt,
-              spotId: s.id,
-              buttonType: "wolt",
-            })
-          }
-          className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-        >
-          Wolt
-        </a>
-      ) : null}
-
-      {lieferando ? (
-        <a
-          href={lieferando}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) =>
-            void trackAndOpenExternalLink({
-              event: e,
-              url: lieferando,
-              spotId: s.id,
-              buttonType: "lieferando",
-            })
-          }
-          className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-        >
-          Lieferando
-        </a>
-      ) : null}
-
-      {uberEats ? (
-        <a
-          href={uberEats}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) =>
-            void trackAndOpenExternalLink({
-              event: e,
-              url: uberEats,
-              spotId: s.id,
-              buttonType: "ubereats",
-            })
-          }
-          className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-        >
-          Uber Eats
-        </a>
-      ) : null}
+      <DeliveryButtons
+        spotId={s.id}
+        woltUrl={wolt}
+        lieferandoUrl={lieferando}
+        uberEatsUrl={uberEats}
+      />
 
     
     </div>
