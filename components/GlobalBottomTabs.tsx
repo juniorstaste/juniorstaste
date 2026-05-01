@@ -18,7 +18,11 @@ export default function GlobalBottomTabs() {
   const [view, setView] = useState<CityTabView>("list");
 
   useEffect(() => {
-    if (pathname?.startsWith("/city/") || pathname?.startsWith("/near")) {
+    if (
+      pathname?.startsWith("/city/") ||
+      pathname?.startsWith("/near") ||
+      pathname?.startsWith("/discover")
+    ) {
       return;
     }
 
@@ -47,7 +51,11 @@ export default function GlobalBottomTabs() {
 
   if (!pathname || pathname === "/") return null;
 
-  if (pathname.startsWith("/city/") || pathname.startsWith("/near")) {
+  if (
+    pathname.startsWith("/city/") ||
+    pathname.startsWith("/near") ||
+    pathname.startsWith("/discover")
+  ) {
     return null;
   }
 

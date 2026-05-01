@@ -93,8 +93,8 @@ export default function NearPage() {
   const topText = "text-white";
   const controlBase =
     "w-full px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] " +
-    "text-[#0f2a22] placeholder:text-[#0f2a22]/50 font-semibold shadow-sm transition hover:bg-[#efe5d6] " +
-    "focus:outline-none focus:ring-2 focus:ring-[#c6a85b]";
+    "text-[#0f2a22] placeholder:text-[#0f2a22]/50 font-semibold shadow-sm transition-colors transition-transform duration-150 hover:bg-[#efe5d6] " +
+    "active:scale-[1.03] focus:outline-none";
 
   const selectedRadiusLabel = `Radius: ${radius} km`;
   const selectedCategoryLabel =

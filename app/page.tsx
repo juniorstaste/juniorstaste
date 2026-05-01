@@ -214,6 +214,13 @@ export default function Home() {
     </div>
   )}
 </div>
+
+        <button
+          onClick={() => router.push("/discover")}
+          className="w-full h-[56px] rounded-2xl bg-[#e8decc] text-lg font-semibold text-[#0f3b2e] shadow-md transition active:scale-[1.03] md:hover:scale-[1.03]"
+        >
+          Entdecken
+        </button>
       </div>
 
       {geoError && (

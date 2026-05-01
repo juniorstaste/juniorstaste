@@ -2,7 +2,7 @@
 
 import { supabase } from "@/lib/supabaseClient";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import DistanceLabel from "@/components/DistanceLabel";
 import SiteHeader from "@/components/SiteHeader";
@@ -18,11 +18,7 @@ import {
   labelFromCategorySlug,
   normalizeCategorySlug,
 } from "@/lib/cityMapCategories";
-import {
-  isCityTabView,
-  LAST_CITY_SLUG_KEY,
-  LAST_CITY_VIEW_KEY,
-} from "@/lib/lastCityNavigation";
+import { LAST_CITY_VIEW_KEY } from "@/lib/lastCityNavigation";
 import { prioritizeSpots } from "@/lib/prioritySpot";
 
 const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
@@ -38,24 +34,17 @@ type Spot = {
   image_url: string | null;
   tiktok_embed_id: string | null;
   google_maps_link: string | null;
-
   rating: number | null;
   price_level: number | null;
-
   city_name?: string | null;
   city_slug?: string | null;
-
   category_slug?: string | null;
   category_name?: string | null;
-
   created_at?: string | null;
-
   wolt_url?: string | null;
   lieferando_url?: string | null;
   uber_eats_url?: string | null;
 };
-
-type City = { id: string; name: string; slug: string };
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371;
@@ -73,11 +62,18 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
 }
 
 function hasDeliveryOption(spot: Spot) {
-  return Boolean(
-    spot.wolt_url ||
-      spot.lieferando_url ||
-      spot.uber_eats_url
-  );
+  return Boolean(spot.wolt_url || spot.lieferando_url || spot.uber_eats_url);
+}
+
+function shuffleSpots<T>(items: T[]) {
+  const next = [...items];
+
+  for (let i = next.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [next[i], next[j]] = [next[j], next[i]];
+  }
+
+  return next;
 }
 
 const TASTE_DES_MONATS_IDS = [
@@ -85,37 +81,20 @@ const TASTE_DES_MONATS_IDS = [
   "4eb57f03-101e-4d80-98cc-42d3f148b57a",
 ];
 
-export default function CityPage() {
+export default function DiscoverPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const params = useParams();
-
-  const citySlug = useMemo(() => {
-    const raw = (params as any)?.slug;
-    if (!raw) return null;
-    return Array.isArray(raw) ? raw[0] : raw;
-  }, [params]);
 
   const [spots, setSpots] = useState<Spot[]>([]);
-  const [tasteDesMonatsSpots, setTasteDesMonatsSpots] = useState<Spot[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const [cities, setCities] = useState<City[]>([]);
-  const [citySelectValue, setCitySelectValue] = useState<string>("");
-
   const [category, setCategory] = useState<string>("all");
-  const [categories, setCategories] = useState<{ slug: string; name: string }[]>([]);
-
   const [search, setSearch] = useState("");
   const [view, setView] = useState<"list" | "map" | "tasteDesMonats">("list");
-  const [sort, setSort] = useState<"newest" | "rating" | "price" | "distance">("newest");
+  const [sort, setSort] = useState<"random" | "rating" | "price" | "distance">("random");
   const [deliveryFilter, setDeliveryFilter] = useState<"all" | "with" | "without">("all");
-
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusKm, setRadiusKm] = useState<number>(30);
   const [geoError, setGeoError] = useState<string | null>(null);
-
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
   const [selectedMapLegendSlug, setSelectedMapLegendSlug] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -123,88 +102,19 @@ export default function CityPage() {
   const mapLocationRequestedRef = useRef(false);
 
   const topText = "text-white";
-
   const controlBase =
     "w-full px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] " +
     "text-[#0f2a22] placeholder:text-[#0f2a22]/50 font-semibold shadow-sm transition-colors transition-transform duration-150 hover:bg-[#efe5d6] " +
     "active:scale-[1.03] focus:outline-none";
 
   useEffect(() => {
-    if (citySlug) setCitySelectValue(citySlug);
-  }, [citySlug]);
-
-  useEffect(() => {
-    const requestedView = searchParams.get("view");
-    if (!isCityTabView(requestedView)) return;
-    setView(requestedView);
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !citySlug) return;
-    window.localStorage.setItem(LAST_CITY_SLUG_KEY, citySlug);
-    window.localStorage.setItem(LAST_CITY_VIEW_KEY, view);
-  }, [citySlug, view]);
-
-  useEffect(() => {
-    async function loadCities() {
-      const { data, error } = await supabase
-        .from("cities")
-        .select("id, name, slug")
-        .order("name", { ascending: true });
-
-      if (!error) setCities((data as City[]) ?? []);
-    }
-
-    loadCities();
-  }, []);
-
-  async function handleCitySelectChange(next: string) {
-    setCitySelectValue(next);
-
-    if (next === "__near__") {
-      setGeoError(null);
-
-      if (!navigator.geolocation) {
-        setGeoError("Dein Browser unterstützt Standort nicht.");
-        if (citySlug) setCitySelectValue(citySlug);
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          router.push(`/near?lat=${lat}&lng=${lng}&r=30`);
-        },
-        () => {
-          setGeoError("Standort konnte nicht abgerufen werden. Bitte Standort erlauben.");
-          if (citySlug) setCitySelectValue(citySlug);
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-
-      return;
-    }
-
-    if (next) router.push(`/city/${next}`);
-  }
-
-  useEffect(() => {
-    if (!citySlug) return;
-
     async function loadSpots() {
       setLoading(true);
       setErrorMsg(null);
 
-      let query = supabase
+      const { data, error } = await supabase
         .from("spots_with_city")
-        .select("*")
-        .eq("city_slug", citySlug)
-        .order("created_at", { ascending: false });
-
-      if (category !== "all") query = query.eq("category_slug", category);
-
-      const { data, error } = await query;
+        .select("*");
 
       if (error) {
         setErrorMsg(error.message);
@@ -213,57 +123,40 @@ export default function CityPage() {
         return;
       }
 
-      setSpots((data as Spot[]) ?? []);
+      setSpots(prioritizeSpots(shuffleSpots((data as Spot[]) ?? [])));
       setLoading(false);
     }
 
     loadSpots();
-  }, [citySlug, category]);
-
-  useEffect(() => {
-    if (!citySlug) return;
-
-    async function loadCategories() {
-      const { data, error } = await supabase
-        .from("spots_with_city")
-        .select("category_slug, category_name")
-        .eq("city_slug", citySlug);
-
-      if (error) return;
-
-      const map = new Map<string, string>();
-      (data ?? []).forEach((row: any) => {
-        if (row.category_slug) map.set(row.category_slug, row.category_name ?? row.category_slug);
-      });
-
-      const list = Array.from(map.entries()).map(([slug, name]) => ({ slug, name }));
-      list.sort((a, b) => a.name.localeCompare(b.name));
-      setCategories(list);
-    }
-
-    loadCategories();
-  }, [citySlug]);
-
-  useEffect(() => {
-    async function loadTasteDesMonats() {
-      const { data, error } = await supabase
-        .from("spots_with_city")
-        .select("*")
-        .in("id", TASTE_DES_MONATS_IDS);
-
-      if (error) return;
-
-      const ordered =
-        (data as Spot[] | null)?.sort(
-          (a, b) =>
-            TASTE_DES_MONATS_IDS.indexOf(a.id) - TASTE_DES_MONATS_IDS.indexOf(b.id)
-        ) ?? [];
-
-      setTasteDesMonatsSpots(prioritizeSpots(ordered));
-    }
-
-    loadTasteDesMonats();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LAST_CITY_VIEW_KEY, view);
+  }, [view]);
+
+  const categories = useMemo(() => {
+    const map = new Map<string, string>();
+
+    spots.forEach((spot) => {
+      if (!spot.category_slug) return;
+      map.set(spot.category_slug, spot.category_name ?? spot.category_slug);
+    });
+
+    return Array.from(map.entries())
+      .map(([slug, name]) => ({ slug, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [spots]);
+
+  const tasteDesMonatsSpots = useMemo(() => {
+    const ordered =
+      spots
+        .filter((spot) => TASTE_DES_MONATS_IDS.includes(spot.id))
+        .sort((a, b) => TASTE_DES_MONATS_IDS.indexOf(a.id) - TASTE_DES_MONATS_IDS.indexOf(b.id)) ??
+      [];
+
+    return prioritizeSpots(ordered);
+  }, [spots]);
 
   const filteredSpots = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -271,9 +164,15 @@ export default function CityPage() {
     let list = !q
       ? [...spots]
       : spots.filter((s) => {
-          const haystack = [s.name, s.description ?? "", s.address ?? ""].join(" ").toLowerCase();
+          const haystack = [s.name, s.description ?? "", s.address ?? "", s.city_name ?? ""]
+            .join(" ")
+            .toLowerCase();
           return haystack.includes(q);
         });
+
+    if (category !== "all") {
+      list = list.filter((s) => s.category_slug === category);
+    }
 
     if (userPos) {
       list = list.filter((s) => {
@@ -301,16 +200,10 @@ export default function CityPage() {
         const db = haversineKm(userPos, { lat: b.lat as number, lng: b.lng as number });
         return da - db;
       });
-    } else {
-      list.sort((a, b) => {
-        const ad = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return bd - ad;
-      });
     }
 
     return prioritizeSpots(list);
-  }, [spots, search, sort, userPos, radiusKm, deliveryFilter]);
+  }, [spots, search, category, userPos, radiusKm, deliveryFilter, sort]);
 
   const distanceById = useMemo(() => {
     const map = new Map<string, number>();
@@ -318,8 +211,7 @@ export default function CityPage() {
 
     filteredSpots.forEach((s) => {
       if (typeof s.lat !== "number" || typeof s.lng !== "number") return;
-      const d = haversineKm(userPos, { lat: s.lat as number, lng: s.lng as number });
-      map.set(s.id, d);
+      map.set(s.id, haversineKm(userPos, { lat: s.lat as number, lng: s.lng as number }));
     });
 
     return map;
@@ -328,25 +220,19 @@ export default function CityPage() {
   const mapSpots = useMemo(() => {
     return filteredSpots
       .filter((s) => typeof s.lat === "number" && typeof s.lng === "number")
-      .map((s) => {
-        const wolt = s.wolt_url ?? null;
-        const lieferando = s.lieferando_url ?? null;
-        const uberEats = s.uber_eats_url ?? null;
-
-        return {
-          id: s.id,
-          name: s.name,
-          lat: s.lat as number,
-          lng: s.lng as number,
-          image_url: s.image_url ?? null,
-          rating: s.rating ?? null,
-          price_level: s.price_level ?? null,
-          category_slug: (s.category_slug ?? "other").toString().trim().toLowerCase(),
-          wolt_url: wolt,
-          lieferando_url: lieferando,
-          uber_eats_url: uberEats,
-        };
-      });
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        lat: s.lat as number,
+        lng: s.lng as number,
+        image_url: s.image_url ?? null,
+        rating: s.rating ?? null,
+        price_level: s.price_level ?? null,
+        category_slug: (s.category_slug ?? "other").toString().trim().toLowerCase(),
+        wolt_url: s.wolt_url ?? null,
+        lieferando_url: s.lieferando_url ?? null,
+        uber_eats_url: s.uber_eats_url ?? null,
+      }));
   }, [filteredSpots]);
 
   const mapCenter = useMemo<[number, number]>(() => {
@@ -369,15 +255,10 @@ export default function CityPage() {
     if (!selectedMapLegendSlug || !legendListRef.current) return;
 
     const timeoutId = window.setTimeout(() => {
-      legendListRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+      legendListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 80);
 
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
+    return () => window.clearTimeout(timeoutId);
   }, [selectedMapLegendSlug, legendCategorySpots.length]);
 
   useEffect(() => {
@@ -395,19 +276,10 @@ export default function CityPage() {
           lng: pos.coords.longitude,
         });
       },
-      () => {
-        // Ohne Berechtigung oder Standort bleibt die Karte beim bisherigen Verhalten.
-      },
+      () => {},
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }, [userPos, view]);
-
-  if (!citySlug) return <main className="p-4">Lade Stadt…</main>;
-
-  const selectedCityLabel =
-    citySelectValue === "__near__"
-      ? "📍 In meiner Nähe suchen…"
-      : cities.find((c) => c.slug === citySelectValue)?.name ?? "Stadt";
 
   const selectedCategoryLabel =
     category === "all"
@@ -415,8 +287,8 @@ export default function CityPage() {
       : categories.find((c) => c.slug === category)?.name ?? "Kategorie";
 
   const selectedSortLabel =
-    sort === "newest"
-      ? "Sortierung: Neueste"
+    sort === "random"
+      ? "Sortierung: Zufällig"
       : sort === "rating"
       ? "Best bewertet"
       : sort === "price"
@@ -434,52 +306,46 @@ export default function CityPage() {
     return `${Math.max(min, label.length * 9 + 48)}px`;
   }
 
+  const categoryFilterWidth = getSelectWidth(selectedCategoryLabel, 150);
+  const sortFilterWidth = getSelectWidth(selectedSortLabel, 170);
+  const deliveryFilterWidth = getSelectWidth(selectedDeliveryLabel, 170);
+
   return (
     <main className="mx-auto max-w-[560px] p-4 pb-28">
       <div className="mb-3 flex items-center justify-between">
         <button
-  onClick={() => router.push("/")}
-className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-none text-white font-semibold active:scale-90 transition"
-  aria-label="Zurück"
->
-  ‹
-</button>
+          onClick={() => router.push("/")}
+          className="flex h-10 w-10 -ml-2 items-center justify-center text-[28px] font-semibold leading-none text-white transition active:scale-90"
+          aria-label="Zurück"
+        >
+          ‹
+        </button>
 
         <TopRightMenu onOpenChange={setMenuOpen} />
       </div>
 
-      {/* Logo */}
-      <div className="text-center mb-6">
+      <div className="mb-6 text-center">
         <SiteHeader subtitle={null as any} compact />
 
+        <div className="mt-4">
+          <h1 className="text-3xl font-extrabold italic tracking-wide text-white md:text-4xl">
+            Entdecken
+          </h1>
+          <p className="mt-2 text-sm italic text-white/80">Spots aus allen Städten</p>
+        </div>
+
         {view !== "tasteDesMonats" && (
-          <div className="mb-5">
+          <div className="mb-5 mt-6">
             <div className="flex flex-col gap-4">
-              {/* FILTER */}
               <div className="text-left">
-                <label className={`block mb-2 font-extrabold ${topText}`}>Filter</label>
+                <label className={`mb-2 block font-extrabold ${topText}`}>Filter</label>
 
-                <div className="w-full max-w-full overflow-x-auto no-scrollbar">
-                  <div className="flex gap-3 min-w-max">
-                    {/* Stadt */}
-                    <div className="shrink-0" style={{ width: getSelectWidth(selectedCityLabel, 150) }}>
-                      <select
-                        value={citySelectValue}
-                        onChange={(e) => handleCitySelectChange(e.target.value)}
-                        className={controlBase + " italic"}
-                      >
-                        <option value="__near__">📍 In meiner Nähe suchen…</option>
-                        <option disabled>──────────</option>
-                        {cities.map((c) => (
-                          <option key={c.id} value={c.slug}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Kategorie */}
-                    <div className="shrink-0" style={{ width: getSelectWidth(selectedCategoryLabel, 150) }}>
+                <div className="no-scrollbar w-full max-w-full overflow-x-auto">
+                  <div className="flex min-w-max gap-3">
+                    <div
+                      className="shrink-0"
+                      style={{ width: categoryFilterWidth }}
+                    >
                       <select
                         value={category}
                         onChange={(e) => {
@@ -497,14 +363,16 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                       </select>
                     </div>
 
-                    {/* Sortierung */}
-                    <div className="shrink-0" style={{ width: getSelectWidth(selectedSortLabel, 170) }}>
+                    <div
+                      className="shrink-0"
+                      style={{ width: sortFilterWidth }}
+                    >
                       <select
                         value={sort}
-                        onChange={(e) => setSort(e.target.value as any)}
+                        onChange={(e) => setSort(e.target.value as typeof sort)}
                         className={controlBase}
                       >
-                        <option value="newest">Sortierung: Neueste</option>
+                        <option value="random">Sortierung: Zufällig</option>
                         <option value="rating">Best bewertet</option>
                         <option value="price">Preis</option>
                         <option value="distance" disabled={!userPos}>
@@ -513,8 +381,10 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                       </select>
                     </div>
 
-                    {/* Lieferung */}
-                    <div className="shrink-0" style={{ width: getSelectWidth(selectedDeliveryLabel, 170) }}>
+                    <div
+                      className="shrink-0"
+                      style={{ width: deliveryFilterWidth }}
+                    >
                       <select
                         value={deliveryFilter}
                         onChange={(e) =>
@@ -531,37 +401,33 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                 </div>
               </div>
 
-              {/* ANSICHT */}
               <div className="mb-4 text-left">
-                <label className={`block mb-2 font-extrabold ${topText}`}>Ansicht</label>
+                <label className={`mb-2 block font-extrabold ${topText}`}>Ansicht</label>
 
-                <div className="w-full max-w-full overflow-x-auto no-scrollbar">
-                  <div className="flex gap-3 min-w-max">
-                    {/* Liste */}
+                <div className="no-scrollbar w-full max-w-full overflow-x-auto">
+                  <div className="flex min-w-max gap-3">
                     <button
                       onClick={() => setView("list")}
-                      className={`min-w-[180px] px-4 py-3 rounded-2xl whitespace-nowrap border transition-all font-semibold shrink-0 ${
+                      className={`min-w-[180px] shrink-0 rounded-2xl border px-4 py-3 font-semibold transition-all ${
                         view === "list"
-  ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
+                          ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
                           : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
                       }`}
                     >
                       Liste
                     </button>
 
-                    {/* Karte */}
                     <button
                       onClick={() => setView("map")}
-                      className={`min-w-[180px] px-4 py-3 rounded-2xl border transition-all font-semibold shrink-0 ${
+                      className={`min-w-[180px] shrink-0 rounded-2xl border px-4 py-3 font-semibold transition-all ${
                         view === "map"
-  ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
+                          ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
                           : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
                       }`}
                     >
                       Karte
                     </button>
 
-                    {/* In meiner Nähe */}
                     <button
                       onClick={() => {
                         setGeoError(null);
@@ -573,20 +439,23 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
 
                         navigator.geolocation.getCurrentPosition(
                           (pos) => {
-                            const lat = pos.coords.latitude;
-                            const lng = pos.coords.longitude;
-                            setUserPos({ lat, lng });
+                            setUserPos({
+                              lat: pos.coords.latitude,
+                              lng: pos.coords.longitude,
+                            });
                             setSort("distance");
                           },
-                          () => setGeoError("Standort konnte nicht abgerufen werden. Bitte Standort erlauben."),
+                          () =>
+                            setGeoError(
+                              "Standort konnte nicht abgerufen werden. Bitte Standort erlauben."
+                            ),
                           { enableHighAccuracy: true, timeout: 10000 }
                         );
                       }}
-                      className="min-w-[180px] px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] text-[#0f3b2e] font-semibold shadow-sm transition hover:bg-[#efe5d6] shrink-0 whitespace-nowrap"
+                      className="min-w-[180px] shrink-0 whitespace-nowrap rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] px-4 py-3 font-semibold text-[#0f3b2e] shadow-sm transition hover:bg-[#efe5d6]"
                     >
                       📍 In meiner Nähe
                     </button>
-
                   </div>
                 </div>
               </div>
@@ -599,7 +468,6 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
         <div className="mb-3 text-sm text-red-200">{geoError}</div>
       ) : null}
 
-      {/* ✅ Umkreis */}
       {view !== "tasteDesMonats" && userPos ? (
         <div className="mb-4 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] p-4 text-[#0f2a22] shadow-sm">
           <div className="flex items-center justify-between gap-3">
@@ -609,6 +477,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
               onClick={() => {
                 setUserPos(null);
                 setRadiusKm(30);
+                setSort("random");
               }}
               className="rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] px-3 py-2 text-sm font-semibold text-[#0f3b2e] shadow-sm transition hover:bg-[#efe5d6]"
               title="Standort zurücksetzen"
@@ -636,17 +505,14 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
               <option value={30}>30 km</option>
             </select>
 
-            <div className="mt-2 text-xs opacity-80">
-              {`Zeige Spots im Umkreis von ${radiusKm} km.`}
-            </div>
+            <div className="mt-2 text-xs opacity-80">{`Zeige Spots im Umkreis von ${radiusKm} km.`}</div>
           </div>
         </div>
       ) : null}
 
-      {/* ✅ Suche */}
       {view !== "tasteDesMonats" && (
-        <div className="mt-[-20px] mb-4">
-          <label className={`block mb-2 font-extrabold ${topText}`}>Suche</label>
+        <div className="mb-4 mt-[-20px]">
+          <label className={`mb-2 block font-extrabold ${topText}`}>Suche</label>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -656,7 +522,6 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
         </div>
       )}
 
-      {/* ✅ Content */}
       {loading ? (
         <p className="text-[#f6efe3]">Lade Spots…</p>
       ) : errorMsg ? (
@@ -676,13 +541,12 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
             selectedLegendSlug={selectedMapLegendSlug}
             onLegendSelect={setSelectedMapLegendSlug}
           />
-          <p className="mt-3 text-sm text-[#f6efe3]/80">Tipp: Marker anklicken, um den Namen zu sehen.</p>
+          <p className="mt-3 text-sm text-[#f6efe3]/80">
+            Tipp: Marker anklicken, um den Namen zu sehen.
+          </p>
 
           {selectedMapLegendSlug ? (
-            <div
-              ref={legendListRef}
-              className="mt-4 grid gap-3 scroll-mt-4"
-            >
+            <div ref={legendListRef} className="mt-4 grid gap-3 scroll-mt-4">
               <div className="mb-1 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-extrabold text-white">
@@ -741,9 +605,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
                         {typeof s.rating === "number" ? (
                           <span className="flex items-center gap-1">
                             <span className="text-[#d4a017]">★</span>
-                            <span className="font-semibold text-[#9a6b00]">
-                              {s.rating.toFixed(1)}
-                            </span>
+                            <span className="font-semibold text-[#9a6b00]">{s.rating.toFixed(1)}</span>
                           </span>
                         ) : null}
 
@@ -764,13 +626,13 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
             </div>
           ) : null}
         </div>
-            ) : view === "tasteDesMonats" ? (
+      ) : view === "tasteDesMonats" ? (
         <div className="grid gap-3">
           <div className="mb-1">
             <h2 className="text-xl font-extrabold text-white">Taste des Monats</h2>
-            <p className="text-sm italic text-white/80 mt-1">
-  Drei Spots, die ich diesen Monat besonders feiere.
-</p>
+            <p className="mt-1 text-sm italic text-white/80">
+              Drei Spots, die ich diesen Monat besonders feiere.
+            </p>
           </div>
 
           {tasteDesMonatsSpots.length === 0 ? (
@@ -778,16 +640,16 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
           ) : (
             tasteDesMonatsSpots.map((s) => (
               <div
-  key={s.id}
-  onClick={() => router.push(`/spot/${s.id}`)}
-  className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
->
-  <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
-    <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
-    <SaveSpotButton spotId={s.id} variant="list" />
-  </div>
+                key={s.id}
+                onClick={() => router.push(`/spot/${s.id}`)}
+                className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
+              >
+                <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+                  <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
+                  <SaveSpotButton spotId={s.id} variant="list" />
+                </div>
 
-  <div className="min-w-0 flex gap-3">
+                <div className="min-w-0 flex gap-3">
                   {s.image_url ? (
                     <img
                       src={s.image_url}
@@ -828,7 +690,7 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
           )}
         </div>
       ) : filteredSpots.length === 0 ? (
-        <p className="text-[#f6efe3]">Keine Spots gefunden für diese Stadt.</p>
+        <p className="text-[#f6efe3]">Keine Spots gefunden.</p>
       ) : (
         <div className="grid gap-3">
           {filteredSpots.map((s) => {
@@ -837,102 +699,101 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
             const uberEats = s.uber_eats_url ?? null;
 
             return (
-  <div
-    key={s.id}
-    onClick={() => router.push(`/spot/${s.id}`)}
-    className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
-  >
-    <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
-      <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
-      <SaveSpotButton spotId={s.id} variant="list" />
-    </div>
+              <div
+                key={s.id}
+                onClick={() => router.push(`/spot/${s.id}`)}
+                className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
+              >
+                <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+                  <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
+                  <SaveSpotButton spotId={s.id} variant="list" />
+                </div>
 
-    {/* Oberer Infobereich */}
-    <div className="min-w-0 flex gap-3">
-      {s.image_url ? (
-        <img
-          src={s.image_url}
-          alt={s.name}
-          className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-black/5"
-        />
-      ) : (
-        <div className="h-20 w-20 shrink-0 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
-      )}
+                <div className="min-w-0 flex gap-3">
+                  {s.image_url ? (
+                    <img
+                      src={s.image_url}
+                      alt={s.name}
+                      className="h-20 w-20 shrink-0 rounded-xl object-cover ring-1 ring-black/5"
+                    />
+                  ) : (
+                    <div className="h-20 w-20 shrink-0 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
+                  )}
 
-      <div className="min-w-0 flex-1 pr-8">
-        <h2 className="break-words text-base font-extrabold text-[#1f1f1f] sm:truncate">{s.name}</h2>
+                  <div className="min-w-0 flex-1 pr-8">
+                    <h2 className="break-words text-base font-extrabold text-[#1f1f1f] sm:truncate">
+                      {s.name}
+                    </h2>
 
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#5a5348]">
-          {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#5a5348]">
+                      {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
 
-          {typeof s.rating === "number" ? (
-            <span className="flex items-center gap-1">
-              <span className="text-[#d4a017]">★</span>
-              <span className="font-semibold text-[#9a6b00]">{s.rating.toFixed(1)}</span>
-            </span>
-          ) : null}
+                      {typeof s.rating === "number" ? (
+                        <span className="flex items-center gap-1">
+                          <span className="text-[#d4a017]">★</span>
+                          <span className="font-semibold text-[#9a6b00]">{s.rating.toFixed(1)}</span>
+                        </span>
+                      ) : null}
 
-          {typeof s.price_level === "number" ? (
-            <span className="font-semibold text-[#3b342b]">
-              {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
-            </span>
-          ) : null}
-        </div>
+                      {typeof s.price_level === "number" ? (
+                        <span className="font-semibold text-[#3b342b]">
+                          {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
+                        </span>
+                      ) : null}
+                    </div>
 
-        {userPos && distanceById.has(s.id) ? (
-          <div className="mt-1">
-            <DistanceLabel km={distanceById.get(s.id)!} />
-          </div>
-        ) : null}
+                    {userPos && distanceById.has(s.id) ? (
+                      <div className="mt-1">
+                        <DistanceLabel km={distanceById.get(s.id)!} />
+                      </div>
+                    ) : null}
 
-        {s.description ? (
-          <p className="mt-2 line-clamp-2 text-sm text-[#2f2a23]">{s.description}</p>
-        ) : null}
+                    {s.description ? (
+                      <p className="mt-2 line-clamp-2 text-sm text-[#2f2a23]">{s.description}</p>
+                    ) : null}
 
-        {s.address ? <p className="mt-1 break-words text-sm text-[#6b6256]">{s.address}</p> : null}
+                    {s.address ? (
+                      <p className="mt-1 break-words text-sm text-[#6b6256]">{s.address}</p>
+                    ) : null}
+                  </div>
+                </div>
 
+                <div className="mt-4 min-w-0 flex flex-wrap gap-2">
+                  {s.google_maps_link ? (
+                    <a
+                      href={s.google_maps_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) =>
+                        void trackAndOpenExternalLink({
+                          event: e,
+                          url: s.google_maps_link!,
+                          spotId: s.id,
+                          buttonType: "maps",
+                        })
+                      }
+                      className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
+                    >
+                      Google Maps
+                    </a>
+                  ) : null}
+
+                  <DeliveryButtons
+                    spotId={s.id}
+                    woltUrl={wolt}
+                    lieferandoUrl={lieferando}
+                    uberEatsUrl={uberEats}
+                  />
+                </div>
+
+                {s.tiktok_embed_id ? (
+                  <SpotTikTokSection
+                    videoId={s.tiktok_embed_id}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : null}
               </div>
-    </div>
-
-    <div className="mt-4 min-w-0 flex flex-wrap gap-2">
-      {s.google_maps_link ? (
-        <a
-          href={s.google_maps_link}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) =>
-            void trackAndOpenExternalLink({
-              event: e,
-              url: s.google_maps_link!,
-              spotId: s.id,
-              buttonType: "maps",
-            })
-          }
-          className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-        >
-          Google Maps
-        </a>
-      ) : null}
-
-      <DeliveryButtons
-        spotId={s.id}
-        woltUrl={wolt}
-        lieferandoUrl={lieferando}
-        uberEatsUrl={uberEats}
-      />
-
-    
-    </div>
-
-    {/* TikTok als eigener Bereich unterhalb */}
-    {s.tiktok_embed_id ? (
-      <SpotTikTokSection
-        videoId={s.tiktok_embed_id}
-        onClick={(e) => e.stopPropagation()}
-      />
-    ) : null}
-  </div>
-);
+            );
           })}
         </div>
       )}
