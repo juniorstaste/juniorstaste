@@ -442,7 +442,7 @@ export default function CityPage() {
       <div className="relative mb-4 h-10">
         <button
   onClick={() => router.push("/")}
-className="absolute left-[-8px] top-0 flex items-center justify-center w-10 h-10 text-[28px] leading-none text-white font-semibold active:scale-90 transition"
+className="absolute left-[-8px] top-1/2 flex items-center justify-center w-10 h-10 -translate-y-1/2 text-[28px] leading-none text-white font-semibold active:scale-90 transition"
   aria-label="Zurück"
 >
   ‹
@@ -454,8 +454,13 @@ className="absolute left-[-8px] top-0 flex items-center justify-center w-10 h-10
               isSearchExpanded ? "w-full" : "w-[58%] max-w-[220px]"
             }`}
           >
-            <div className="flex h-9 items-center gap-1.5 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] px-3 shadow-sm transition-all duration-300 ease-out">
-              <span className="shrink-0 text-xs text-[#6b6256]" aria-hidden="true">
+            <div className="relative flex h-9 items-center rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] px-3 shadow-sm transition-all duration-300 ease-out">
+              <span
+                className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-xs text-[#6b6256] transition-all duration-300 ease-out ${
+                  isSearchExpanded ? "left-3 -translate-x-0" : "left-1/2 -translate-x-1/2"
+                }`}
+                aria-hidden="true"
+              >
                 🔍
               </span>
               <input
@@ -463,14 +468,15 @@ className="absolute left-[-8px] top-0 flex items-center justify-center w-10 h-10
                 onChange={(e) => setSearch(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
                 onBlur={() => setIsSearchFocused(false)}
-                placeholder="Kategorie oder Spot"
-                className="h-full min-w-0 flex-1 border-0 bg-transparent text-[13px] font-medium text-[#0f2a22] placeholder:text-[#6b6256] focus:outline-none"
+                className={`h-full min-w-0 flex-1 border-0 bg-transparent text-base text-[#0f2a22] focus:outline-none ${
+                  isSearchExpanded ? "pl-5 font-medium" : "pl-0 font-normal"
+                }`}
               />
             </div>
           </div>
         </div>
 
-        <div className="absolute right-0 top-0">
+        <div className="absolute right-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center">
           <TopRightMenu onOpenChange={setMenuOpen} />
         </div>
       </div>
