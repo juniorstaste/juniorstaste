@@ -119,6 +119,7 @@ export default function CityPage() {
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
   const [selectedMapLegendSlug, setSelectedMapLegendSlug] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const legendListRef = useRef<HTMLDivElement | null>(null);
   const mapLocationRequestedRef = useRef(false);
 
@@ -434,18 +435,44 @@ export default function CityPage() {
     return `${Math.max(min, label.length * 9 + 48)}px`;
   }
 
+  const isSearchExpanded = isSearchFocused || search.trim().length > 0;
+
   return (
     <main className="mx-auto max-w-[560px] p-4 pb-28">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="relative mb-4 h-10">
         <button
   onClick={() => router.push("/")}
-className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-none text-white font-semibold active:scale-90 transition"
+className="absolute left-[-8px] top-0 flex items-center justify-center w-10 h-10 text-[28px] leading-none text-white font-semibold active:scale-90 transition"
   aria-label="Zurück"
 >
   ‹
 </button>
 
-        <TopRightMenu onOpenChange={setMenuOpen} />
+        <div className="absolute inset-y-0 left-12 right-12 flex items-center justify-center overflow-hidden">
+          <div
+            className={`min-w-0 transition-all duration-300 ease-out ${
+              isSearchExpanded ? "w-full" : "w-[58%] max-w-[220px]"
+            }`}
+          >
+            <div className="flex h-9 items-center gap-1.5 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] px-3 shadow-sm transition-all duration-300 ease-out">
+              <span className="shrink-0 text-xs text-[#6b6256]" aria-hidden="true">
+                🔍
+              </span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
+                placeholder="Kategorie oder Spot"
+                className="h-full min-w-0 flex-1 border-0 bg-transparent text-[13px] font-medium text-[#0f2a22] placeholder:text-[#6b6256] focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="absolute right-0 top-0">
+          <TopRightMenu onOpenChange={setMenuOpen} />
+        </div>
       </div>
 
       {/* Logo */}
@@ -642,19 +669,6 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
           </div>
         </div>
       ) : null}
-
-      {/* ✅ Suche */}
-      {view !== "tasteDesMonats" && (
-        <div className="mt-[-20px] mb-4">
-          <label className={`block mb-2 font-extrabold ${topText}`}>Suche</label>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="z.B. Burger, Döner, Pizza…"
-            className={controlBase}
-          />
-        </div>
-      )}
 
       {/* ✅ Content */}
       {loading ? (
