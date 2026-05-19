@@ -732,11 +732,7 @@ export default function CityPage() {
 
                     <button
                       onClick={() => setView("tasteDesMonats")}
-                      className={`${segmentedButtonBase} ${
-                        view === "tasteDesMonats"
-                          ? "jt-active-gradient-soft"
-                          : "bg-transparent text-white/80 hover:bg-white/10"
-                      }`}
+                      className={`${segmentedButtonBase} bg-transparent text-white/80 hover:bg-white/10`}
                     >
                       Taste des Monats
                     </button>

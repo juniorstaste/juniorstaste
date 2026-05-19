@@ -2,11 +2,27 @@ import type { Metadata } from "next";
 import { AuthProvider } from "@/components/AuthProvider";
 import GlobalBottomTabs from "@/components/GlobalBottomTabs";
 import "./globals.css";
-import { Montserrat } from "next/font/google";
+import localFont from "next/font/local";
 
-const montserrat = Montserrat({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
+const montserrat = localFont({
+  src: [
+    {
+      path: "../public/fonts/Montserrat-SemiBold.woff2",
+      weight: "600",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/Montserrat-Bold.woff2",
+      weight: "700",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/Montserrat-ExtraBold.woff2",
+      weight: "800",
+      style: "normal",
+    },
+  ],
+  display: "swap",
 });
 
 
