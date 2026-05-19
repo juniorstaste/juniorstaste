@@ -172,8 +172,20 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
             </div>
           )}
 
-          {/* Titel */}
-          <h1 className="text-3xl font-extrabold mb-3">{spot.name}</h1>
+          {/* Titelzeile mit Spot-Bild */}
+          <div className="mb-3 flex items-center gap-4">
+            {spot.image_url ? (
+              <img
+                src={spot.image_url}
+                alt={spot.name}
+                className="h-32 w-32 shrink-0 rounded-2xl object-cover ring-1 ring-black/5"
+              />
+            ) : null}
+
+            <div className="min-w-0 flex-1">
+              <h1 className="text-3xl font-extrabold">{spot.name}</h1>
+            </div>
+          </div>
 
           {/* Meta */}
           <div className="flex flex-wrap gap-4 items-center mb-4">
@@ -182,27 +194,61 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
             <PriceLevel value={spot.price_level} />
           </div>
 
+          {/* Adresse / Maps */}
+          {spot.address || spot.google_maps_link ? (
+            <div className="mb-6 flex items-center justify-between gap-4 rounded-[24px] border border-white/10 bg-white/5 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                  Adresse
+                </div>
+                {spot.address ? (
+                  <p className="break-words text-sm font-semibold text-white">
+                    {spot.address}
+                  </p>
+                ) : (
+                  <p className="text-sm font-semibold text-white/70">Adresse nicht verfügbar</p>
+                )}
+              </div>
+
+              {spot.google_maps_link ? (
+                <a
+                  href={spot.google_maps_link}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) =>
+                    void trackAndOpenExternalLink({
+                      event: e,
+                      url: spot.google_maps_link!,
+                      spotId: spot.id,
+                      buttonType: "maps",
+                    })
+                  }
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#e8decc] text-[#0f3b2e] shadow-sm transition active:scale-95"
+                  aria-label="Adresse in Google Maps öffnen"
+                  title="Adresse in Google Maps öffnen"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path
+                      d="M7 17L17 7"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M9 7H17V15"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+
           {/* Buttons */}
           <div className="flex flex-wrap gap-3 mb-6">
-            {spot.google_maps_link && (
-              <a
-                href={spot.google_maps_link}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) =>
-                  void trackAndOpenExternalLink({
-                    event: e,
-                    url: spot.google_maps_link!,
-                    spotId: spot.id,
-                    buttonType: "maps",
-                  })
-                }
-                className="rounded-2xl bg-[#e8decc] px-4 py-2 font-semibold text-[#0f3b2e]"
-              >
-                Google Maps
-              </a>
-            )}
-
             <DeliveryButtons
               spotId={spot.id}
               woltUrl={wolt}
@@ -212,23 +258,9 @@ className="flex items-center justify-center w-10 h-10 -ml-2 text-[28px] leading-
             />
           </div>
 
-          {/* Bild */}
-          {spot.image_url && (
-            <img
-              src={spot.image_url}
-              alt={spot.name}
-              className="w-full rounded-2xl"
-            />
-          )}
-
           {/* Beschreibung */}
           {spot.description && (
             <p className="mt-6 text-sm text-white/90">{spot.description}</p>
-          )}
-
-          {/* Adresse */}
-          {spot.address && (
-            <p className="mt-2 text-sm text-white/70">{spot.address}</p>
           )}
 
           {/* TikTok */}

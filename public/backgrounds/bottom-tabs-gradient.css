@@ -1,0 +1,7 @@
+.bottom-tabs-gradient {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 124, 144, 0.35) 0%,
+    rgba(255, 225, 164, 0.35) 100%
+  );
+}

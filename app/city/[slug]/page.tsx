@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import DistanceLabel from "@/components/DistanceLabel";
-import SiteHeader from "@/components/SiteHeader";
 import BottomTabs from "@/components/BottomTabs";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
@@ -85,6 +84,90 @@ const TASTE_DES_MONATS_IDS = [
   "4eb57f03-101e-4d80-98cc-42d3f148b57a",
 ];
 
+function normalizeCategoryKey(value?: string | null) {
+  return (value ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[/_-]+/g, " ")
+    .replace(/&/g, " ")
+    .replace(/\s+/g, " ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function getCategoryEmoji(slug?: string | null, name?: string | null) {
+  const key = normalizeCategoryKey(slug) || normalizeCategoryKey(name);
+
+  if (!key || key === "all" || key === "alle") return "✨";
+  if (key.includes("asian") || key.includes("asia") || key.includes("sushi")) return "🍣";
+  if (key.includes("burger")) return "🍔";
+  if (
+    key.includes("doener") ||
+    key.includes("doner") ||
+    key.includes("doener") ||
+    key.includes("kebab")
+  ) {
+    return "🥙";
+  }
+  if (
+    key.includes("fried chicken") ||
+    key.includes("chicken") ||
+    key.includes("haehnchen") ||
+    key.includes("hahnchen")
+  ) {
+    return "🍗";
+  }
+  if (
+    key.includes("kaffee") ||
+    key.includes("fruehstueck") ||
+    key.includes("dessert") ||
+    key.includes("coffee") ||
+    key.includes("breakfast")
+  ) {
+    return "☕";
+  }
+  if (key.includes("pizza")) return "🍕";
+  if (key.includes("sandwich")) return "🥪";
+  if (
+    key.includes("tacos burritos") ||
+    key.includes("tacos") ||
+    key.includes("burritos") ||
+    key.includes("mexican")
+  ) {
+    return "🌮";
+  }
+
+  return null;
+}
+
+function getCategorySortOrder(slug?: string | null, name?: string | null) {
+  const key = normalizeCategoryKey(slug) || normalizeCategoryKey(name);
+
+  if (key.includes("burger")) return 1;
+  if (key.includes("fried chicken") || key.includes("chicken") || key.includes("haehnchen") || key.includes("hahnchen")) return 2;
+  if (key.includes("doener") || key.includes("doner") || key.includes("kebab")) return 3;
+  if (
+    key.includes("kaffee") ||
+    key.includes("fruehstueck") ||
+    key.includes("dessert") ||
+    key.includes("coffee") ||
+    key.includes("breakfast")
+  ) {
+    return 4;
+  }
+  if (key.includes("pizza")) return 5;
+  if (key.includes("asian") || key.includes("asia") || key.includes("sushi")) return 6;
+  if (key.includes("tacos burritos") || key.includes("tacos") || key.includes("burritos") || key.includes("mexican")) return 7;
+  if (key.includes("orientalisch") || key.includes("oriental")) return 8;
+
+  return 99;
+}
+
 export default function CityPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -129,6 +212,12 @@ export default function CityPage() {
     "w-full px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] " +
     "text-[#0f2a22] placeholder:text-[#0f2a22]/50 font-semibold shadow-sm transition-colors transition-transform duration-150 hover:bg-[#efe5d6] " +
     "active:scale-[1.03] focus:outline-none";
+  const chipButtonBase =
+    "shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-150 active:scale-[1.03]";
+  const compactControlBase =
+    "w-full appearance-none rounded-full border border-white/10 bg-white/10 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-white/15 active:scale-[1.03] focus:outline-none";
+  const segmentedButtonBase =
+    "flex min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold transition-all duration-150 active:scale-[1.03]";
 
   useEffect(() => {
     if (citySlug) setCitySelectValue(citySlug);
@@ -188,6 +277,26 @@ export default function CityPage() {
     }
 
     if (next) router.push(`/city/${next}`);
+  }
+
+  function requestNearbySpots() {
+    setGeoError(null);
+
+    if (!navigator.geolocation) {
+      setGeoError("Dein Browser unterstützt Standort nicht.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setUserPos({ lat, lng });
+        setSort("distance");
+      },
+      () => setGeoError("Standort konnte nicht abgerufen werden. Bitte Standort erlauben."),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   }
 
   useEffect(() => {
@@ -405,11 +514,6 @@ export default function CityPage() {
 
   if (!citySlug) return <main className="p-4">Lade Stadt…</main>;
 
-  const selectedCityLabel =
-    citySelectValue === "__near__"
-      ? "📍 In meiner Nähe suchen…"
-      : cities.find((c) => c.slug === citySelectValue)?.name ?? "Stadt";
-
   const selectedCategoryLabel =
     category === "all"
       ? "Kategorie: Alle"
@@ -431,194 +535,255 @@ export default function CityPage() {
       ? "Mit Lieferung"
       : "Vor Ort essen";
 
+  const currentCityName =
+    cities.find((c) => c.slug === citySelectValue)?.name ??
+    citySlug
+      ?.split("-")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ") ??
+    "Stadt";
+
   function getSelectWidth(label: string, min = 140) {
     return `${Math.max(min, label.length * 9 + 48)}px`;
   }
 
   const isSearchExpanded = isSearchFocused || search.trim().length > 0;
+  const sharedContentWidthClass = "w-[94%] max-w-[500px]";
+  const searchWidthClass = isSearchExpanded ? sharedContentWidthClass : sharedContentWidthClass;
+  const segmentedWidthClass = sharedContentWidthClass;
+  const headerTitle = view === "tasteDesMonats" ? "Taste des Monats" : "Entdecken";
+  const headerSubtitle =
+    view === "tasteDesMonats"
+      ? "Drei Spots, die ich diesen Monat besonders feiere."
+      : `JuniorsTaste's Favorites aus ${currentCityName}`;
+  const orderedCategories = [...categories].sort((a, b) => {
+    const orderDiff =
+      getCategorySortOrder(a.slug, a.name) - getCategorySortOrder(b.slug, b.name);
+
+    if (orderDiff !== 0) return orderDiff;
+
+    return a.name.localeCompare(b.name, "de");
+  });
 
   return (
     <main className="mx-auto max-w-[560px] p-4 pb-28">
-      <div className="relative mb-4 h-10">
-        <button
-  onClick={() => router.push("/")}
-className="absolute left-[-8px] top-1/2 flex items-center justify-center w-10 h-10 -translate-y-1/2 text-[28px] leading-none text-white font-semibold active:scale-90 transition"
-  aria-label="Zurück"
->
-  ‹
-</button>
-
-        <div className="absolute inset-y-0 left-12 right-12 flex items-center justify-center overflow-hidden">
-          <div
-            className={`min-w-0 transition-all duration-300 ease-out ${
-              isSearchExpanded ? "w-full" : "w-[58%] max-w-[220px]"
-            }`}
-          >
-            <div className="relative flex h-9 items-center rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] px-3 shadow-sm transition-all duration-300 ease-out">
-              <span
-                className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-xs text-[#6b6256] transition-all duration-300 ease-out ${
-                  isSearchExpanded ? "left-3 -translate-x-0" : "left-1/2 -translate-x-1/2"
-                }`}
-                aria-hidden="true"
-              >
-                🔍
-              </span>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onFocus={() => setIsSearchFocused(true)}
-                onBlur={() => setIsSearchFocused(false)}
-                className={`h-full min-w-0 flex-1 border-0 bg-transparent text-base text-[#0f2a22] focus:outline-none ${
-                  isSearchExpanded ? "pl-5 font-medium" : "pl-0 font-normal"
-                }`}
+      <div className="mb-5">
+        <div className="relative mb-10 mt-3 h-10">
+          {view === "tasteDesMonats" ? (
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center"
+              aria-label="Zur Startseite"
+            >
+              <img
+                src="/logos/citypage-logo.png"
+                alt="Junior's Taste"
+                className="h-auto w-[148px]"
               />
-            </div>
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => router.push("/")}
+                className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center justify-start"
+                aria-label="Zur Startseite"
+              >
+                <img
+                  src="/logos/citypage-logo.png"
+                  alt="Junior's Taste"
+                  className="h-auto w-[148px]"
+                />
+              </button>
+
+              <div
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                style={{ width: getSelectWidth(currentCityName, 84) }}
+              >
+                <select
+                  value={citySelectValue}
+                  onChange={(e) => handleCitySelectChange(e.target.value)}
+                  className="w-full appearance-none rounded-full border border-white/10 bg-white/10 px-4 py-1.5 text-center text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-white/15 active:scale-[1.03] focus:outline-none"
+                >
+                  <option value="__near__">📍 In meiner Nähe suchen…</option>
+                  <option disabled>──────────</option>
+                  {cities.map((c) => (
+                    <option key={c.id} value={c.slug}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
+          <div className="absolute right-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center">
+            <TopRightMenu onOpenChange={setMenuOpen} />
           </div>
         </div>
 
-        <div className="absolute right-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center">
-          <TopRightMenu onOpenChange={setMenuOpen} />
+        <div className="mb-4 flex justify-center">
+          <div className={sharedContentWidthClass}>
+            <h1 className="text-[30px] font-extrabold leading-none text-white">{headerTitle}</h1>
+            <p className="mt-2 text-sm font-medium text-white/70">
+              {headerSubtitle}
+            </p>
+          </div>
         </div>
-      </div>
-
-      {/* Logo */}
-      <div className="text-center mb-6">
-        <SiteHeader subtitle={null as any} compact />
 
         {view !== "tasteDesMonats" && (
-          <div className="mb-5">
-            <div className="flex flex-col gap-4">
-              {/* FILTER */}
+          <div className="mb-4">
+            <div className="flex flex-col gap-3">
+              <div className="flex justify-center">
+                <div
+                  className={`min-w-0 transition-all duration-300 ease-out ${searchWidthClass}`}
+                >
+                  <div className="relative flex h-9 items-center rounded-full border border-white/10 bg-white/10 px-3 shadow-sm transition-all duration-300 ease-out">
+                    <span
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white transition-all duration-300 ease-out"
+                      aria-hidden="true"
+                    >
+                      🔍
+                    </span>
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      onFocus={() => setIsSearchFocused(true)}
+                      onBlur={() => setIsSearchFocused(false)}
+                      placeholder="Foodspots, Burrito, Burger ..."
+                      className="h-full min-w-0 flex-1 border-0 bg-transparent pl-5 text-sm font-medium text-white placeholder:text-xs placeholder:font-normal placeholder:text-white/35 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="text-left">
-                <label className={`block mb-2 font-extrabold ${topText}`}>Filter</label>
-
                 <div className="w-full max-w-full overflow-x-auto no-scrollbar">
-                  <div className="flex gap-3 min-w-max">
-                    {/* Stadt */}
-                    <div className="shrink-0" style={{ width: getSelectWidth(selectedCityLabel, 150) }}>
-                      <select
-                        value={citySelectValue}
-                        onChange={(e) => handleCitySelectChange(e.target.value)}
-                        className={controlBase + " italic"}
-                      >
-                        <option value="__near__">📍 In meiner Nähe suchen…</option>
-                        <option disabled>──────────</option>
-                        {cities.map((c) => (
-                          <option key={c.id} value={c.slug}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Kategorie */}
-                    <div className="shrink-0" style={{ width: getSelectWidth(selectedCategoryLabel, 150) }}>
-                      <select
-                        value={category}
-                        onChange={(e) => {
-                          setCategory(e.target.value);
+                  <div className="flex min-w-max gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCategory("all");
+                        setSearch("");
+                      }}
+                      className={`${chipButtonBase} ${
+                        category === "all"
+                          ? "jt-active-gradient-soft border-transparent"
+                          : "border-white/10 bg-white/10 text-white/85 hover:bg-white/15"
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-1.5">
+                        <span aria-hidden="true">{getCategoryEmoji("all", "Alle")}</span>
+                        <span>Alle</span>
+                      </span>
+                    </button>
+                    {orderedCategories.map((c) => (
+                      <button
+                        key={c.slug}
+                        type="button"
+                        onClick={() => {
+                          setCategory(c.slug);
                           setSearch("");
                         }}
-                        className={controlBase}
+                        className={`${chipButtonBase} ${
+                          category === c.slug
+                            ? "jt-active-gradient-soft border-transparent"
+                            : "border-white/10 bg-white/10 text-white/85 hover:bg-white/15"
+                        }`}
                       >
-                        <option value="all">Kategorie: Alle</option>
-                        {categories.map((c) => (
-                          <option key={c.slug} value={c.slug}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                        <span className="inline-flex items-center gap-1.5">
+                          {getCategoryEmoji(c.slug, c.name) ? (
+                            <span aria-hidden="true">{getCategoryEmoji(c.slug, c.name)}</span>
+                          ) : null}
+                          <span>{c.name}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
-                    {/* Sortierung */}
-                    <div className="shrink-0" style={{ width: getSelectWidth(selectedSortLabel, 170) }}>
+              <div className="mb-4 text-left">
+                <div className="flex justify-center">
+                  <div className={`flex ${segmentedWidthClass} rounded-full border border-white/10 bg-white/10 p-1 shadow-sm`}>
+                    <button
+                      onClick={() => setView("list")}
+                      className={`${segmentedButtonBase} ${
+                        view === "list"
+                          ? "jt-active-gradient-soft"
+                          : "bg-transparent text-white/80 hover:bg-white/10"
+                      }`}
+                    >
+                      Liste
+                    </button>
+
+                    <button
+                      onClick={() => setView("map")}
+                      className={`${segmentedButtonBase} ${
+                        view === "map"
+                          ? "jt-active-gradient-soft"
+                          : "bg-transparent text-white/80 hover:bg-white/10"
+                      }`}
+                    >
+                      Karte
+                    </button>
+
+                    <button
+                      onClick={() => setView("tasteDesMonats")}
+                      className={`${segmentedButtonBase} ${
+                        view === "tasteDesMonats"
+                          ? "jt-active-gradient-soft"
+                          : "bg-transparent text-white/80 hover:bg-white/10"
+                      }`}
+                    >
+                      Taste des Monats
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-left">
+                <div className="w-full max-w-full overflow-x-auto no-scrollbar">
+                  <div className="flex min-w-max justify-center gap-2">
+                    <div className="shrink-0" style={{ width: getSelectWidth(selectedSortLabel, 144) }}>
                       <select
                         value={sort}
-                        onChange={(e) => setSort(e.target.value as any)}
-                        className={controlBase}
+                        onChange={(e) => {
+                          const nextSort = e.target.value as "newest" | "rating" | "price" | "distance";
+                          if (nextSort === "distance") {
+                            requestNearbySpots();
+                            return;
+                          }
+
+                          setSort(nextSort);
+                        }}
+                        className={`${compactControlBase} ${sort !== "newest" ? "jt-active-gradient-soft border-transparent" : ""}`}
+                        style={{ textAlignLast: "center" }}
                       >
                         <option value="newest">Sortierung: Neueste</option>
                         <option value="rating">Best bewertet</option>
                         <option value="price">Preis</option>
-                        <option value="distance" disabled={!userPos}>
+                        <option value="distance">
                           Nähe (GPS)
                         </option>
                       </select>
                     </div>
 
-                    {/* Lieferung */}
-                    <div className="shrink-0" style={{ width: getSelectWidth(selectedDeliveryLabel, 170) }}>
+                    <div className="shrink-0" style={{ width: getSelectWidth(selectedDeliveryLabel, 144) }}>
                       <select
                         value={deliveryFilter}
                         onChange={(e) =>
                           setDeliveryFilter(e.target.value as "all" | "with" | "without")
                         }
-                        className={controlBase}
+                        className={`${compactControlBase} ${deliveryFilter !== "all" ? "jt-active-gradient-soft border-transparent" : ""}`}
+                        style={{ textAlignLast: "center" }}
                       >
                         <option value="all">Lieferung: Alle</option>
                         <option value="with">Mit Lieferung</option>
                         <option value="without">Vor Ort essen</option>
                       </select>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* ANSICHT */}
-              <div className="mb-4 text-left">
-                <label className={`block mb-2 font-extrabold ${topText}`}>Ansicht</label>
-
-                <div className="w-full max-w-full overflow-x-auto no-scrollbar">
-                  <div className="flex gap-3 min-w-max">
-                    {/* Liste */}
-                    <button
-                      onClick={() => setView("list")}
-                      className={`min-w-[180px] px-4 py-3 rounded-2xl whitespace-nowrap border transition-all font-semibold shrink-0 ${
-                        view === "list"
-  ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
-                          : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
-                      }`}
-                    >
-                      Liste
-                    </button>
-
-                    {/* Karte */}
-                    <button
-                      onClick={() => setView("map")}
-                      className={`min-w-[180px] px-4 py-3 rounded-2xl border transition-all font-semibold shrink-0 ${
-                        view === "map"
-  ? "bg-white border-[#e7dfcf] text-[#0f3b2e] shadow-sm"
-                          : "bg-[#f6efe3] border-[#e7dfcf] text-[#0f3b2e] hover:bg-[#efe4d1]"
-                      }`}
-                    >
-                      Karte
-                    </button>
-
-                    {/* In meiner Nähe */}
-                    <button
-                      onClick={() => {
-                        setGeoError(null);
-
-                        if (!navigator.geolocation) {
-                          setGeoError("Dein Browser unterstützt Standort nicht.");
-                          return;
-                        }
-
-                        navigator.geolocation.getCurrentPosition(
-                          (pos) => {
-                            const lat = pos.coords.latitude;
-                            const lng = pos.coords.longitude;
-                            setUserPos({ lat, lng });
-                            setSort("distance");
-                          },
-                          () => setGeoError("Standort konnte nicht abgerufen werden. Bitte Standort erlauben."),
-                          { enableHighAccuracy: true, timeout: 10000 }
-                        );
-                      }}
-                      className="min-w-[180px] px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] text-[#0f3b2e] font-semibold shadow-sm transition hover:bg-[#efe5d6] shrink-0 whitespace-nowrap"
-                    >
-                      📍 In meiner Nähe
-                    </button>
 
                   </div>
                 </div>
@@ -634,16 +799,16 @@ className="absolute left-[-8px] top-1/2 flex items-center justify-center w-10 h-
 
       {/* ✅ Umkreis */}
       {view !== "tasteDesMonats" && userPos ? (
-        <div className="mb-4 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] p-4 text-[#0f2a22] shadow-sm">
+        <div className="mb-4 rounded-[20px] border border-white/10 bg-white/10 p-3 text-white shadow-sm backdrop-blur-sm">
           <div className="flex items-center justify-between gap-3">
-            <div className="font-extrabold">Umkreis</div>
+            <div className="text-sm font-extrabold">Umkreis</div>
             <button
               type="button"
               onClick={() => {
                 setUserPos(null);
                 setRadiusKm(30);
               }}
-              className="rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] px-3 py-2 text-sm font-semibold text-[#0f3b2e] shadow-sm transition hover:bg-[#efe5d6]"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10 text-sm font-medium text-white/85 transition hover:bg-white/15"
               title="Standort zurücksetzen"
               aria-label="Standort zurücksetzen"
             >
@@ -651,14 +816,14 @@ className="absolute left-[-8px] top-1/2 flex items-center justify-center w-10 h-
             </button>
           </div>
 
-          <div className="mt-3">
+          <div className="mt-2.5">
             <select
               value={radiusKm}
               onChange={(e) => {
                 setRadiusKm(Number(e.target.value));
                 setSort("distance");
               }}
-              className={controlBase}
+              className="w-full appearance-none rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-white/15 active:scale-[1.03] focus:outline-none"
             >
               <option value={2}>2 km</option>
               <option value={5}>5 km</option>
@@ -669,7 +834,7 @@ className="absolute left-[-8px] top-1/2 flex items-center justify-center w-10 h-
               <option value={30}>30 km</option>
             </select>
 
-            <div className="mt-2 text-xs opacity-80">
+            <div className="mt-1.5 text-[11px] text-white/75">
               {`Zeige Spots im Umkreis von ${radiusKm} km.`}
             </div>
           </div>
@@ -786,13 +951,6 @@ className="absolute left-[-8px] top-1/2 flex items-center justify-center w-10 h-
         </div>
             ) : view === "tasteDesMonats" ? (
         <div className="grid gap-3">
-          <div className="mb-1">
-            <h2 className="text-xl font-extrabold text-white">Taste des Monats</h2>
-            <p className="text-sm italic text-white/80 mt-1">
-  Drei Spots, die ich diesen Monat besonders feiere.
-</p>
-          </div>
-
           {tasteDesMonatsSpots.length === 0 ? (
             <p className="text-[#f6efe3]">Keine Spots für Taste des Monats hinterlegt.</p>
           ) : (

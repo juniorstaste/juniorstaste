@@ -15,9 +15,14 @@ import {
 export default function GlobalBottomTabs() {
   const pathname = usePathname();
   const router = useRouter();
-  const [view, setView] = useState<CityTabView>("list");
+  const [view, setView] = useState<CityTabView | "saved">("list");
 
   useEffect(() => {
+    if (pathname === "/saved") {
+      setView("saved");
+      return;
+    }
+
     if (
       pathname?.startsWith("/city/") ||
       pathname?.startsWith("/near") ||
