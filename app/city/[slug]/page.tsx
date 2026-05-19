@@ -55,6 +55,7 @@ type Spot = {
 };
 
 type City = { id: string; name: string; slug: string };
+type ViewMode = "list" | "map" | "tasteDesMonats";
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371;
@@ -191,7 +192,7 @@ export default function CityPage() {
   const [categories, setCategories] = useState<{ slug: string; name: string }[]>([]);
 
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"list" | "map" | "tasteDesMonats">("list");
+  const [view, setView] = useState<ViewMode>("list");
   const [sort, setSort] = useState<"newest" | "rating" | "price" | "distance">("newest");
   const [deliveryFilter, setDeliveryFilter] = useState<"all" | "with" | "without">("all");
 
