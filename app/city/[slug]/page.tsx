@@ -725,11 +725,7 @@ export default function CityPage() {
 
                     <button
                       onClick={() => setView("map")}
-                      className={`${segmentedButtonBase} ${
-                        view === "map"
-                          ? "jt-active-gradient-soft"
-                          : "bg-transparent text-white/80 hover:bg-white/10"
-                      }`}
+                      className={`${segmentedButtonBase} bg-transparent text-white/80 hover:bg-white/10`}
                     >
                       Karte
                     </button>
