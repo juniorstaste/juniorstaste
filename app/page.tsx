@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import SiteHeader from "@/components/SiteHeader";
 import { useRouter } from "next/navigation";
 import TopRightMenu from "@/components/TopRightMenu";
-
 
 type City = { id: string; name: string; slug: string; spotCount: number };
 
@@ -13,15 +11,12 @@ export default function Home() {
   const [cities, setCities] = useState<City[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
-
   const [geoLoading, setGeoLoading] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusKm, setRadiusKm] = useState<number>(30);
   const [radiusOpen, setRadiusOpen] = useState<boolean>(false);
-  const [cityOpen, setCityOpen] = useState<boolean>(false);
 
   const router = useRouter();
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function loadCities() {
@@ -66,23 +61,6 @@ export default function Home() {
     loadCities();
   }, []);
 
-    useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setCityOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
   function requestLocation() {
     setGeoError(null);
     setGeoLoading(true);
@@ -116,125 +94,112 @@ export default function Home() {
   }
 
   return (
-<main className="relative min-h-screen w-full overflow-x-hidden bg-[#0f3b2e] flex flex-col items-center justify-center text-center px-6">
-  <div className="w-full max-w-[560px]">
-    <div className="fixed right-4 top-6 z-50">
-      <TopRightMenu />
-    </div>
+    <main className="min-h-screen w-full overflow-x-hidden bg-[#0f3b2e] px-5 pb-10 pt-6 text-white">
+      <div className="mx-auto w-full max-w-[560px]">
+        <div className="fixed right-4 top-6 z-50">
+          <TopRightMenu />
+        </div>
 
-      {/* Logo */}
-      <div className="relative z-0 mx-auto w-full max-w-[420px] mb-14 -mt-8 overflow-hidden">
-  
-
-  <div className="origin-top text-center scale-150">
-  <SiteHeader />
-</div>
-</div>
-
-      <h1 className="mx-auto mt-8 mb-6 w-full max-w-[420px] text-center text-3xl md:text-4xl font-extrabold italic text-white tracking-wide fade-up">
-  Wähle deine Stadt  
-</h1>
-
-      <div className="mx-auto mt-2 flex w-full max-w-sm flex-col gap-4">
-
-        {/* 🔥 Standort Button GANZ OBEN */}
-        <button
-          onClick={requestLocation}
-          disabled={geoLoading}
-          className="w-full h-[56px] rounded-2xl bg-[#e8decc] text-lg font-semibold text-[#0f3b2e] shadow-md transition active:scale-[1.03] md:hover:scale-[1.03] disabled:opacity-70"
-        >
-          {geoLoading ? "Standort wird geladen…" : "📍 Standort verwenden"}
-        </button>
-
-        {/* Radius Auswahl klappt hier auf */}
-        {radiusOpen && (
-          <div className="w-full rounded-2xl border border-white/20 p-4 text-left">
-            <div className="text-white font-semibold mb-3">
-              Umkreis wählen
-            </div>
-
-            <select
-              value={radiusKm}
-              onChange={(e) => setRadiusKm(Number(e.target.value))}
-              className="w-full h-[48px] rounded-xl bg-[#e8decc] text-[#0f3b2e] font-semibold px-3"
-            >
-              <option value={2}>2 km</option>
-              <option value={5}>5 km</option>
-              <option value={10}>10 km</option>
-              <option value={15}>15 km</option>
-              <option value={20}>20 km</option>
-              <option value={25}>25 km</option>
-              <option value={30}>30 km</option>
-            </select>
-
-            <div className="mt-4 flex gap-3">
-              <button
-                onClick={goToNearPage}
-                className="flex-1 h-[48px] rounded-xl bg-[#e8decc] text-[#0f3b2e] font-semibold shadow-md transition active:scale-[1.02] md:hover:scale-[1.02]"
-              >
-                Weiter →
-              </button>
-
-              <button
-                onClick={() => {
-                  setRadiusOpen(false);
-                  setCoords(null);
-                }}
-                className="h-[48px] px-4 rounded-xl bg-white/10 text-white border border-white/20"
-              >
-                ✕
-              </button>
-            </div>
+        <section className="relative -mx-5 min-h-[320px] overflow-hidden px-5 pb-1 pt-0 sm:mx-0 sm:px-0">
+          <div className="absolute inset-0">
+            <img
+              src="/logo-transparent.png"
+              alt=""
+              aria-hidden="true"
+              className="absolute left-1/2 top-[-22%] w-[96%] max-w-[560px] -translate-x-1/2"
+            />
           </div>
-        )}
 
-        {/* Städte Dropdown (Custom) */}
-<div ref={dropdownRef} className="relative w-full">
-  <button
-    onClick={() => setCityOpen(!cityOpen)}
-    className="w-full h-[56px] rounded-2xl bg-[#e8decc] text-lg font-semibold text-[#0f3b2e] shadow-md transition active:scale-[1.03] md:hover:scale-[1.03]"
-  >
-    Stadt auswählen
-  </button>
+          <div className="relative z-10 pb-0 pt-[138px]" />
+        </section>
 
-  {cityOpen && (
-    <div className="absolute top-[64px] left-0 w-full rounded-2xl bg-[#e8decc] shadow-lg overflow-hidden z-20">
-      {cities.map((city) => (
-        <button
-  key={city.slug}
-  onClick={() => {
-    setCityOpen(false);
-    router.push(`/city/${city.slug}`);
-  }}
-  className="w-full px-4 py-3 text-center font-semibold text-[#0f3b2e] transition active:bg-[#ded3be] md:hover:bg-[#ded3be]"
->
-          {city.name}
-        </button>
-      ))}
-    </div>
-  )}
-</div>
+        <section className="mt-0">
+          <div className="mb-4 flex w-full flex-col gap-4">
+            <button
+              onClick={requestLocation}
+              disabled={geoLoading}
+              className="jt-active-gradient h-[56px] w-full rounded-2xl text-lg font-semibold transition active:scale-[1.03] md:hover:scale-[1.03] disabled:opacity-70"
+            >
+              {geoLoading ? "Standort wird geladen…" : "📍 Standort verwenden"}
+            </button>
 
-        <button
-          onClick={() => router.push("/discover")}
-          className="w-full h-[56px] rounded-2xl bg-[#e8decc] text-lg font-semibold text-[#0f3b2e] shadow-md transition active:scale-[1.03] md:hover:scale-[1.03]"
-        >
-          Entdecken
-        </button>
+            {radiusOpen && (
+              <div className="w-full rounded-[24px] border border-white/12 bg-white/8 p-4 text-left shadow-sm backdrop-blur-sm">
+                <div className="mb-3 font-semibold text-white">Umkreis wählen</div>
+
+                <select
+                  value={radiusKm}
+                  onChange={(e) => setRadiusKm(Number(e.target.value))}
+                  className="h-[48px] w-full rounded-xl bg-[#e8decc] px-3 font-semibold text-[#0f3b2e]"
+                >
+                  <option value={2}>2 km</option>
+                  <option value={5}>5 km</option>
+                  <option value={10}>10 km</option>
+                  <option value={15}>15 km</option>
+                  <option value={20}>20 km</option>
+                  <option value={25}>25 km</option>
+                  <option value={30}>30 km</option>
+                </select>
+
+                <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={goToNearPage}
+                    className="h-[48px] flex-1 rounded-xl bg-[#e8decc] font-semibold text-[#0f3b2e] shadow-md transition active:scale-[1.02] md:hover:scale-[1.02]"
+                  >
+                    Weiter →
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setRadiusOpen(false);
+                      setCoords(null);
+                    }}
+                    className="h-[48px] rounded-xl border border-white/20 bg-white/10 px-4 text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => router.push("/discover")}
+              className="jt-active-gradient h-[56px] w-full rounded-2xl text-lg font-semibold transition active:scale-[1.03] md:hover:scale-[1.03]"
+            >
+              Ohne Stadt entdecken
+            </button>
+          </div>
+
+          <div className="mb-4 flex items-center justify-between gap-3 px-1">
+            <h2 className="text-[19px] font-extrabold text-white">Wähle deine Stadt</h2>
+            <span className="text-sm text-white/45">{cities.length} Städte</span>
+          </div>
+
+          <div className="grid gap-3">
+            {cities.map((city) => (
+              <button
+                key={city.slug}
+                type="button"
+                onClick={() => router.push(`/city/${city.slug}`)}
+                className="flex w-full items-center justify-between rounded-[28px] border border-white/10 bg-white/5 px-5 py-4 text-left shadow-[0_10px_30px_rgba(5,18,14,0.16)] transition active:scale-[0.99] md:hover:bg-white/[0.07]"
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-[18px] font-extrabold text-white">
+                    {city.name}
+                  </div>
+                  <div className="mt-1 text-sm text-white/50">{city.spotCount} Spots</div>
+                </div>
+                <span className="ml-4 shrink-0 text-xl text-white/35" aria-hidden="true">
+                  ›
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {geoError ? <div className="mt-4 text-sm text-red-400">{geoError}</div> : null}
+        {errorMsg ? <div className="mt-4 text-sm text-red-400">{errorMsg}</div> : null}
       </div>
-
-      {geoError && (
-        <div className="mt-4 text-sm text-red-400">
-          {geoError}
-        </div>
-      )}
-
-      {errorMsg && (
-        <div className="mt-4 text-sm text-red-400">
-          {errorMsg}
-        </div>
-      )}
-    </div>
     </main>
   );
 }
