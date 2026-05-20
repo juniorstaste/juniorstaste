@@ -315,10 +315,14 @@ export default function DiscoverPage() {
       <div className="mb-3 flex items-center justify-between">
         <button
           onClick={() => router.push("/")}
-          className="flex h-10 w-10 -ml-2 items-center justify-center text-[28px] font-semibold leading-none text-white transition active:scale-90"
-          aria-label="Zurück"
+          className="flex items-center justify-start transition active:scale-[1.03]"
+          aria-label="Zur Startseite"
         >
-          ‹
+          <img
+            src="/logos/citypage-logo.png"
+            alt="Junior's Taste"
+            className="h-auto w-[148px]"
+          />
         </button>
 
         <TopRightMenu onOpenChange={setMenuOpen} />

@@ -39,24 +39,59 @@ type Props = {
   onActiveChange?: (id: string) => void;
   selectedLegendSlug?: string | null;
   onLegendSelect?: (slug: string | null) => void;
+  immersiveSheet?: boolean;
 };
 
 
-// ✅ farbiger Punkt als Icon
-function makeDotIcon(color: string) {
-  const html = `
-    <div style="
-      width:18px;height:18px;border-radius:999px;
-      background:${color};
-      border:3px solid white;
-      box-shadow:0 2px 8px rgba(0,0,0,.25);
-    "></div>
-  `;
+// ✅ Bildmarker mit Kategorien-Farbrahmen, Fallback auf Farbpunkt
+function makeSpotIcon(color: string, imageUrl?: string | null, isActive = false) {
+  const size = isActive ? 42 : 34;
+  const innerSize = isActive ? 32 : 24;
+  const borderSize = isActive ? 3 : 2.5;
+
+  const html = imageUrl
+    ? `
+      <div style="
+        width:${size}px;
+        height:${size}px;
+        border-radius:999px;
+        background:${color};
+        border:${borderSize}px solid rgba(255,255,255,.92);
+        box-shadow:0 6px 16px rgba(0,0,0,.28);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        overflow:hidden;
+      ">
+        <img
+          src="${imageUrl}"
+          alt=""
+          style="
+            width:${innerSize}px;
+            height:${innerSize}px;
+            border-radius:999px;
+            object-fit:cover;
+            display:block;
+          "
+        />
+      </div>
+    `
+    : `
+      <div style="
+        width:${size}px;
+        height:${size}px;
+        border-radius:999px;
+        background:${color};
+        border:${borderSize}px solid rgba(255,255,255,.92);
+        box-shadow:0 6px 16px rgba(0,0,0,.28);
+      "></div>
+    `;
+
   return L.divIcon({
     html,
     className: "",
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 
@@ -146,6 +181,7 @@ export default function CityMap({
   onActiveChange,
   selectedLegendSlug,
   onLegendSelect,
+  immersiveSheet = false,
 }: Props) {
   const legendItems = useMemo(() => {
     const m = new Map<string, string>();
@@ -161,9 +197,28 @@ export default function CityMap({
   }, [spots]);
 
   return (
-    <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid #ddd" }}>
-      <div style={{ height: 420, width: "100%" }}>
-        <MapContainer center={center} zoom={12} style={{ height: "100%", width: "100%" }}>
+    <div
+      style={{
+        position: "relative",
+        borderRadius: immersiveSheet ? 0 : 24,
+        overflow: "hidden",
+        border: immersiveSheet ? "none" : "1px solid rgba(255,255,255,0.12)",
+        boxShadow: immersiveSheet ? "none" : "0 18px 48px rgba(6, 24, 19, 0.28)",
+      }}
+    >
+      <div
+        style={{
+          height: immersiveSheet ? "calc(100vh - 168px)" : 520,
+          minHeight: immersiveSheet ? 620 : undefined,
+          width: "100%",
+        }}
+      >
+        <MapContainer
+          center={center}
+          zoom={12}
+          zoomControl={!immersiveSheet}
+          style={{ height: "100%", width: "100%" }}
+        >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -187,9 +242,8 @@ export default function CityMap({
             const lieferando = s.lieferando_url ?? null;
             const uberEats = s.uber_eats_url ?? null;
 
-            // Optional: aktiver Spot etwas “kräftiger” anzeigen
             const isActive = activeSpotId === s.id;
-            const icon = makeDotIcon(isActive ? color : color);
+            const icon = makeSpotIcon(color, s.image_url, isActive);
 
             return (
               <Marker
@@ -311,52 +365,126 @@ export default function CityMap({
         </MapContainer>
       </div>
 
-      {/* ✅ Legende */}
-      <div style={{ padding: 12, background: "white" }}>
-        <div style={{ fontWeight: 800, marginBottom: 8 }}>Legende</div>
+      <div
+        style={{
+          pointerEvents: "none",
+          position: immersiveSheet ? "absolute" : "relative",
+          inset: immersiveSheet ? "auto 0 0 0" : "auto",
+          zIndex: immersiveSheet ? 500 : "auto",
+        }}
+      >
+        <div
+          style={{
+            pointerEvents: "auto",
+            borderRadius: immersiveSheet ? "28px 28px 0 0" : 26,
+            background: immersiveSheet ? "rgba(15, 59, 46, 0.84)" : "white",
+            border: immersiveSheet
+              ? "1px solid rgba(255,255,255,0.1)"
+              : "1px solid rgba(229, 231, 235, 1)",
+            backdropFilter: immersiveSheet ? "blur(16px)" : "none",
+            WebkitBackdropFilter: immersiveSheet ? "blur(16px)" : "none",
+            boxShadow: immersiveSheet ? "0 16px 40px rgba(6, 24, 19, 0.32)" : "none",
+            padding: immersiveSheet ? "12px 16px 18px" : "12px 14px 14px",
+          }}
+        >
+          <div
+            style={{
+              margin: "0 auto 12px",
+              width: 42,
+              height: 5,
+              borderRadius: 999,
+              background: immersiveSheet ? "rgba(255,255,255,0.25)" : "rgba(15,59,46,0.16)",
+            }}
+          />
 
-        {legendItems.length === 0 ? (
-          <div style={{ fontSize: 13, color: "#666" }}>Keine Kategorien gefunden.</div>
-        ) : (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {legendItems.map((item) => (
-              <button
-                key={item.slug}
-                type="button"
-                onClick={() =>
-                  onLegendSelect?.(selectedLegendSlug === item.slug ? null : item.slug)
-                }
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  borderRadius: 999,
-                  border:
-                    selectedLegendSlug === item.slug
-                      ? "1px solid #0f3b2e"
-                      : "1px solid #e5e7eb",
-                  background:
-                    selectedLegendSlug === item.slug ? "#f6efe3" : "white",
-                  padding: "8px 10px",
-                  cursor: "pointer",
-                }}
-              >
-                <span
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: 999,
-                    background: getColorForCategory(item.slug),
-                    border: "2px solid white",
-                    boxShadow: "0 1px 4px rgba(0,0,0,.2)",
-                    display: "inline-block",
-                  }}
-                />
-                <span style={{ fontSize: 13, color: "#333", fontWeight: 700 }}>{item.name}</span>
-              </button>
-            ))}
+          <div
+            style={{
+              fontWeight: 800,
+              marginBottom: 10,
+              color: immersiveSheet ? "white" : "#111827",
+              fontSize: 16,
+            }}
+          >
+            Legende
           </div>
-        )}
+
+          {legendItems.length === 0 ? (
+            <div
+              style={{
+                fontSize: 13,
+                color: immersiveSheet ? "rgba(255,255,255,0.72)" : "#666",
+              }}
+            >
+              Keine Kategorien gefunden.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              {legendItems.map((item) => (
+                <button
+                  key={item.slug}
+                  type="button"
+                  onClick={() =>
+                    onLegendSelect?.(selectedLegendSlug === item.slug ? null : item.slug)
+                  }
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    borderRadius: 999,
+                    border:
+                      selectedLegendSlug === item.slug
+                        ? immersiveSheet
+                          ? "1px solid rgba(255,255,255,0.14)"
+                          : "1px solid #0f3b2e"
+                        : immersiveSheet
+                        ? "1px solid rgba(255,255,255,0.1)"
+                        : "1px solid #e5e7eb",
+                    background:
+                      selectedLegendSlug === item.slug
+                        ? immersiveSheet
+                          ? "linear-gradient(90deg, rgba(255, 124, 144, 0.72) 0%, rgba(255, 225, 164, 0.72) 100%)"
+                          : "#f6efe3"
+                        : immersiveSheet
+                        ? "rgba(255,255,255,0.08)"
+                        : "white",
+                    color: selectedLegendSlug === item.slug ? "#0f3b2e" : immersiveSheet ? "white" : "#333",
+                    padding: "9px 12px",
+                    cursor: "pointer",
+                    boxShadow:
+                      selectedLegendSlug === item.slug
+                        ? immersiveSheet
+                          ? "0 10px 22px rgba(255, 124, 144, 0.18)"
+                          : "none"
+                        : "none",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: 999,
+                      background: getColorForCategory(item.slug),
+                      border: immersiveSheet
+                        ? "2px solid rgba(255,255,255,0.9)"
+                        : "2px solid white",
+                      boxShadow: "0 1px 4px rgba(0,0,0,.2)",
+                      display: "inline-block",
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 13,
+                      color: selectedLegendSlug === item.slug ? "#0f3b2e" : immersiveSheet ? "white" : "#333",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {item.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

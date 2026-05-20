@@ -38,33 +38,6 @@ function MapIcon() {
   );
 }
 
-function BurgerIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M5 10a7 7 0 0 1 14 0H5Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M4 13h16"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M5 16h14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function SavedIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -134,19 +107,6 @@ export default function BottomTabs({ view, onChange }: Props) {
             >
               <SavedIcon />
               Saved
-            </button>
-
-            <button
-              onClick={() => onChange("tasteDesMonats")}
-              className={`flex-1 ${baseBtn} ${
-                view === "tasteDesMonats"
-                  ? "jt-active-gradient"
-                  : "text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5"
-              }`}
-              title="Taste des Monats"
-            >
-              <BurgerIcon />
-              Taste des Monats
             </button>
           </div>
         </div>

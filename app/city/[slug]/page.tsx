@@ -18,6 +18,7 @@ import {
   normalizeCategorySlug,
 } from "@/lib/cityMapCategories";
 import {
+  buildCityViewHref,
   isCityTabView,
   LAST_CITY_SLUG_KEY,
   LAST_CITY_VIEW_KEY,
@@ -277,7 +278,7 @@ export default function CityPage() {
       return;
     }
 
-    if (next) router.push(`/city/${next}`);
+    if (next) router.push(buildCityViewHref(next, view));
   }
 
   function requestNearbySpots() {
@@ -605,7 +606,8 @@ export default function CityPage() {
                 <select
                   value={citySelectValue}
                   onChange={(e) => handleCitySelectChange(e.target.value)}
-                  className="w-full appearance-none rounded-full border border-white/10 bg-white/10 px-4 py-1.5 text-center text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-white/15 active:scale-[1.03] focus:outline-none"
+                  className="w-full appearance-none rounded-full border border-white/10 bg-white/10 bg-gradient-to-r from-[#ff7c90] to-[#ffe1a4] bg-clip-text px-4 py-1.5 text-center text-sm font-semibold text-transparent shadow-sm transition-all duration-150 hover:bg-white/15 active:scale-[1.03] focus:outline-none"
+                  style={{ textAlignLast: "center" }}
                 >
                   <option value="__near__">📍 In meiner Nähe suchen…</option>
                   <option disabled>──────────</option>
@@ -624,16 +626,18 @@ export default function CityPage() {
           </div>
         </div>
 
-        <div className="mb-4 flex justify-center">
-          <div className={sharedContentWidthClass}>
-            <h1 className="text-[30px] font-extrabold leading-none text-white">{headerTitle}</h1>
-            <p className="mt-2 text-sm font-medium text-white/70">
-              {headerSubtitle}
-            </p>
+        {view !== "map" ? (
+          <div className="mb-4 flex justify-center">
+            <div className={sharedContentWidthClass}>
+              <h1 className="text-[30px] font-extrabold leading-none text-white">{headerTitle}</h1>
+              <p className="mt-2 text-sm font-medium text-white/70">
+                {headerSubtitle}
+              </p>
+            </div>
           </div>
-        </div>
+        ) : null}
 
-        {view !== "tasteDesMonats" && (
+        {view === "list" && (
           <div className="mb-4">
             <div className="flex flex-col gap-3">
               <div className="flex justify-center">
@@ -790,12 +794,12 @@ export default function CityPage() {
         )}
       </div>
 
-      {view !== "tasteDesMonats" && geoError ? (
+      {view === "list" && geoError ? (
         <div className="mb-3 text-sm text-red-200">{geoError}</div>
       ) : null}
 
       {/* ✅ Umkreis */}
-      {view !== "tasteDesMonats" && userPos ? (
+      {view === "list" && userPos ? (
         <div className="mb-4 rounded-[20px] border border-white/10 bg-white/10 p-3 text-white shadow-sm backdrop-blur-sm">
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm font-extrabold">Umkreis</div>
@@ -846,19 +850,42 @@ export default function CityPage() {
           <b>Supabase-Fehler:</b> {errorMsg}
         </div>
       ) : view === "map" ? (
-        <div className="relative z-0 mt-2">
-          <CityMap
-            center={mapCenter}
-            spots={mapSpots}
-            userPos={userPos}
-            userRadiusKm={15}
-            activeSpotId={activeSpotId}
-            onActiveChange={(id: string) => setActiveSpotId(id)}
-            onSpotClick={(id: string) => router.push(`/spot/${id}`)}
-            selectedLegendSlug={selectedMapLegendSlug}
-            onLegendSelect={setSelectedMapLegendSlug}
-          />
-          <p className="mt-3 text-sm text-[#f6efe3]/80">Tipp: Marker anklicken, um den Namen zu sehen.</p>
+        <div className="relative z-0 -mx-4 -mb-6 mt-2 sm:mx-0">
+          <div className="pointer-events-none absolute inset-x-4 top-4 z-[1200]">
+            <div className="pointer-events-auto mx-auto max-w-[500px]">
+              <div className="relative flex h-11 items-center rounded-full border border-white/10 bg-[#0f3b2e]/78 px-4 shadow-lg backdrop-blur-md transition-all duration-300 ease-out">
+                <span
+                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-white"
+                  aria-hidden="true"
+                >
+                  🔍
+                </span>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                  placeholder="Foodspots, Burrito, Burger ..."
+                  className="h-full min-w-0 flex-1 border-0 bg-transparent pl-7 text-sm font-medium text-white placeholder:text-sm placeholder:font-normal placeholder:text-white/40 focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden sm:rounded-[28px]">
+            <CityMap
+              center={mapCenter}
+              spots={mapSpots}
+              userPos={userPos}
+              userRadiusKm={15}
+              activeSpotId={activeSpotId}
+              onActiveChange={(id: string) => setActiveSpotId(id)}
+              onSpotClick={(id: string) => router.push(`/spot/${id}`)}
+              selectedLegendSlug={selectedMapLegendSlug}
+              onLegendSelect={setSelectedMapLegendSlug}
+              immersiveSheet
+            />
+          </div>
 
           {selectedMapLegendSlug ? (
             <div
@@ -867,10 +894,10 @@ export default function CityPage() {
             >
               <div className="mb-1 flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-xl font-extrabold text-white">
+                  <h2 className="text-lg font-extrabold text-white">
                     {labelFromCategorySlug(selectedMapLegendSlug)}
                   </h2>
-                  <p className="mt-1 text-sm italic text-white/80">
+                  <p className="mt-1 text-sm text-white/75">
                     {legendCategorySpots.length} Spots in dieser Kategorie.
                   </p>
                 </div>
@@ -878,71 +905,73 @@ export default function CityPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedMapLegendSlug(null)}
-                  className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/15"
+                  className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/15"
                 >
                   Auswahl aufheben
                 </button>
               </div>
 
-              {legendCategorySpots.map((s) => (
-                <div
-                  key={s.id}
-                  onClick={() => router.push(`/spot/${s.id}`)}
-                  className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
-                >
-                  <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
-                    <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
-                    <SaveSpotButton spotId={s.id} variant="list" />
-                  </div>
+              <div className="grid gap-3">
+                {legendCategorySpots.map((s) => (
+                  <div
+                    key={s.id}
+                    onClick={() => router.push(`/spot/${s.id}`)}
+                    className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da]/45 bg-[#fffaf2]/90 p-3 shadow-sm backdrop-blur-sm transition-all duration-300 hover:bg-[#fffaf2]/94 hover:shadow-lg"
+                  >
+                    <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
+                      <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
+                      <SaveSpotButton spotId={s.id} variant="list" />
+                    </div>
 
-                  <div className="min-w-0 flex gap-3">
-                    {s.image_url ? (
-                      <img
-                        src={s.image_url}
-                        alt={s.name}
-                        className="h-16 w-16 rounded-xl object-cover ring-1 ring-black/5"
-                      />
-                    ) : (
-                      <div className="h-16 w-16 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
-                    )}
-
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1 flex items-center gap-2">
-                        <span
-                          className="inline-block h-3 w-3 rounded-full"
-                          style={{ backgroundColor: getColorForCategory(s.category_slug) }}
+                    <div className="min-w-0 flex gap-3">
+                      {s.image_url ? (
+                        <img
+                          src={s.image_url}
+                          alt={s.name}
+                          className="h-16 w-16 rounded-xl object-cover ring-1 ring-black/5"
                         />
-                        <h3 className="truncate text-sm font-extrabold text-[#1f1f1f]">
-                          {s.name}
-                        </h3>
-                      </div>
+                      ) : (
+                        <div className="h-16 w-16 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
+                      )}
 
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5a5348]">
-                        {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex items-center gap-2">
+                          <span
+                            className="inline-block h-3 w-3 rounded-full"
+                            style={{ backgroundColor: getColorForCategory(s.category_slug) }}
+                          />
+                          <h3 className="truncate text-sm font-extrabold text-[#1f1f1f]">
+                            {s.name}
+                          </h3>
+                        </div>
 
-                        {typeof s.rating === "number" ? (
-                          <span className="flex items-center gap-1">
-                            <span className="text-[#d4a017]">★</span>
-                            <span className="font-semibold text-[#9a6b00]">
-                              {s.rating.toFixed(1)}
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5a5348]">
+                          {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
+
+                          {typeof s.rating === "number" ? (
+                            <span className="flex items-center gap-1">
+                              <span className="text-[#d4a017]">★</span>
+                              <span className="font-semibold text-[#9a6b00]">
+                                {s.rating.toFixed(1)}
+                              </span>
                             </span>
-                          </span>
-                        ) : null}
+                          ) : null}
 
-                        {typeof s.price_level === "number" ? (
-                          <span className="font-semibold text-[#3b342b]">
-                            {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
-                          </span>
+                          {typeof s.price_level === "number" ? (
+                            <span className="font-semibold text-[#3b342b]">
+                              {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {s.address ? (
+                          <p className="mt-1 break-words text-xs text-[#6b6256]">{s.address}</p>
                         ) : null}
                       </div>
-
-                      {s.address ? (
-                        <p className="mt-1 break-words text-xs text-[#6b6256]">{s.address}</p>
-                      ) : null}
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           ) : null}
         </div>
