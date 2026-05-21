@@ -419,7 +419,7 @@ export default function CityMap({
         style={{
           pointerEvents: "none",
           position: immersiveSheet ? "absolute" : "relative",
-          inset: immersiveSheet ? "auto 0 0 0" : "auto",
+          inset: immersiveSheet ? "auto 0 -10px 0" : "auto",
           zIndex: immersiveSheet ? 500 : "auto",
         }}
       >
@@ -434,7 +434,7 @@ export default function CityMap({
             backdropFilter: immersiveSheet ? "blur(16px)" : "none",
             WebkitBackdropFilter: immersiveSheet ? "blur(16px)" : "none",
             boxShadow: immersiveSheet ? "0 16px 40px rgba(6, 24, 19, 0.32)" : "none",
-            padding: immersiveSheet ? "12px 16px 18px" : "12px 14px 14px",
+            padding: immersiveSheet ? "10px 16px 14px" : "12px 14px 14px",
           }}
         >
           <div
