@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
-import SiteHeader from "@/components/SiteHeader";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
 import ShareSpotButton from "@/components/ShareSpotButton";
@@ -165,9 +164,8 @@ className="flex items-center justify-start active:scale-[1.03] transition"
 </div>
 
         {/* Header */}
-        <div className="text-center mb-6">
-  <SiteHeader subtitle={null} compact />
-  <h1 className="mt-4 text-3xl md:text-4xl font-extrabold italic text-white tracking-wide">
+        <div className="mb-5 text-center">
+  <h1 className="text-3xl md:text-4xl font-extrabold italic text-white tracking-wide">
     Gespeicherte Spots
   </h1>
 
@@ -236,9 +234,35 @@ className="flex items-center justify-start active:scale-[1.03] transition"
                   className="relative cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
                 >
                   {/* Bookmark oben rechts */}
-                  <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
-                    <ShareSpotButton spotId={spot.id} spotName={spot.name} variant="list" />
-                    <SaveSpotButton spotId={spot.id} variant="list" />
+                  <div className="absolute right-3 top-3 z-10 flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-2">
+                      <ShareSpotButton spotId={spot.id} spotName={spot.name} variant="list" />
+                      <SaveSpotButton spotId={spot.id} variant="list" />
+                    </div>
+                    {spot.google_maps_link ? (
+                      <a
+                        href={spot.google_maps_link}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) =>
+                          void trackAndOpenExternalLink({
+                            event: e,
+                            url: spot.google_maps_link!,
+                            spotId: spot.id,
+                            buttonType: "maps",
+                          })
+                        }
+                        className="inline-flex items-center justify-center"
+                        aria-label="Google Maps öffnen"
+                        title="Google Maps öffnen"
+                      >
+                        <img
+                          src="/icons/google-maps.svg"
+                          alt="Google Maps"
+                          className="h-6 w-6"
+                        />
+                      </a>
+                    ) : null}
                   </div>
 
                   <div className="min-w-0 flex gap-3">
@@ -277,25 +301,6 @@ className="flex items-center justify-start active:scale-[1.03] transition"
 
                   {/* Action Buttons */}
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {spot.google_maps_link ? (
-                      <a
-                        href={spot.google_maps_link}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) =>
-                          void trackAndOpenExternalLink({
-                            event: e,
-                            url: spot.google_maps_link!,
-                            spotId: spot.id,
-                            buttonType: "maps",
-                          })
-                        }
-                        className="rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-                      >
-                        Google Maps
-                      </a>
-                    ) : null}
-
                     <DeliveryButtons
                       spotId={spot.id}
                       woltUrl={wolt}
