@@ -5,7 +5,7 @@ import { useAuth } from "@/components/AuthProvider";
 
 type Props = {
   spotId: string;
-  variant?: "detail" | "list";
+  variant?: "detail" | "list" | "list-light";
 };
 
 function BookmarkIcon({
@@ -13,21 +13,26 @@ function BookmarkIcon({
   variant,
 }: {
   filled: boolean;
-  variant: "detail" | "list";
+  variant: "detail" | "list" | "list-light";
 }) {
   const detailFill = "#e8decc";
   const listGreen = "#0f3b2e";
+  const lightFill = "#f6efe3";
 
   const fillColor =
     variant === "detail"
       ? filled
         ? detailFill
         : "none"
+      : variant === "list-light"
+      ? filled
+        ? lightFill
+        : "none"
       : filled
       ? listGreen
       : "none";
 
-  const strokeColor = variant === "detail" ? "white" : listGreen;
+  const strokeColor = variant === "list" ? listGreen : "white";
 
   return (
     <svg
@@ -71,6 +76,10 @@ export default function SaveSpotButton({
   const buttonClass =
     variant === "detail"
       ? `relative z-20 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 transition hover:bg-white/15 ${
+          animate ? "save-bounce" : ""
+        }`
+      : variant === "list-light"
+      ? `relative z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/10 transition hover:bg-white/15 ${
           animate ? "save-bounce" : ""
         }`
       : `relative z-20 inline-flex h-8 w-8 items-center justify-center transition ${

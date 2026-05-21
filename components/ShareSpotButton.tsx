@@ -5,11 +5,11 @@ import { useState } from "react";
 type Props = {
   spotId: string;
   spotName: string;
-  variant?: "detail" | "list";
+  variant?: "detail" | "list" | "list-light";
 };
 
-function ShareIcon({ variant }: { variant: "detail" | "list" }) {
-  const strokeColor = variant === "detail" ? "white" : "#0f3b2e";
+function ShareIcon({ variant }: { variant: "detail" | "list" | "list-light" }) {
+  const strokeColor = variant === "list" ? "#0f3b2e" : "white";
 
   return (
     <svg
@@ -39,6 +39,8 @@ export default function ShareSpotButton({
   const buttonClass =
     variant === "detail"
       ? "relative z-20 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 transition hover:bg-white/15"
+      : variant === "list-light"
+      ? "relative z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/10 transition hover:bg-white/15"
       : "relative z-20 inline-flex h-8 w-8 items-center justify-center transition";
 
   async function handleShare(e?: React.MouseEvent) {
