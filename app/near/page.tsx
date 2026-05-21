@@ -340,6 +340,7 @@ export default function NearPage() {
           rating: s.rating ?? null,
           price_level: s.price_level ?? null,
           category_slug: (s.category_slug ?? "other").toString().trim().toLowerCase(),
+          google_maps_link: s.google_maps_link ?? null,
           wolt_url: wolt,
           lieferando_url: lieferando,
           uber_eats_url: uberEats,

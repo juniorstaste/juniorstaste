@@ -231,21 +231,11 @@ className="flex items-center justify-start active:scale-[1.03] transition"
                   aria-label="Adresse in Google Maps öffnen"
                   title="Adresse in Google Maps öffnen"
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path
-                      d="M7 17L17 7"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                    />
-                    <path
-                      d="M9 7H17V15"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <img
+                    src="/icons/google-maps.svg"
+                    alt="Google Maps"
+                    className="h-5 w-5"
+                  />
                 </a>
               ) : null}
             </div>

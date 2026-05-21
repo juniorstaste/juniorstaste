@@ -6,6 +6,7 @@ import { useEffect, useMemo } from "react";
 import StarRating from "@/components/StarRating";
 import PriceLevel from "@/components/PriceLevel";
 import DeliveryButtons from "@/components/DeliveryButtons";
+import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 import {
   getColorForCategory,
   labelFromCategorySlug,
@@ -21,6 +22,7 @@ type MapSpot = {
   rating?: number | null;
   price_level?: number | null;
   category_slug?: string | null;
+  google_maps_link?: string | null;
 
   // ✅ Bestell-Links (optional)
   wolt_url?: string | null;
@@ -291,6 +293,7 @@ export default function CityMap({
             const wolt = s.wolt_url ?? null;
             const lieferando = s.lieferando_url ?? null;
             const uberEats = s.uber_eats_url ?? null;
+            const googleMapsLink = s.google_maps_link ?? null;
 
             const isActive = activeSpotId === s.id;
             const icon = makeSpotIcon(color, s.image_url, isActive);
@@ -365,7 +368,7 @@ export default function CityMap({
                       </div>
 
                       {/* ✅ Zeile 1: Zum Spot */}
-                      <div style={{ marginBottom: 8 }}>
+                      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                         <button
                           onClick={() => onSpotClick?.(s.id)}
                           style={{
@@ -376,11 +379,52 @@ export default function CityMap({
                             cursor: "pointer",
                             fontWeight: 800,
                             fontSize: 12,
-                            width: "100%",
+                            flex: 1,
                           }}
                         >
                           Zum Spot →
                         </button>
+
+                        {googleMapsLink ? (
+                          <a
+                            href={googleMapsLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) =>
+                              void trackAndOpenExternalLink({
+                                event: e,
+                                url: googleMapsLink,
+                                spotId: s.id,
+                                buttonType: "maps",
+                              })
+                            }
+                            style={{
+                              padding: "8px 10px",
+                              borderRadius: 10,
+                              border: "1px solid #ddd",
+                              background: "white",
+                              cursor: "pointer",
+                              fontWeight: 800,
+                              fontSize: 12,
+                              textDecoration: "none",
+                              color: "#111827",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              whiteSpace: "nowrap",
+                            }}
+                            aria-label="Google Maps öffnen"
+                            title="Google Maps öffnen"
+                          >
+                            <img
+                              src="/icons/google-maps.svg"
+                              alt="Google Maps"
+                              width="20"
+                              height="20"
+                              style={{ display: "block" }}
+                            />
+                          </a>
+                        ) : null}
                       </div>
 
                       {/* ✅ Zeile 2: Lieferdienste */}

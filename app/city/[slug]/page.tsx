@@ -454,6 +454,7 @@ export default function CityPage() {
           rating: s.rating ?? null,
           price_level: s.price_level ?? null,
           category_slug: (s.category_slug ?? "other").toString().trim().toLowerCase(),
+          google_maps_link: s.google_maps_link ?? null,
           wolt_url: wolt,
           lieferando_url: lieferando,
           uber_eats_url: uberEats,
@@ -915,8 +916,8 @@ export default function CityPage() {
                     className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da]/45 bg-[#fffaf2]/90 p-3 shadow-sm backdrop-blur-sm transition-all duration-300 hover:bg-[#fffaf2]/94 hover:shadow-lg"
                   >
                     <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
-                      <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
-                      <SaveSpotButton spotId={s.id} variant="list" />
+                      <ShareSpotButton spotId={s.id} spotName={s.name} variant="list-light" />
+                      <SaveSpotButton spotId={s.id} variant="list-light" />
                     </div>
 
                     <div className="min-w-0 flex gap-3">
@@ -924,10 +925,10 @@ export default function CityPage() {
                         <img
                           src={s.image_url}
                           alt={s.name}
-                          className="h-16 w-16 rounded-xl object-cover ring-1 ring-black/5"
+                          className="h-16 w-16 rounded-xl object-cover ring-1 ring-white/15"
                         />
                       ) : (
-                        <div className="h-16 w-16 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
+                        <div className="h-16 w-16 rounded-xl bg-white/10 ring-1 ring-white/15" />
                       )}
 
                       <div className="min-w-0 flex-1">
@@ -936,32 +937,32 @@ export default function CityPage() {
                             className="inline-block h-3 w-3 rounded-full"
                             style={{ backgroundColor: getColorForCategory(s.category_slug) }}
                           />
-                          <h3 className="truncate text-sm font-extrabold text-[#1f1f1f]">
+                          <h3 className="truncate text-sm font-extrabold text-white">
                             {s.name}
                           </h3>
                         </div>
 
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5a5348]">
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/75">
                           {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
 
                           {typeof s.rating === "number" ? (
                             <span className="flex items-center gap-1">
                               <span className="text-[#d4a017]">★</span>
-                              <span className="font-semibold text-[#9a6b00]">
+                              <span className="font-semibold text-white/90">
                                 {s.rating.toFixed(1)}
                               </span>
                             </span>
                           ) : null}
 
                           {typeof s.price_level === "number" ? (
-                            <span className="font-semibold text-[#3b342b]">
+                            <span className="font-semibold text-white/90">
                               {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
                             </span>
                           ) : null}
                         </div>
 
                         {s.address ? (
-                          <p className="mt-1 break-words text-xs text-[#6b6256]">{s.address}</p>
+                          <p className="mt-1 break-words text-xs text-white/60">{s.address}</p>
                         ) : null}
                       </div>
                     </div>
@@ -983,8 +984,8 @@ export default function CityPage() {
   className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm transition-all duration-300 hover:shadow-lg"
 >
   <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
-    <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
-    <SaveSpotButton spotId={s.id} variant="list" />
+    <ShareSpotButton spotId={s.id} spotName={s.name} variant="list-light" />
+    <SaveSpotButton spotId={s.id} variant="list-light" />
   </div>
 
   <div className="min-w-0 flex gap-3">
@@ -992,34 +993,34 @@ export default function CityPage() {
                     <img
                       src={s.image_url}
                       alt={s.name}
-                      className="h-16 w-16 rounded-xl object-cover ring-1 ring-black/5"
+                      className="h-16 w-16 rounded-xl object-cover ring-1 ring-white/15"
                     />
                   ) : (
-                    <div className="h-16 w-16 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
+                    <div className="h-16 w-16 rounded-xl bg-white/10 ring-1 ring-white/15" />
                   )}
 
                   <div className="min-w-0 flex-1">
-                    <h2 className="truncate text-sm font-extrabold text-[#1f1f1f]">{s.name}</h2>
+                    <h2 className="truncate text-sm font-extrabold text-white">{s.name}</h2>
 
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5a5348]">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/75">
                       {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
 
                       {typeof s.rating === "number" ? (
                         <span className="flex items-center gap-1">
                           <span className="text-[#d4a017]">★</span>
-                          <span className="font-semibold text-[#9a6b00]">{s.rating.toFixed(1)}</span>
+                          <span className="font-semibold text-white/90">{s.rating.toFixed(1)}</span>
                         </span>
                       ) : null}
 
                       {typeof s.price_level === "number" ? (
-                        <span className="font-semibold text-[#3b342b]">
+                        <span className="font-semibold text-white/90">
                           {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
                         </span>
                       ) : null}
                     </div>
 
                     {s.address ? (
-                      <p className="mt-1 break-words text-xs text-[#6b6256]">{s.address}</p>
+                      <p className="mt-1 break-words text-xs text-white/60">{s.address}</p>
                     ) : null}
                   </div>
                 </div>
@@ -1042,9 +1043,35 @@ export default function CityPage() {
     onClick={() => router.push(`/spot/${s.id}`)}
     className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
   >
-    <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
-      <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
-      <SaveSpotButton spotId={s.id} variant="list" />
+    <div className="absolute right-3 top-3 z-10 flex flex-col items-end gap-2">
+      <div className="flex items-center gap-2">
+        <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
+        <SaveSpotButton spotId={s.id} variant="list" />
+      </div>
+      {s.google_maps_link ? (
+        <a
+          href={s.google_maps_link}
+          target="_blank"
+          rel="noreferrer"
+          onClick={(e) =>
+            void trackAndOpenExternalLink({
+              event: e,
+              url: s.google_maps_link!,
+              spotId: s.id,
+              buttonType: "maps",
+            })
+          }
+          className="inline-flex items-center justify-center"
+          aria-label="Google Maps öffnen"
+          title="Google Maps öffnen"
+        >
+          <img
+            src="/icons/google-maps.svg"
+            alt="Google Maps"
+            className="h-6 w-6"
+          />
+        </a>
+      ) : null}
     </div>
 
     {/* Oberer Infobereich */}
@@ -1095,25 +1122,6 @@ export default function CityPage() {
     </div>
 
     <div className="mt-4 min-w-0 flex flex-wrap gap-2">
-      {s.google_maps_link ? (
-        <a
-          href={s.google_maps_link}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e) =>
-            void trackAndOpenExternalLink({
-              event: e,
-              url: s.google_maps_link!,
-              spotId: s.id,
-              buttonType: "maps",
-            })
-          }
-          className="max-w-full break-words rounded-xl border border-[#e7dfcf] bg-[#fffaf2] px-4 py-2.5 text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition hover:bg-[#f6efe3]"
-        >
-          Google Maps
-        </a>
-      ) : null}
-
       <DeliveryButtons
         spotId={s.id}
         woltUrl={wolt}
