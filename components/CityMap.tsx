@@ -42,6 +42,21 @@ type Props = {
   immersiveSheet?: boolean;
 };
 
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+
+  const x =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
+
+  const c = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  return R * c;
+}
+
 
 // ✅ Bildmarker mit Kategorien-Farbrahmen, Fallback auf Farbpunkt
 function makeSpotIcon(color: string, imageUrl?: string | null, isActive = false) {
@@ -128,15 +143,32 @@ function FitToSpots({
   spots,
   userPos,
   userRadiusKm = 15,
+  immersiveSheet = false,
 }: {
   spots: MapSpot[];
   userPos?: { lat: number; lng: number } | null;
   userRadiusKm?: number;
+  immersiveSheet?: boolean;
 }) {
   const map = useMap();
 
   useEffect(() => {
     if (userPos && typeof userPos.lat === "number" && typeof userPos.lng === "number") {
+      const nearbyPoints = spots
+        .filter(
+          (spot) => haversineKm(userPos, { lat: spot.lat, lng: spot.lng }) <= userRadiusKm
+        )
+        .map((spot) => [spot.lat, spot.lng] as [number, number]);
+
+      if (immersiveSheet && nearbyPoints.length > 0) {
+        const nearbyBounds = L.latLngBounds([[userPos.lat, userPos.lng], ...nearbyPoints]);
+        map.flyToBounds(nearbyBounds, {
+          padding: [40, 40],
+          duration: 0.8,
+        });
+        return;
+      }
+
       const userBounds = getBoundsAroundUser(userPos, userRadiusKm);
       map.flyToBounds(userBounds, {
         padding: [40, 40],
@@ -166,7 +198,7 @@ function FitToSpots({
     if (points.length === 1) {
       map.setView(points[0], 15);
     }
-  }, [spots, userPos, userRadiusKm, map]);
+  }, [spots, userPos, userRadiusKm, immersiveSheet, map]);
 
   return null;
 }
@@ -176,7 +208,7 @@ export default function CityMap({
   spots,
   onSpotClick,
   userPos,
-  userRadiusKm = 15,
+  userRadiusKm = 20,
   activeSpotId,
   onActiveChange,
   selectedLegendSlug,
@@ -195,6 +227,19 @@ export default function CityMap({
       .map(([slug, name]) => ({ slug, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [spots]);
+
+  const nearbySpots = useMemo(() => {
+    if (!immersiveSheet || !userPos) return [];
+
+    return [...spots]
+      .map((spot) => ({
+        ...spot,
+        distanceKm: haversineKm(userPos, { lat: spot.lat, lng: spot.lng }),
+      }))
+      .filter((spot) => spot.distanceKm <= 10)
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, 12);
+  }, [immersiveSheet, spots, userPos]);
 
   return (
     <div
@@ -224,7 +269,12 @@ export default function CityMap({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          <FitToSpots spots={spots} userPos={userPos} userRadiusKm={userRadiusKm} />
+          <FitToSpots
+            spots={spots}
+            userPos={userPos}
+            userRadiusKm={userRadiusKm}
+            immersiveSheet={immersiveSheet}
+          />
 
           {/* ✅ User Standort Marker (genau 1x) */}
           {userPos ? (
@@ -396,6 +446,146 @@ export default function CityMap({
               background: immersiveSheet ? "rgba(255,255,255,0.25)" : "rgba(15,59,46,0.16)",
             }}
           />
+
+          {immersiveSheet ? (
+            <div style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  fontWeight: 800,
+                  marginBottom: 10,
+                  color: "white",
+                  fontSize: 16,
+                }}
+              >
+                In deiner Nähe
+              </div>
+
+              {userPos ? (
+                nearbySpots.length > 0 ? (
+                  <div
+                    className="no-scrollbar"
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      overflowX: "auto",
+                      paddingBottom: 2,
+                      WebkitOverflowScrolling: "touch",
+                    }}
+                  >
+                    {nearbySpots.map((spot) => (
+                      <button
+                        key={`nearby-${spot.id}`}
+                        type="button"
+                        onClick={() => onSpotClick?.(spot.id)}
+                        style={{
+                          minWidth: 156,
+                          maxWidth: 156,
+                          borderRadius: 18,
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          background: "rgba(255,255,255,0.08)",
+                          padding: 8,
+                          boxShadow: "0 8px 18px rgba(6, 24, 19, 0.18)",
+                          display: "flex",
+                          gap: 8,
+                          alignItems: "center",
+                          textAlign: "left",
+                          color: "white",
+                          cursor: "pointer",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {spot.image_url ? (
+                          <img
+                            src={spot.image_url}
+                            alt={spot.name}
+                            style={{
+                              width: 46,
+                              height: 46,
+                              borderRadius: 12,
+                              objectFit: "cover",
+                              display: "block",
+                              flexShrink: 0,
+                              border: "1px solid rgba(255,255,255,0.12)",
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: 46,
+                              height: 46,
+                              borderRadius: 12,
+                              background: "rgba(255,255,255,0.12)",
+                              flexShrink: 0,
+                              border: "1px solid rgba(255,255,255,0.12)",
+                            }}
+                          />
+                        )}
+
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div
+                            style={{
+                              fontSize: 13,
+                              lineHeight: 1.2,
+                              fontWeight: 800,
+                              color: "white",
+                              marginBottom: 3,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                            title={spot.name}
+                          >
+                            {spot.name}
+                          </div>
+
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "rgba(255,255,255,0.72)",
+                              marginBottom: 3,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {labelFromCategorySlug(normalizeCategorySlug(spot.category_slug))}
+                          </div>
+
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "rgba(255,255,255,0.58)",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {spot.distanceKm.toFixed(1)} km
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "rgba(255,255,255,0.72)",
+                    }}
+                  >
+                    Keine Spots im Umkreis von 10 km gefunden.
+                  </div>
+                )
+              ) : (
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "rgba(255,255,255,0.72)",
+                  }}
+                >
+                  Standort aktivieren, um Spots in deiner Nähe zu sehen.
+                </div>
+              )}
+            </div>
+          ) : null}
 
           <div
             style={{
