@@ -916,8 +916,8 @@ export default function CityPage() {
                     className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da]/45 bg-[#fffaf2]/90 p-3 shadow-sm backdrop-blur-sm transition-all duration-300 hover:bg-[#fffaf2]/94 hover:shadow-lg"
                   >
                     <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
-                      <ShareSpotButton spotId={s.id} spotName={s.name} variant="list-light" />
-                      <SaveSpotButton spotId={s.id} variant="list-light" />
+                      <ShareSpotButton spotId={s.id} spotName={s.name} variant="list" />
+                      <SaveSpotButton spotId={s.id} variant="list" />
                     </div>
 
                     <div className="min-w-0 flex gap-3">
@@ -925,10 +925,10 @@ export default function CityPage() {
                         <img
                           src={s.image_url}
                           alt={s.name}
-                          className="h-16 w-16 rounded-xl object-cover ring-1 ring-white/15"
+                          className="h-16 w-16 rounded-xl object-cover ring-1 ring-black/5"
                         />
                       ) : (
-                        <div className="h-16 w-16 rounded-xl bg-white/10 ring-1 ring-white/15" />
+                        <div className="h-16 w-16 rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
                       )}
 
                       <div className="min-w-0 flex-1">
@@ -937,32 +937,32 @@ export default function CityPage() {
                             className="inline-block h-3 w-3 rounded-full"
                             style={{ backgroundColor: getColorForCategory(s.category_slug) }}
                           />
-                          <h3 className="truncate text-sm font-extrabold text-white">
+                          <h3 className="truncate text-sm font-extrabold text-[#1f1f1f]">
                             {s.name}
                           </h3>
                         </div>
 
-                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/75">
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5a5348]">
                           {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
 
                           {typeof s.rating === "number" ? (
                             <span className="flex items-center gap-1">
                               <span className="text-[#d4a017]">★</span>
-                              <span className="font-semibold text-white/90">
+                              <span className="font-semibold text-[#9a6b00]">
                                 {s.rating.toFixed(1)}
                               </span>
                             </span>
                           ) : null}
 
                           {typeof s.price_level === "number" ? (
-                            <span className="font-semibold text-white/90">
+                            <span className="font-semibold text-[#3b342b]">
                               {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
                             </span>
                           ) : null}
                         </div>
 
                         {s.address ? (
-                          <p className="mt-1 break-words text-xs text-white/60">{s.address}</p>
+                          <p className="mt-1 break-words text-xs text-[#6b6256]">{s.address}</p>
                         ) : null}
                       </div>
                     </div>
