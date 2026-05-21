@@ -551,12 +551,15 @@ export default function CityPage() {
   }
 
   const isSearchExpanded = isSearchFocused || search.trim().length > 0;
+  const isListView = view === "list";
+  const isMapView = view === "map";
+  const isTasteDesMonatsView = view === "tasteDesMonats";
   const sharedContentWidthClass = "w-[94%] max-w-[500px]";
   const searchWidthClass = isSearchExpanded ? sharedContentWidthClass : sharedContentWidthClass;
   const segmentedWidthClass = sharedContentWidthClass;
-  const headerTitle = view === "tasteDesMonats" ? "Taste des Monats" : "Entdecken";
+  const headerTitle = isTasteDesMonatsView ? "Taste des Monats" : "Entdecken";
   const headerSubtitle =
-    view === "tasteDesMonats"
+    isTasteDesMonatsView
       ? "Drei Spots, die ich diesen Monat besonders feiere."
       : `JuniorsTaste's Favorites aus ${currentCityName}`;
   const orderedCategories = [...categories].sort((a, b) => {
@@ -572,7 +575,7 @@ export default function CityPage() {
     <main className="mx-auto max-w-[560px] p-4 pb-28">
       <div className="mb-5">
         <div className="relative mb-10 mt-3 h-10">
-          {view === "tasteDesMonats" ? (
+          {isTasteDesMonatsView ? (
             <button
               type="button"
               onClick={() => router.push("/")}
@@ -627,7 +630,7 @@ export default function CityPage() {
           </div>
         </div>
 
-        {view !== "map" ? (
+        {!isMapView ? (
           <div className="mb-4 flex justify-center">
             <div className={sharedContentWidthClass}>
               <h1 className="text-[30px] font-extrabold leading-none text-white">{headerTitle}</h1>
@@ -638,14 +641,14 @@ export default function CityPage() {
           </div>
         ) : null}
 
-        {view !== "map" && (
+        {!isMapView && (
           <div className="mb-4 text-left">
             <div className="flex justify-center">
               <div className={`flex ${segmentedWidthClass} rounded-full border border-white/10 bg-white/10 p-1 shadow-sm`}>
                 <button
                   onClick={() => setView("list")}
                   className={`${segmentedButtonBase} ${
-                    view === "list"
+                    isListView
                       ? "jt-active-gradient-soft"
                       : "bg-transparent text-white/80 hover:bg-white/10"
                   }`}
@@ -656,7 +659,7 @@ export default function CityPage() {
                 <button
                   onClick={() => setView("map")}
                   className={`${segmentedButtonBase} ${
-                    view === "map"
+                    isMapView
                       ? "jt-active-gradient-soft"
                       : "bg-transparent text-white/80 hover:bg-white/10"
                   }`}
@@ -667,7 +670,7 @@ export default function CityPage() {
                 <button
                   onClick={() => setView("tasteDesMonats")}
                   className={`${segmentedButtonBase} ${
-                    view === "tasteDesMonats"
+                    isTasteDesMonatsView
                       ? "jt-active-gradient-soft"
                       : "bg-transparent text-white/80 hover:bg-white/10"
                   }`}
@@ -679,7 +682,7 @@ export default function CityPage() {
           </div>
         )}
 
-        {view === "list" && (
+        {isListView && (
           <div className="mb-4">
             <div className="flex flex-col gap-3">
               <div className="flex justify-center">
@@ -801,12 +804,12 @@ export default function CityPage() {
         )}
       </div>
 
-      {view === "list" && geoError ? (
+      {isListView && geoError ? (
         <div className="mb-3 text-sm text-red-200">{geoError}</div>
       ) : null}
 
       {/* ✅ Umkreis */}
-      {view === "list" && userPos ? (
+      {isListView && userPos ? (
         <div className="mb-4 rounded-[20px] border border-white/10 bg-white/10 p-3 text-white shadow-sm backdrop-blur-sm">
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm font-extrabold">Umkreis</div>
@@ -856,7 +859,7 @@ export default function CityPage() {
         <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-900">
           <b>Supabase-Fehler:</b> {errorMsg}
         </div>
-      ) : view === "map" ? (
+      ) : isMapView ? (
         <div className="relative z-0 -mx-4 -mb-6 mt-2 sm:mx-0">
           <div className="pointer-events-none absolute inset-x-4 top-4 z-[1200]">
             <div className="pointer-events-auto mx-auto max-w-[500px]">
@@ -982,7 +985,7 @@ export default function CityPage() {
             </div>
           ) : null}
         </div>
-            ) : view === "tasteDesMonats" ? (
+            ) : isTasteDesMonatsView ? (
         <div className="grid gap-3">
           {tasteDesMonatsSpots.length === 0 ? (
             <p className="text-[#f6efe3]">Keine Spots für Taste des Monats hinterlegt.</p>
