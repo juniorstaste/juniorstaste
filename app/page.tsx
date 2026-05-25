@@ -61,6 +61,24 @@ export default function Home() {
     loadCities();
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#cities") return;
+
+    const scrollToCities = () => {
+      document.getElementById("cities")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    };
+
+    const timeoutId = window.setTimeout(scrollToCities, 80);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
+
   function requestLocation() {
     setGeoError(null);
     setGeoLoading(true);
@@ -113,7 +131,7 @@ export default function Home() {
           <div className="relative z-10 pb-0 pt-[138px]" />
         </section>
 
-        <section className="mt-0">
+        <section id="cities" className="mt-0">
           <div className="mb-4 flex w-full flex-col gap-4">
             <button
               onClick={requestLocation}

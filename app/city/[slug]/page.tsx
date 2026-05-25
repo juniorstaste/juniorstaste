@@ -443,7 +443,12 @@ export default function CityPage() {
   }, [filteredSpots, userPos]);
 
   const mapSpots = useMemo(() => {
-    return filteredSpots
+    const categoryFilteredSpots =
+      !selectedMapLegendSlug || selectedMapLegendSlug === "all"
+        ? filteredSpots
+        : filteredSpots.filter((spot) => spot.category_slug === selectedMapLegendSlug);
+
+    return categoryFilteredSpots
       .filter((s) => typeof s.lat === "number" && typeof s.lng === "number")
       .map((s) => {
         const wolt = s.wolt_url ?? null;
@@ -465,7 +470,7 @@ export default function CityPage() {
           uber_eats_url: uberEats,
         };
       });
-  }, [filteredSpots]);
+  }, [filteredSpots, selectedMapLegendSlug]);
 
   const mapCenter = useMemo<[number, number]>(() => {
     const first = mapSpots[0];
@@ -476,12 +481,32 @@ export default function CityPage() {
   const legendCategorySpots = useMemo(() => {
     if (!selectedMapLegendSlug) return [];
 
-    return prioritizeSpots(
-      filteredSpots.filter(
-        (spot) => normalizeCategorySlug(spot.category_slug) === selectedMapLegendSlug
-      )
-    );
-  }, [filteredSpots, selectedMapLegendSlug]);
+    const categoryFilteredSpots =
+      selectedMapLegendSlug === "all"
+        ? [...filteredSpots]
+        : filteredSpots.filter((spot) => spot.category_slug === selectedMapLegendSlug);
+
+    return [...prioritizeSpots(categoryFilteredSpots)].sort((a, b) => {
+      if (userPos) {
+        const aHasCoords = typeof a.lat === "number" && typeof a.lng === "number";
+        const bHasCoords = typeof b.lat === "number" && typeof b.lng === "number";
+
+        if (aHasCoords && bHasCoords) {
+          const distanceDiff =
+            haversineKm(userPos, { lat: a.lat as number, lng: a.lng as number }) -
+            haversineKm(userPos, { lat: b.lat as number, lng: b.lng as number });
+
+          if (Math.abs(distanceDiff) > 0.05) return distanceDiff;
+        } else if (aHasCoords !== bHasCoords) {
+          return aHasCoords ? -1 : 1;
+        }
+
+        return (b.rating ?? -1) - (a.rating ?? -1);
+      }
+
+      return (b.rating ?? -1) - (a.rating ?? -1);
+    });
+  }, [filteredSpots, selectedMapLegendSlug, userPos]);
 
   useEffect(() => {
     if (!selectedMapLegendSlug || !legendListRef.current) return;
@@ -896,6 +921,7 @@ export default function CityPage() {
             <CityMap
               center={mapCenter}
               spots={mapSpots}
+              categories={orderedCategories}
               userPos={userPos}
               userRadiusKm={15}
               activeSpotId={activeSpotId}
@@ -910,15 +936,21 @@ export default function CityPage() {
           {selectedMapLegendSlug ? (
             <div
               ref={legendListRef}
-              className="mt-4 grid gap-3 scroll-mt-4"
+              className="mx-auto mt-4 grid w-[calc(100%-24px)] max-w-[520px] gap-3 scroll-mt-4"
             >
               <div className="mb-1 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-extrabold text-white">
-                    {labelFromCategorySlug(selectedMapLegendSlug)}
+                    {selectedMapLegendSlug === "all"
+                      ? "Alle"
+                      : orderedCategories.find((c) => c.slug === selectedMapLegendSlug)?.name ??
+                        labelFromCategorySlug(selectedMapLegendSlug)}
                   </h2>
                   <p className="mt-1 text-sm text-white/75">
-                    {legendCategorySpots.length} Spots in dieser Kategorie.
+                    {legendCategorySpots.length}{" "}
+                    {selectedMapLegendSlug === "all"
+                      ? "Spots in dieser Auswahl."
+                      : "Spots in dieser Kategorie."}
                   </p>
                 </div>
 

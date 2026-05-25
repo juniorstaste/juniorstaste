@@ -176,7 +176,7 @@ export default function SpotDetailPage() {
   const uberEats = spot?.uber_eats_url ?? null;
 
   return (
-    <main className="min-h-screen bg-[#0f3b2e] text-white px-6 py-8 max-w-xl mx-auto">
+    <main className="mx-auto min-h-screen max-w-xl bg-[#0f3b2e] px-6 py-8 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white">
 
       <div className="flex items-center justify-between mb-6">
 

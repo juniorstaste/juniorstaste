@@ -33,6 +33,7 @@ type MapSpot = {
 type Props = {
   center: [number, number];
   spots: MapSpot[];
+  categories?: { slug: string; name: string }[];
   onSpotClick?: (id: string) => void;
   userPos?: { lat: number; lng: number } | null;
   userRadiusKm?: number;
@@ -208,6 +209,7 @@ function FitToSpots({
 export default function CityMap({
   center,
   spots,
+  categories = [],
   onSpotClick,
   userPos,
   userRadiusKm = 20,
@@ -218,17 +220,14 @@ export default function CityMap({
   immersiveSheet = false,
 }: Props) {
   const legendItems = useMemo(() => {
-    const m = new Map<string, string>();
-
-    spots.forEach((s) => {
-      const slug = normalizeCategorySlug(s.category_slug);
-      if (!m.has(slug)) m.set(slug, labelFromCategorySlug(slug));
-    });
-
-    return Array.from(m.entries())
-      .map(([slug, name]) => ({ slug, name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [spots]);
+    return [
+      { slug: "all", label: "Alle" },
+      ...categories.map((category) => ({
+        slug: category.slug,
+        label: category.name,
+      })),
+    ];
+  }, [categories]);
 
   const nearbySpots = useMemo(() => {
     if (!immersiveSheet || !userPos) return [];
@@ -239,7 +238,13 @@ export default function CityMap({
         distanceKm: haversineKm(userPos, { lat: spot.lat, lng: spot.lng }),
       }))
       .filter((spot) => spot.distanceKm <= 10)
-      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .sort((a, b) => {
+        const aRating = typeof a.rating === "number" ? a.rating : -1;
+        const bRating = typeof b.rating === "number" ? b.rating : -1;
+
+        if (bRating !== aRating) return bRating - aRating;
+        return a.distanceKm - b.distanceKm;
+      })
       .slice(0, 12);
   }, [immersiveSheet, spots, userPos]);
 
@@ -598,11 +603,22 @@ export default function CityMap({
                           <div
                             style={{
                               fontSize: 11,
-                              color: "rgba(255,255,255,0.58)",
                               fontWeight: 700,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              color: "rgba(255,255,255,0.58)",
                             }}
                           >
-                            {spot.distanceKm.toFixed(1)} km
+                            <span>{spot.distanceKm.toFixed(1).replace(".", ",")} km</span>
+                            {typeof spot.rating === "number"
+                              ? (
+                                <>
+                                  <span>{` · `}</span>
+                                  <span className="jt-text-gradient">{`★ ${spot.rating.toFixed(1)}`}</span>
+                                </>
+                              )
+                              : ""}
                           </div>
                         </div>
                       </button>
@@ -654,19 +670,24 @@ export default function CityMap({
           ) : (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
               {legendItems.map((item) => (
-                <button
-                  key={item.slug}
-                  type="button"
-                  onClick={() =>
-                    onLegendSelect?.(selectedLegendSlug === item.slug ? null : item.slug)
-                  }
-                  style={{
+                (() => {
+                  const isAllItem = item.slug === "all";
+                  const isSelected = selectedLegendSlug === item.slug;
+
+                  return (
+                    <button
+                      key={item.slug}
+                      type="button"
+                      onClick={() =>
+                        onLegendSelect?.(selectedLegendSlug === item.slug ? null : item.slug)
+                      }
+                      style={{
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
                     borderRadius: 999,
                     border:
-                      selectedLegendSlug === item.slug
+                      isSelected
                         ? immersiveSheet
                           ? "1px solid rgba(255,255,255,0.14)"
                           : "1px solid #0f3b2e"
@@ -674,47 +695,49 @@ export default function CityMap({
                         ? "1px solid rgba(255,255,255,0.1)"
                         : "1px solid #e5e7eb",
                     background:
-                      selectedLegendSlug === item.slug
+                      isSelected
                         ? immersiveSheet
                           ? "linear-gradient(90deg, rgba(255, 124, 144, 0.72) 0%, rgba(255, 225, 164, 0.72) 100%)"
                           : "#f6efe3"
                         : immersiveSheet
                         ? "rgba(255,255,255,0.08)"
                         : "white",
-                    color: selectedLegendSlug === item.slug ? "#0f3b2e" : immersiveSheet ? "white" : "#333",
+                    color: isSelected ? "#0f3b2e" : immersiveSheet ? "white" : "#333",
                     padding: "9px 12px",
                     cursor: "pointer",
                     boxShadow:
-                      selectedLegendSlug === item.slug
+                      isSelected
                         ? immersiveSheet
                           ? "0 10px 22px rgba(255, 124, 144, 0.18)"
                           : "none"
                         : "none",
-                  }}
-                >
-                  <span
-                    style={{
+                      }}
+                    >
+                      <span
+                        style={{
                       width: 12,
                       height: 12,
                       borderRadius: 999,
-                      background: getColorForCategory(item.slug),
+                      background: isAllItem ? "#ffffff" : getColorForCategory(item.slug),
                       border: immersiveSheet
                         ? "2px solid rgba(255,255,255,0.9)"
                         : "2px solid white",
                       boxShadow: "0 1px 4px rgba(0,0,0,.2)",
                       display: "inline-block",
-                    }}
-                  />
-                  <span
-                    style={{
+                        }}
+                      />
+                      <span
+                        style={{
                       fontSize: 13,
-                      color: selectedLegendSlug === item.slug ? "#0f3b2e" : immersiveSheet ? "white" : "#333",
+                      color: isSelected ? "#0f3b2e" : immersiveSheet ? "white" : "#333",
                       fontWeight: 700,
-                    }}
-                  >
-                    {item.name}
-                  </span>
-                </button>
+                        }}
+                      >
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })()
               ))}
             </div>
           )}

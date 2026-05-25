@@ -1,33 +1,21 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import SiteHeader from "@/components/SiteHeader";
 import TopRightMenu from "@/components/TopRightMenu";
 
 export default function ImpressumPage() {
-  const router = useRouter();
-
   return (
     <main className="min-h-screen bg-[#0f3b2e]">
       <div className="mx-auto max-w-[560px] p-4 pb-16">
-        <div className="mb-3 flex items-center justify-between">
-          <button
-            onClick={() => router.push("/")}
-            className="flex items-center justify-start transition active:scale-[1.03]"
-            aria-label="Zur Startseite"
-          >
-            <img
-              src="/logos/citypage-logo.png"
-              alt="Junior's Taste"
-              className="h-auto w-[148px]"
-            />
-          </button>
-
+        <div className="mb-3 flex justify-end">
           <TopRightMenu />
         </div>
 
         <div className="mb-6 text-center">
-          <SiteHeader subtitle={null} compact />
+          <img
+            src="/logos/citypage-logo.png"
+            alt="Junior's Taste"
+            className="mx-auto h-auto w-[148px]"
+          />
           <h1 className="mt-4 text-3xl font-extrabold italic tracking-wide text-white md:text-4xl">
             Impressum
           </h1>

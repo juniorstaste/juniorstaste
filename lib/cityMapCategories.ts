@@ -43,6 +43,55 @@ export function normalizeCategorySlug(slug?: string | null) {
   return (slug ?? "other").toString().trim().toLowerCase();
 }
 
+export function getCategoryGroupKey(slug?: string | null) {
+  const normalizedSlug = normalizeCategorySlug(slug);
+
+  if (["döner", "doner", "doener", "kebab", "doener-kebab"].includes(normalizedSlug)) {
+    return "doener";
+  }
+  if (
+    [
+      "kaffee-fruehstueck-dessert",
+      "kaffee-fruhstuck-dessert",
+      "fruehstueck-kaffee",
+      "fruhstuck-kaffee",
+      "coffee",
+      "breakfast",
+      "dessert",
+    ].includes(normalizedSlug)
+  ) {
+    return "kaffee-fruehstueck-dessert";
+  }
+  if (["tacos-burrito", "tacos-burritos", "mexican"].includes(normalizedSlug)) {
+    return "tacos-burritos";
+  }
+  if (["fried-chicken", "chicken"].includes(normalizedSlug)) {
+    return "fried-chicken";
+  }
+
+  return normalizedSlug;
+}
+
+export function categorySlugsMatch(a?: string | null, b?: string | null) {
+  return getCategoryGroupKey(a) === getCategoryGroupKey(b);
+}
+
+export function getCategoryDisplayName(slug?: string | null) {
+  const groupKey = getCategoryGroupKey(slug);
+
+  if (groupKey === "all") return "Alle";
+  if (groupKey === "burger") return "Burger";
+  if (groupKey === "fried-chicken") return "Fried Chicken";
+  if (groupKey === "doener") return "Döner";
+  if (groupKey === "kaffee-fruehstueck-dessert") return "Kaffee / Frühstück / Dessert";
+  if (groupKey === "pizza") return "Pizza";
+  if (groupKey === "asian") return "Asian";
+  if (groupKey === "tacos-burritos") return "Tacos / Burritos";
+  if (groupKey === "orientalisch") return "Orientalisch";
+
+  return labelFromCategorySlug(groupKey);
+}
+
 function colorFromSlugHash(slug: string) {
   const hash = Array.from(slug).reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return FALLBACK_CATEGORY_COLORS[hash % FALLBACK_CATEGORY_COLORS.length];

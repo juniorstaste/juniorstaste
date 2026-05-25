@@ -11,6 +11,7 @@ type MenuItem = {
   label: string;
   href: string;
   icon: ReactNode;
+  disabled?: boolean;
 };
 
 function MenuIcon() {
@@ -30,6 +31,66 @@ function SavedSpotsIcon() {
         d="M6 4.75C6 4.06 6.56 3.5 7.25 3.5H16.75C17.44 3.5 18 4.06 18 4.75V20.5L12 16.75L6 20.5V4.75Z"
         stroke="#0f3b2e"
         strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CitySwitchIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 20.5s6-4.85 6-10a6 6 0 1 0-12 0c0 5.15 6 10 6 10Z"
+        stroke="#0f3b2e"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"
+        stroke="#0f3b2e"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function NotificationsIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M6.5 16.5h11l-1.2-1.4a2.5 2.5 0 0 1-.6-1.62V10a3.7 3.7 0 1 0-7.4 0v3.48a2.5 2.5 0 0 1-.6 1.62L6.5 16.5Z"
+        stroke="#0f3b2e"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 18.5a2 2 0 0 0 4 0"
+        stroke="#0f3b2e"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 15.1a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2Z"
+        stroke="#0f3b2e"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M19 12a7.2 7.2 0 0 0-.08-1l2-1.55-2-3.45-2.38.72a7.62 7.62 0 0 0-1.72-1L14.5 3h-5l-.32 2.72a7.62 7.62 0 0 0-1.72 1L5.08 6 3 9.45 5 11a7.2 7.2 0 0 0 0 2l-2 1.55L5.08 18l2.38-.72a7.62 7.62 0 0 0 1.72 1L9.5 21h5l.32-2.72a7.62 7.62 0 0 0 1.72-1l2.38.72L21 14.55 19 13a7.2 7.2 0 0 0 .08-1Z"
+        stroke="#0f3b2e"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -87,6 +148,23 @@ const menuItems: MenuItem[] = [
     href: "/saved",
     icon: <SavedSpotsIcon />,
   },
+  {
+    label: "Stadt wechseln",
+    href: "/#cities",
+    icon: <CitySwitchIcon />,
+  },
+  {
+    label: "Benachrichtigungen",
+    href: "#",
+    icon: <NotificationsIcon />,
+    disabled: true,
+  },
+  {
+    label: "Einstellungen",
+    href: "#",
+    icon: <SettingsIcon />,
+    disabled: true,
+  },
 ];
 
 const legalItems: MenuItem[] = [
@@ -141,6 +219,18 @@ export default function TopRightMenu({ onOpenChange }: Props) {
 
   function handleNavigate(href: string) {
     setOpen(false);
+    if (href === "/#cities") {
+      if (pathname === "/") {
+        window.history.replaceState(null, "", "/#cities");
+        document.getElementById("cities")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+        return;
+      }
+      router.push(href);
+      return;
+    }
     if (pathname !== href) router.push(href);
   }
 
@@ -240,6 +330,28 @@ export default function TopRightMenu({ onOpenChange }: Props) {
               <span className="shrink-0">{menuItems[0].icon}</span>
               <span className="text-[15px] font-semibold">{menuItems[0].label}</span>
             </button>
+
+            {menuItems.slice(1).map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                disabled={item.disabled}
+                onClick={() => {
+                  if (item.disabled) return;
+                  handleNavigate(item.href);
+                }}
+                className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition ${
+                  item.disabled
+                    ? "cursor-default opacity-55"
+                    : "hover:bg-[#f6efe3]"
+                }`}
+                title={item.disabled ? "Bald verfügbar" : undefined}
+                aria-disabled={item.disabled ? "true" : undefined}
+              >
+                <span className="shrink-0">{item.icon}</span>
+                <span className="text-[15px] font-semibold">{item.label}</span>
+              </button>
+            ))}
 
             {!user && authHint ? (
               <p className="px-3 pt-2 text-sm text-[#7b3a2a]">{authHint}</p>
