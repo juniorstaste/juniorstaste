@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import StarRating from "@/components/StarRating";
-import PriceLevel from "@/components/PriceLevel";
 import DistanceLabel from "@/components/DistanceLabel";
 import TikTokEmbed from "@/components/TikTokEmbed";
 import TopRightMenu from "@/components/TopRightMenu";
@@ -13,6 +12,8 @@ import SaveSpotButton from "@/components/SaveSpotButton";
 import ShareSpotButton from "@/components/ShareSpotButton";
 import DeliveryButtons from "@/components/DeliveryButtons";
 import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
+import { getPriceLevelValue } from "@/lib/priceLevel";
+import { prioritizeSpots } from "@/lib/prioritySpot";
 
 const SpotMiniMap = dynamic(() => import("@/components/SpotMiniMap"), { ssr: false });
 
@@ -30,6 +31,8 @@ type Spot = {
   price_level: number | null;
   city_name: string | null;
   city_slug: string | null;
+  category_name?: string | null;
+  category_slug?: string | null;
   wolt_url?: string | null;
   lieferando_url?: string | null;
   uber_eats_url?: string | null;
@@ -63,6 +66,7 @@ export default function SpotDetailPage() {
   }, [params]);
 
   const [spot, setSpot] = useState<Spot | null>(null);
+  const [recommendations, setRecommendations] = useState<Spot[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -90,6 +94,62 @@ export default function SpotDetailPage() {
 
     load();
   }, [spotId]);
+
+  useEffect(() => {
+    const currentSpot = spot;
+
+    if (!currentSpot?.id) {
+      setRecommendations([]);
+      return;
+    }
+
+    async function loadRecommendations(spotData: Spot) {
+      const recommendationFields =
+        "id, name, image_url, city_name, city_slug, category_name, category_slug, rating, price_level";
+
+      const seenIds = new Set<string>([spotData.id]);
+      let categoryRecommendations: Spot[] = [];
+      let cityFallbackRecommendations: Spot[] = [];
+
+      if (spotData.category_slug) {
+        const { data, error } = await supabase
+          .from("spots_with_city")
+          .select(recommendationFields)
+          .eq("category_slug", spotData.category_slug)
+          .neq("id", spotData.id)
+          .limit(12);
+
+        if (!error) {
+          categoryRecommendations = prioritizeSpots((data as Spot[]) ?? []).filter((item) => {
+            if (seenIds.has(item.id)) return false;
+            seenIds.add(item.id);
+            return true;
+          });
+        }
+      }
+
+      if (categoryRecommendations.length < 6 && spotData.city_slug) {
+        const { data, error } = await supabase
+          .from("spots_with_city")
+          .select(recommendationFields)
+          .eq("city_slug", spotData.city_slug)
+          .neq("id", spotData.id)
+          .limit(18);
+
+        if (!error) {
+          cityFallbackRecommendations = prioritizeSpots((data as Spot[]) ?? []).filter((item) => {
+            if (seenIds.has(item.id)) return false;
+            seenIds.add(item.id);
+            return true;
+          });
+        }
+      }
+
+      setRecommendations([...categoryRecommendations, ...cityFallbackRecommendations].slice(0, 6));
+    }
+
+    void loadRecommendations(currentSpot);
+  }, [spot]);
 
   // ✅ Standort AUTOMATISCH abfragen
   useEffect(() => {
@@ -169,9 +229,10 @@ className="flex items-center justify-start active:scale-[1.03] transition"
 
           {/* ✅ Entfernung DIREKT unter Karte */}
           {userPos && spot.lat && spot.lng && (
-            <div className="mb-4">
+            <div className="mb-4 flex justify-end">
               <DistanceLabel
                 km={haversineKm(userPos, { lat: spot.lat, lng: spot.lng })}
+                className="text-right text-white/65"
               />
             </div>
           )}
@@ -195,7 +256,27 @@ className="flex items-center justify-start active:scale-[1.03] transition"
           <div className="flex flex-wrap gap-4 items-center mb-4">
             {spot.city_name && <span>{spot.city_name}</span>}
             {spot.rating != null && <StarRating value={spot.rating} />}
-            <PriceLevel value={spot.price_level} />
+            {(() => {
+              const activePriceLevel = getPriceLevelValue(spot.price_level, 4);
+
+              if (activePriceLevel <= 0) return null;
+
+              return (
+                <div
+                  className="flex items-center gap-0.5 text-base font-semibold"
+                  aria-label={`Preisniveau ${activePriceLevel} von 4`}
+                >
+                  {Array.from({ length: 4 }, (_, index) => (
+                    <span
+                      key={index}
+                      className={index < activePriceLevel ? "text-white" : "text-white/30"}
+                    >
+                      €
+                    </span>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Adresse / Maps */}
@@ -252,14 +333,9 @@ className="flex items-center justify-start active:scale-[1.03] transition"
             />
           </div>
 
-          {/* Beschreibung */}
-          {spot.description && (
-            <p className="mt-6 text-sm text-white/90">{spot.description}</p>
-          )}
-
           {/* TikTok */}
           {spot.tiktok_embed_id && (
-  <div className="mt-8 flex justify-center">
+  <div className="mt-4 flex justify-center">
     <div className="w-full w-full rounded-2xl overflow-hidden shadow-lg">
       <TikTokEmbed
         username="juniorstaste"
@@ -269,6 +345,75 @@ className="flex items-center justify-start active:scale-[1.03] transition"
     </div>
   </div>
 )}
+
+          {recommendations.length > 0 ? (
+            <section className="mt-8">
+              <h2 className="mb-4 text-xl font-extrabold text-white">
+                K&ouml;nnte dir auch gefallen
+              </h2>
+
+              <div className="no-scrollbar -mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+                {recommendations.map((item) => {
+                  const activePriceLevel = getPriceLevelValue(item.price_level, 4);
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => router.push(`/spot/${item.id}`)}
+                      className="w-[188px] shrink-0 rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 text-left shadow-sm transition-all duration-300 hover:shadow-lg"
+                    >
+                      {item.image_url ? (
+                        <img
+                          src={item.image_url}
+                          alt={item.name}
+                          className="mb-3 h-24 w-full rounded-xl object-cover ring-1 ring-black/5"
+                        />
+                      ) : (
+                        <div className="mb-3 h-24 w-full rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
+                      )}
+
+                      <h3 className="truncate text-sm font-extrabold text-[#1f1f1f]">
+                        {item.name}
+                      </h3>
+
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[#5a5348]">
+                        {item.city_name ? <span className="font-medium">{item.city_name}</span> : null}
+                        {item.category_name ? <span>{item.category_name}</span> : null}
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                        {typeof item.rating === "number" ? (
+                          <span className="jt-text-gradient inline-flex items-center gap-1">
+                            <span>★</span>
+                            <span className="font-semibold">{item.rating.toFixed(1)}</span>
+                          </span>
+                        ) : null}
+
+                        {activePriceLevel > 0 ? (
+                          <span
+                            className="inline-flex items-center gap-0.5 font-semibold text-[#3b342b]"
+                            aria-label={`Preisniveau ${activePriceLevel} von 4`}
+                          >
+                            {Array.from({ length: 4 }, (_, index) => (
+                              <span
+                                key={index}
+                                className={
+                                  index < activePriceLevel ? "text-[#3b342b]" : "text-[#3b342b]/30"
+                                }
+                              >
+                                €
+                              </span>
+                            ))}
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
         </>
       )}
     </main>

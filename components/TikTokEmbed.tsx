@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 type Props = {
   videoId: string;
@@ -9,7 +9,42 @@ type Props = {
   loadMode?: "eager" | "nearby";
 };
 
-export default function TikTokEmbed({
+const PRELOAD_ROOT_MARGIN = "1200px 0px";
+const NEARBY_WARMUP_LIMIT = 3;
+const ACTIVE_THRESHOLD_STEPS = [0, 0.1, 0.2, 0.35, 0.5, 0.65, 0.8, 1];
+const MIN_ACTIVE_RATIO = 0.2;
+const INACTIVE_UNLOAD_RATIO = 0.35;
+const warmedVideoIds = new Set<string>();
+const embedVisibilityRatios = new Map<string, number>();
+const activeEmbedSubscribers = new Set<(videoId: string | null) => void>();
+let nearbyWarmupCount = 0;
+let globalActiveEmbedId: string | null = null;
+
+function notifyActiveEmbedChange(videoId: string | null) {
+  activeEmbedSubscribers.forEach((listener) => listener(videoId));
+}
+
+function setGlobalActiveEmbed(videoId: string | null) {
+  if (globalActiveEmbedId === videoId) return;
+  globalActiveEmbedId = videoId;
+  notifyActiveEmbedChange(videoId);
+}
+
+function recomputeGlobalActiveEmbed() {
+  let nextActiveId: string | null = null;
+  let highestRatio = MIN_ACTIVE_RATIO;
+
+  embedVisibilityRatios.forEach((ratio, videoId) => {
+    if (ratio > highestRatio) {
+      highestRatio = ratio;
+      nextActiveId = videoId;
+    }
+  });
+
+  setGlobalActiveEmbed(nextActiveId);
+}
+
+function TikTokEmbed({
   videoId,
   username,
   height,
@@ -17,7 +52,25 @@ export default function TikTokEmbed({
 }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [dynamicHeight, setDynamicHeight] = useState(760);
-  const [shouldLoadIframe, setShouldLoadIframe] = useState(loadMode === "eager");
+  const [visibilityRatio, setVisibilityRatio] = useState(0);
+  const [activeEmbedId, setActiveEmbedId] = useState<string | null>(globalActiveEmbedId);
+  const [hasBeenActive, setHasBeenActive] = useState(false);
+  const [shouldLoadIframe, setShouldLoadIframe] = useState(() => {
+    if (loadMode === "eager") return true;
+    if (warmedVideoIds.has(videoId)) return true;
+    if (nearbyWarmupCount < NEARBY_WARMUP_LIMIT) {
+      nearbyWarmupCount += 1;
+      warmedVideoIds.add(videoId);
+      return true;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (shouldLoadIframe) {
+      warmedVideoIds.add(videoId);
+    }
+  }, [shouldLoadIframe, videoId]);
 
   useEffect(() => {
     if (height) return;
@@ -54,6 +107,51 @@ export default function TikTokEmbed({
   }, [height]);
 
   useEffect(() => {
+    function handleActiveEmbedChange(nextActiveEmbedId: string | null) {
+      setActiveEmbedId(nextActiveEmbedId);
+    }
+
+    activeEmbedSubscribers.add(handleActiveEmbedChange);
+
+    return () => {
+      activeEmbedSubscribers.delete(handleActiveEmbedChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!wrapRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (!entry) return;
+
+        const nextRatio = entry.isIntersecting ? entry.intersectionRatio : 0;
+        setVisibilityRatio(nextRatio);
+        embedVisibilityRatios.set(videoId, nextRatio);
+        recomputeGlobalActiveEmbed();
+      },
+      {
+        threshold: ACTIVE_THRESHOLD_STEPS,
+      }
+    );
+
+    observer.observe(wrapRef.current);
+
+    return () => {
+      observer.disconnect();
+      embedVisibilityRatios.delete(videoId);
+      recomputeGlobalActiveEmbed();
+    };
+  }, [videoId]);
+
+  useEffect(() => {
+    if (activeEmbedId === videoId) {
+      setHasBeenActive(true);
+    }
+  }, [activeEmbedId, videoId]);
+
+  useEffect(() => {
     if (loadMode === "eager") {
       setShouldLoadIframe(true);
       return;
@@ -67,12 +165,13 @@ export default function TikTokEmbed({
         if (!entry) return;
 
         if (entry.isIntersecting) {
+          warmedVideoIds.add(videoId);
           setShouldLoadIframe(true);
           observer.disconnect();
         }
       },
       {
-        rootMargin: "700px 0px",
+        rootMargin: PRELOAD_ROOT_MARGIN,
         threshold: 0.01,
       }
     );
@@ -82,9 +181,13 @@ export default function TikTokEmbed({
     return () => {
       observer.disconnect();
     };
-  }, [loadMode, shouldLoadIframe]);
+  }, [loadMode, shouldLoadIframe, videoId]);
 
   const finalHeight = height ?? dynamicHeight;
+  const isActiveEmbed = activeEmbedId === videoId;
+  const shouldRenderIframe =
+    shouldLoadIframe &&
+    (!hasBeenActive || isActiveEmbed || visibilityRatio >= INACTIVE_UNLOAD_RATIO);
 
   const src = `https://www.tiktok.com/embed/v2/${videoId}?autoplay=1`;
 
@@ -106,13 +209,13 @@ export default function TikTokEmbed({
         boxSizing: "border-box",
       }}
     >
-      {shouldLoadIframe ? (
+      {shouldRenderIframe ? (
         <iframe
           src={src}
           width="100%"
           height={finalHeight}
           scrolling="no"
-          loading={loadMode === "nearby" ? "lazy" : "eager"}
+          loading="eager"
           style={{
             border: "none",
             display: "block",
@@ -131,10 +234,22 @@ export default function TikTokEmbed({
             height: finalHeight,
             borderRadius: 12,
             background:
-              "linear-gradient(180deg, rgba(15,59,46,0.14) 0%, rgba(15,59,46,0.06) 100%)",
+              "linear-gradient(180deg, rgba(15,59,46,0.18) 0%, rgba(15,59,46,0.08) 100%)",
+            position: "relative",
           }}
           aria-hidden="true"
-        />
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.16) 50%, transparent 100%)",
+              transform: "translateX(-100%)",
+              animation: "jt-tiktok-shimmer 1.3s ease-in-out infinite",
+            }}
+          />
+        </div>
       )}
 
       <div
@@ -164,3 +279,5 @@ export default function TikTokEmbed({
     </div>
   );
 }
+
+export default memo(TikTokEmbed);

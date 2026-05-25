@@ -300,7 +300,7 @@ className="flex items-center justify-start active:scale-[1.03] transition"
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="ml-[76px] mt-3 flex flex-wrap gap-2">
                     <DeliveryButtons
                       spotId={spot.id}
                       woltUrl={wolt}

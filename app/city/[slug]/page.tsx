@@ -24,6 +24,7 @@ import {
   LAST_CITY_VIEW_KEY,
 } from "@/lib/lastCityNavigation";
 import { prioritizeSpots } from "@/lib/prioritySpot";
+import { getPriceLevelValue } from "@/lib/priceLevel";
 
 const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
 
@@ -200,6 +201,7 @@ export default function CityPage() {
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusKm, setRadiusKm] = useState<number>(30);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [isRadiusFilterOpen, setIsRadiusFilterOpen] = useState(false);
 
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
   const [selectedMapLegendSlug, setSelectedMapLegendSlug] = useState<string | null>(null);
@@ -215,11 +217,13 @@ export default function CityPage() {
     "text-[#0f2a22] placeholder:text-[#0f2a22]/50 font-semibold shadow-sm transition-colors transition-transform duration-150 hover:bg-[#efe5d6] " +
     "active:scale-[1.03] focus:outline-none";
   const chipButtonBase =
-    "shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-150 active:scale-[1.03]";
+    "shrink-0 overflow-hidden rounded-full border border-white/10 bg-white/10 p-1 text-sm font-semibold shadow-sm transition-all duration-150 active:scale-[1.03]";
+  const chipInnerBase =
+    "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold transition-all duration-150";
   const compactControlBase =
     "w-full appearance-none rounded-full border border-white/10 bg-white/10 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-white/15 active:scale-[1.03] focus:outline-none";
   const segmentedButtonBase =
-    "flex min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold transition-all duration-150 active:scale-[1.03]";
+    "flex min-w-0 flex-1 transform-gpu items-center justify-center whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97]";
 
   useEffect(() => {
     if (citySlug) setCitySelectValue(citySlug);
@@ -294,6 +298,7 @@ export default function CityPage() {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         setUserPos({ lat, lng });
+        setIsRadiusFilterOpen(true);
         setSort("distance");
       },
       () => setGeoError("Standort konnte nicht abgerufen werden. Bitte Standort erlauben."),
@@ -649,7 +654,7 @@ export default function CityPage() {
                   onClick={() => setView("list")}
                   className={`${segmentedButtonBase} ${
                     isListView
-                      ? "jt-active-gradient-soft"
+                      ? "jt-active-gradient-soft scale-[1.02] shadow-[0_8px_20px_rgba(255,124,144,0.18)]"
                       : "bg-transparent text-white/80 hover:bg-white/10"
                   }`}
                 >
@@ -660,7 +665,7 @@ export default function CityPage() {
                   onClick={() => setView("map")}
                   className={`${segmentedButtonBase} ${
                     isMapView
-                      ? "jt-active-gradient-soft"
+                      ? "jt-active-gradient-soft scale-[1.02] shadow-[0_8px_20px_rgba(255,124,144,0.18)]"
                       : "bg-transparent text-white/80 hover:bg-white/10"
                   }`}
                 >
@@ -671,7 +676,7 @@ export default function CityPage() {
                   onClick={() => setView("tasteDesMonats")}
                   className={`${segmentedButtonBase} ${
                     isTasteDesMonatsView
-                      ? "jt-active-gradient-soft"
+                      ? "jt-active-gradient-soft scale-[1.02] shadow-[0_8px_20px_rgba(255,124,144,0.18)]"
                       : "bg-transparent text-white/80 hover:bg-white/10"
                   }`}
                 >
@@ -717,13 +722,15 @@ export default function CityPage() {
                         setCategory("all");
                         setSearch("");
                       }}
-                      className={`${chipButtonBase} ${
-                        category === "all"
-                          ? "jt-active-gradient-soft border-transparent"
-                          : "border-white/10 bg-white/10 text-white/85 hover:bg-white/15"
-                      }`}
+                      className={chipButtonBase}
                     >
-                      <span className="inline-flex items-center gap-1.5">
+                      <span
+                        className={`${chipInnerBase} ${
+                          category === "all"
+                            ? "jt-active-gradient-soft"
+                            : "text-white/85 hover:bg-white/10"
+                        }`}
+                      >
                         <span aria-hidden="true">{getCategoryEmoji("all", "Alle")}</span>
                         <span>Alle</span>
                       </span>
@@ -736,13 +743,15 @@ export default function CityPage() {
                           setCategory(c.slug);
                           setSearch("");
                         }}
-                        className={`${chipButtonBase} ${
-                          category === c.slug
-                            ? "jt-active-gradient-soft border-transparent"
-                            : "border-white/10 bg-white/10 text-white/85 hover:bg-white/15"
-                        }`}
+                        className={chipButtonBase}
                       >
-                        <span className="inline-flex items-center gap-1.5">
+                        <span
+                          className={`${chipInnerBase} ${
+                            category === c.slug
+                              ? "jt-active-gradient-soft"
+                              : "text-white/85 hover:bg-white/10"
+                          }`}
+                        >
                           {getCategoryEmoji(c.slug, c.name) ? (
                             <span aria-hidden="true">{getCategoryEmoji(c.slug, c.name)}</span>
                           ) : null}
@@ -809,7 +818,7 @@ export default function CityPage() {
       ) : null}
 
       {/* ✅ Umkreis */}
-      {isListView && userPos ? (
+      {isListView && isRadiusFilterOpen && userPos ? (
         <div className="mb-4 rounded-[20px] border border-white/10 bg-white/10 p-3 text-white shadow-sm backdrop-blur-sm">
           <div className="flex items-center justify-between gap-3">
             <div className="text-sm font-extrabold">Umkreis</div>
@@ -818,6 +827,7 @@ export default function CityPage() {
               onClick={() => {
                 setUserPos(null);
                 setRadiusKm(30);
+                setIsRadiusFilterOpen(false);
               }}
               className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10 text-sm font-medium text-white/85 transition hover:bg-white/15"
               title="Standort zurücksetzen"
@@ -959,17 +969,31 @@ export default function CityPage() {
                           {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
 
                           {typeof s.rating === "number" ? (
-                            <span className="flex items-center gap-1">
-                              <span className="text-[#d4a017]">★</span>
-                              <span className="font-semibold text-[#9a6b00]">
+                            <span className="jt-text-gradient inline-flex items-center gap-1">
+                              <span>★</span>
+                              <span className="font-semibold">
                                 {s.rating.toFixed(1)}
                               </span>
                             </span>
                           ) : null}
 
                           {typeof s.price_level === "number" ? (
-                            <span className="font-semibold text-[#3b342b]">
-                              {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
+                            <span
+                              className="inline-flex items-center gap-0.5 font-semibold text-[#3b342b]"
+                              aria-label={`Preisniveau ${getPriceLevelValue(s.price_level, 4)} von 4`}
+                            >
+                              {Array.from({ length: 4 }, (_, index) => (
+                                <span
+                                  key={index}
+                                  className={
+                                    index < getPriceLevelValue(s.price_level, 4)
+                                      ? "text-[#3b342b]"
+                                      : "text-[#3b342b]/30"
+                                  }
+                                >
+                                  €
+                                </span>
+                              ))}
                             </span>
                           ) : null}
                         </div>
@@ -1019,15 +1043,29 @@ export default function CityPage() {
                       {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
 
                       {typeof s.rating === "number" ? (
-                        <span className="flex items-center gap-1">
-                          <span className="text-[#d4a017]">★</span>
-                          <span className="font-semibold text-[#9a6b00]">{s.rating.toFixed(1)}</span>
+                        <span className="jt-text-gradient inline-flex items-center gap-1">
+                          <span>★</span>
+                          <span className="font-semibold">{s.rating.toFixed(1)}</span>
                         </span>
                       ) : null}
 
                       {typeof s.price_level === "number" ? (
-                        <span className="font-semibold text-[#3b342b]">
-                          {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
+                        <span
+                          className="inline-flex items-center gap-0.5 font-semibold text-[#3b342b]"
+                          aria-label={`Preisniveau ${getPriceLevelValue(s.price_level, 4)} von 4`}
+                        >
+                          {Array.from({ length: 4 }, (_, index) => (
+                            <span
+                              key={index}
+                              className={
+                                index < getPriceLevelValue(s.price_level, 4)
+                                  ? "text-[#3b342b]"
+                                  : "text-[#3b342b]/30"
+                              }
+                            >
+                              €
+                            </span>
+                          ))}
                         </span>
                       ) : null}
                     </div>
@@ -1106,15 +1144,29 @@ export default function CityPage() {
           {s.city_name ? <span className="font-medium">{s.city_name}</span> : null}
 
           {typeof s.rating === "number" ? (
-            <span className="flex items-center gap-1">
-              <span className="text-[#d4a017]">★</span>
-              <span className="font-semibold text-[#9a6b00]">{s.rating.toFixed(1)}</span>
+            <span className="jt-text-gradient inline-flex items-center gap-1">
+              <span>★</span>
+              <span className="font-semibold">{s.rating.toFixed(1)}</span>
             </span>
           ) : null}
 
           {typeof s.price_level === "number" ? (
-            <span className="font-semibold text-[#3b342b]">
-              {"€".repeat(Math.max(1, Math.min(4, s.price_level)))}
+            <span
+              className="inline-flex items-center gap-0.5 font-semibold text-[#3b342b]"
+              aria-label={`Preisniveau ${getPriceLevelValue(s.price_level, 4)} von 4`}
+            >
+              {Array.from({ length: 4 }, (_, index) => (
+                <span
+                  key={index}
+                  className={
+                    index < getPriceLevelValue(s.price_level, 4)
+                      ? "text-[#3b342b]"
+                      : "text-[#3b342b]/30"
+                  }
+                >
+                  €
+                </span>
+              ))}
             </span>
           ) : null}
         </div>

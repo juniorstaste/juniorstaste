@@ -24,13 +24,22 @@ export default function StarRating({ value, size = 14, showNumber = true }: Prop
   const half = r % 1 === 0.5 ? 1 : 0;
   const empty = 5 - full - half;
 
-  const GOLD = "#facc15";   // ⭐ gold
-  const EMPTY = "#d1d5db";  // grau
-
   const starStyle: React.CSSProperties = {
     fontSize: size,
     lineHeight: 1,
     display: "inline-block",
+  };
+
+  const gradientTextStyle: React.CSSProperties = {
+    background: "linear-gradient(90deg, rgb(255, 124, 144) 0%, rgb(255, 225, 164) 100%)",
+    WebkitBackgroundClip: "text",
+    backgroundClip: "text",
+    color: "transparent",
+  };
+
+  const emptyStarStyle: React.CSSProperties = {
+    ...starStyle,
+    color: "rgba(255,255,255,0.25)",
   };
 
   return (
@@ -38,7 +47,7 @@ export default function StarRating({ value, size = 14, showNumber = true }: Prop
       <span style={{ display: "inline-flex", gap: 2, alignItems: "center" }}>
         {/* volle Sterne */}
         {Array.from({ length: full }).map((_, i) => (
-          <span key={`f${i}`} style={{ ...starStyle, color: GOLD }}>★</span>
+          <span key={`f${i}`} style={{ ...starStyle, ...gradientTextStyle }}>★</span>
         ))}
 
         {/* halber Stern */}
@@ -52,9 +61,9 @@ export default function StarRating({ value, size = 14, showNumber = true }: Prop
             }}
           >
             {/* grauer Stern */}
-            <span style={{ color: EMPTY }}>★</span>
+            <span style={emptyStarStyle}>★</span>
 
-            {/* goldene Hälfte */}
+            {/* gradient Hälfte */}
             <span
               style={{
                 position: "absolute",
@@ -62,7 +71,7 @@ export default function StarRating({ value, size = 14, showNumber = true }: Prop
                 top: 0,
                 width: "50%",
                 overflow: "hidden",
-                color: GOLD,
+                ...gradientTextStyle,
               }}
             >
               ★
@@ -72,12 +81,12 @@ export default function StarRating({ value, size = 14, showNumber = true }: Prop
 
         {/* leere Sterne */}
         {Array.from({ length: empty }).map((_, i) => (
-          <span key={`e${i}`} style={{ ...starStyle, color: EMPTY }}>★</span>
+          <span key={`e${i}`} style={emptyStarStyle}>★</span>
         ))}
       </span>
 
       {showNumber ? (
-        <span style={{ fontSize: size - 1, color: "#555" }}>
+        <span style={{ fontSize: size - 1, ...gradientTextStyle }}>
           {v.toFixed(1)}
         </span>
       ) : null}

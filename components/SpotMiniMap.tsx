@@ -51,6 +51,7 @@ export default function SpotMiniMap({ lat, lng, name, spotId, googleMapsLink, us
       <MapContainer
         center={center}
         zoom={15}
+        zoomControl={false}
         style={{ height: "100%", width: "100%" }}
         scrollWheelZoom={false}
       >

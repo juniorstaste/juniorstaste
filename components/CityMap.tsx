@@ -639,7 +639,7 @@ export default function CityMap({
               fontSize: 16,
             }}
           >
-            Legende
+            Worauf hast du Lust?
           </div>
 
           {legendItems.length === 0 ? (

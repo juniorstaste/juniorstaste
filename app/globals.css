@@ -58,3 +58,16 @@ html, body {
   color: #0f3b2e;
   box-shadow: 0 8px 20px rgba(255, 124, 144, 0.14);
 }
+
+.jt-text-gradient {
+  background: linear-gradient(90deg, rgb(255, 124, 144) 0%, rgb(255, 225, 164) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes jt-tiktok-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}

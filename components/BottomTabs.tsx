@@ -56,7 +56,7 @@ export default function BottomTabs({ view, onChange }: Props) {
   const router = useRouter();
   const baseBtn =
     "flex h-[50px] items-center justify-center gap-1.5 whitespace-nowrap rounded-[20px] px-3 text-[14px] font-semibold " +
-    "transition-all duration-200 ease-out active:scale-[0.98]";
+    "transform-gpu transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97]";
 
   return (
     <div
@@ -76,7 +76,7 @@ export default function BottomTabs({ view, onChange }: Props) {
               onClick={() => onChange("list")}
               className={`flex-1 ${baseBtn} ${
                 view === "list"
-                  ? "jt-active-gradient"
+                  ? "jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]"
                   : "text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5"
               }`}
             >
@@ -88,7 +88,7 @@ export default function BottomTabs({ view, onChange }: Props) {
               onClick={() => onChange("map")}
               className={`flex-1 ${baseBtn} ${
                 view === "map"
-                  ? "jt-active-gradient"
+                  ? "jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]"
                   : "text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5"
               }`}
             >
@@ -100,7 +100,7 @@ export default function BottomTabs({ view, onChange }: Props) {
               onClick={() => router.push("/saved")}
               className={`flex-1 ${baseBtn} ${
                 view === "saved"
-                  ? "jt-active-gradient"
+                  ? "jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]"
                   : "text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5"
               }`}
               title="Saved"
