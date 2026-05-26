@@ -1232,6 +1232,8 @@ export default function CityPage() {
     {/* TikTok als eigener Bereich unterhalb */}
     {s.tiktok_embed_id ? (
       <SpotTikTokSection
+        key={`${s.id}-${s.tiktok_embed_id}`}
+        embedInstanceId={`${s.id}-${s.tiktok_embed_id}`}
         videoId={s.tiktok_embed_id}
         onClick={(e) => e.stopPropagation()}
       />

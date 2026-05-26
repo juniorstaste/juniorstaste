@@ -4,6 +4,7 @@ import { memo, useEffect, useRef, useState } from "react";
 
 type Props = {
   videoId: string;
+  embedInstanceId?: string;
   username?: string;
   height?: number;
   loadMode?: "eager" | "nearby";
@@ -19,6 +20,17 @@ const embedVisibilityRatios = new Map<string, number>();
 const activeEmbedSubscribers = new Set<(videoId: string | null) => void>();
 let nearbyWarmupCount = 0;
 let globalActiveEmbedId: string | null = null;
+
+function getInitialShouldLoadIframe(videoId: string, loadMode: "eager" | "nearby") {
+  if (loadMode === "eager") return true;
+  if (warmedVideoIds.has(videoId)) return true;
+  if (nearbyWarmupCount < NEARBY_WARMUP_LIMIT) {
+    nearbyWarmupCount += 1;
+    warmedVideoIds.add(videoId);
+    return true;
+  }
+  return false;
+}
 
 function notifyActiveEmbedChange(videoId: string | null) {
   activeEmbedSubscribers.forEach((listener) => listener(videoId));
@@ -46,25 +58,26 @@ function recomputeGlobalActiveEmbed() {
 
 function TikTokEmbed({
   videoId,
+  embedInstanceId,
   username,
   height,
   loadMode = "eager",
 }: Props) {
+  const instanceId = embedInstanceId ?? videoId;
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [dynamicHeight, setDynamicHeight] = useState(760);
   const [visibilityRatio, setVisibilityRatio] = useState(0);
   const [activeEmbedId, setActiveEmbedId] = useState<string | null>(globalActiveEmbedId);
   const [hasBeenActive, setHasBeenActive] = useState(false);
-  const [shouldLoadIframe, setShouldLoadIframe] = useState(() => {
-    if (loadMode === "eager") return true;
-    if (warmedVideoIds.has(videoId)) return true;
-    if (nearbyWarmupCount < NEARBY_WARMUP_LIMIT) {
-      nearbyWarmupCount += 1;
-      warmedVideoIds.add(videoId);
-      return true;
-    }
-    return false;
-  });
+  const [shouldLoadIframe, setShouldLoadIframe] = useState(() =>
+    getInitialShouldLoadIframe(videoId, loadMode)
+  );
+
+  useEffect(() => {
+    setVisibilityRatio(0);
+    setHasBeenActive(false);
+    setShouldLoadIframe(getInitialShouldLoadIframe(videoId, loadMode));
+  }, [instanceId, videoId, loadMode]);
 
   useEffect(() => {
     if (shouldLoadIframe) {
@@ -128,7 +141,7 @@ function TikTokEmbed({
 
         const nextRatio = entry.isIntersecting ? entry.intersectionRatio : 0;
         setVisibilityRatio(nextRatio);
-        embedVisibilityRatios.set(videoId, nextRatio);
+        embedVisibilityRatios.set(instanceId, nextRatio);
         recomputeGlobalActiveEmbed();
       },
       {
@@ -140,16 +153,16 @@ function TikTokEmbed({
 
     return () => {
       observer.disconnect();
-      embedVisibilityRatios.delete(videoId);
+      embedVisibilityRatios.delete(instanceId);
       recomputeGlobalActiveEmbed();
     };
-  }, [videoId]);
+  }, [instanceId]);
 
   useEffect(() => {
-    if (activeEmbedId === videoId) {
+    if (activeEmbedId === instanceId) {
       setHasBeenActive(true);
     }
-  }, [activeEmbedId, videoId]);
+  }, [activeEmbedId, instanceId]);
 
   useEffect(() => {
     if (loadMode === "eager") {
@@ -184,7 +197,7 @@ function TikTokEmbed({
   }, [loadMode, shouldLoadIframe, videoId]);
 
   const finalHeight = height ?? dynamicHeight;
-  const isActiveEmbed = activeEmbedId === videoId;
+  const isActiveEmbed = activeEmbedId === instanceId;
   const shouldRenderIframe =
     shouldLoadIframe &&
     (!hasBeenActive || isActiveEmbed || visibilityRatio >= INACTIVE_UNLOAD_RATIO);
@@ -211,6 +224,7 @@ function TikTokEmbed({
     >
       {shouldRenderIframe ? (
         <iframe
+          key={instanceId}
           src={src}
           width="100%"
           height={finalHeight}
@@ -225,7 +239,7 @@ function TikTokEmbed({
           }}
           allow="autoplay; encrypted-media"
           allowFullScreen
-          title={`TikTok video ${videoId}`}
+          title={`TikTok video ${instanceId}`}
         />
       ) : (
         <div

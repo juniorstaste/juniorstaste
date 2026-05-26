@@ -338,6 +338,8 @@ className="flex items-center justify-start active:scale-[1.03] transition"
   <div className="mt-4 flex justify-center">
     <div className="w-full w-full rounded-2xl overflow-hidden shadow-lg">
       <TikTokEmbed
+        key={`${spot.id}-${spot.tiktok_embed_id}`}
+        embedInstanceId={`${spot.id}-${spot.tiktok_embed_id}`}
         username="juniorstaste"
         videoId={spot.tiktok_embed_id}
         height={760}
