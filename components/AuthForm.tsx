@@ -112,6 +112,23 @@ export default function AuthForm({
       });
 
       error = result.error;
+
+      // Enumeration-Schutz: Für bereits registrierte E-Mails liefert Supabase
+      // keinen Fehler, sondern einen obfuskierten User ohne Identities. Ohne
+      // diesen Check sähe der Nutzer eine Erfolgsmeldung, aber es käme nie
+      // eine Bestätigungs-Mail.
+      if (
+        !error &&
+        result.data.user &&
+        result.data.user.identities?.length === 0
+      ) {
+        setSubmitting(false);
+        setErrorMsg(
+          "Zu dieser E-Mail-Adresse existiert bereits ein Konto. Bitte logge dich ein oder nutze 'Passwort vergessen'."
+        );
+        setSuccessMsg(null);
+        return;
+      }
     } else if (view === "login") {
       const result = await supabase.auth.signInWithPassword({
         email: trimmedEmail,

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import TopRightMenu from "@/components/TopRightMenu";
+import { geolocationErrorMessage } from "@/lib/geolocationError";
 
 type City = { id: string; name: string; slug: string; spotCount: number };
 
@@ -98,8 +99,8 @@ export default function Home() {
         setRadiusOpen(true);
         setGeoLoading(false);
       },
-      () => {
-        setGeoError("Standort konnte nicht abgerufen werden.");
+      (error) => {
+        setGeoError(geolocationErrorMessage(error));
         setGeoLoading(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -140,6 +141,10 @@ export default function Home() {
             >
               {geoLoading ? "Standort wird geladen…" : "📍 Standort verwenden"}
             </button>
+
+            {/* Direkt am Button — unten unter der Städteliste wäre die
+                Meldung außerhalb des Viewports */}
+            {geoError ? <div className="text-sm text-red-400">{geoError}</div> : null}
 
             {radiusOpen && (
               <div className="w-full rounded-[24px] border border-white/12 bg-white/8 p-4 text-left shadow-sm backdrop-blur-sm">
@@ -215,7 +220,6 @@ export default function Home() {
           </div>
         </section>
 
-        {geoError ? <div className="mt-4 text-sm text-red-400">{geoError}</div> : null}
         {errorMsg ? <div className="mt-4 text-sm text-red-400">{errorMsg}</div> : null}
       </div>
     </main>

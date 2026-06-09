@@ -251,6 +251,9 @@ export default function TopRightMenu({ onOpenChange }: Props) {
     <div
       className={`fixed inset-0 z-[2000] transition ${open ? "pointer-events-auto" : "pointer-events-none"}`}
       aria-hidden={!open}
+      // Geschlossen ist der Drawer nur offscreen — ohne inert blieben seine
+      // Buttons (inkl. Logout) per Tab+Enter unsichtbar auslösbar.
+      inert={!open}
     >
       <button
         type="button"

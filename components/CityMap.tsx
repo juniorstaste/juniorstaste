@@ -2,7 +2,7 @@
 
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import StarRating from "@/components/StarRating";
 import PriceLevel from "@/components/PriceLevel";
 import DeliveryButtons from "@/components/DeliveryButtons";
@@ -155,16 +155,33 @@ function FitToSpots({
 }) {
   const map = useMap();
 
+  // Primitive statt Objekt-Identität: Seiten übergeben userPos teils als
+  // Inline-Literal, das bei jedem Render eine neue Referenz bekommt.
+  const userLat = typeof userPos?.lat === "number" ? userPos.lat : null;
+  const userLng = typeof userPos?.lng === "number" ? userPos.lng : null;
+
+  // Merken, was zuletzt gefittet wurde: Reine Spot-Änderungen (Suche/Filter
+  // pro Tastendruck, neue Array-Identität bei jedem Render) dürfen das
+  // manuelle Pan/Zoom des Users nicht verwerfen.
+  const lastUserFitRef = useRef<string | null>(null);
+  const hasInitialSpotsFitRef = useRef(false);
+
   useEffect(() => {
-    if (userPos && typeof userPos.lat === "number" && typeof userPos.lng === "number") {
+    if (userLat !== null && userLng !== null) {
+      // Nur neu fliegen, wenn sich Position/Radius/Sheet wirklich geändert haben
+      const fitSignature = `${userLat},${userLng},${userRadiusKm},${immersiveSheet}`;
+      if (lastUserFitRef.current === fitSignature) return;
+      lastUserFitRef.current = fitSignature;
+
+      const userPosNow = { lat: userLat, lng: userLng };
       const nearbyPoints = spots
         .filter(
-          (spot) => haversineKm(userPos, { lat: spot.lat, lng: spot.lng }) <= userRadiusKm
+          (spot) => haversineKm(userPosNow, { lat: spot.lat, lng: spot.lng }) <= userRadiusKm
         )
         .map((spot) => [spot.lat, spot.lng] as [number, number]);
 
       if (immersiveSheet && nearbyPoints.length > 0) {
-        const nearbyBounds = L.latLngBounds([[userPos.lat, userPos.lng], ...nearbyPoints]);
+        const nearbyBounds = L.latLngBounds([[userLat, userLng], ...nearbyPoints]);
         map.flyToBounds(nearbyBounds, {
           padding: [40, 40],
           duration: 0.8,
@@ -172,7 +189,7 @@ function FitToSpots({
         return;
       }
 
-      const userBounds = getBoundsAroundUser(userPos, userRadiusKm);
+      const userBounds = getBoundsAroundUser(userPosNow, userRadiusKm);
       map.flyToBounds(userBounds, {
         padding: [40, 40],
         duration: 0.8,
@@ -180,28 +197,26 @@ function FitToSpots({
       return;
     }
 
-    const points: [number, number][] = [];
+    lastUserFitRef.current = null;
 
-    // Spots
-    (spots ?? []).forEach((s) => {
-      points.push([s.lat, s.lng]);
-    });
+    // Ohne Standort: nur einmal initial auf die Spots fitten (sobald welche
+    // geladen sind) — danach behält der User die Kontrolle über die Karte.
+    if (hasInitialSpotsFitRef.current) return;
 
-    // User position (wenn vorhanden)
-    if (userPos && typeof userPos.lat === "number" && typeof userPos.lng === "number") {
-      points.push([userPos.lat, userPos.lng]);
-    }
+    const points = (spots ?? []).map((s) => [s.lat, s.lng] as [number, number]);
 
     if (points.length === 0) return;
+
+    hasInitialSpotsFitRef.current = true;
 
     const bounds = L.latLngBounds(points);
     map.fitBounds(bounds, { padding: [40, 40] });
 
-    // Wenn nur 1 Punkt (z.B. nur Standort oder nur 1 Spot)
+    // Wenn nur 1 Punkt (z.B. nur 1 Spot)
     if (points.length === 1) {
       map.setView(points[0], 15);
     }
-  }, [spots, userPos, userRadiusKm, immersiveSheet, map]);
+  }, [spots, userLat, userLng, userRadiusKm, immersiveSheet, map]);
 
   return null;
 }

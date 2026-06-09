@@ -60,7 +60,7 @@ export default function SpotDetailPage() {
   const router = useRouter();
 
   const spotId = useMemo(() => {
-    const raw = (params as any)?.id;
+    const raw = (params as { id?: string | string[] } | null)?.id;
     if (!raw) return null;
     return Array.isArray(raw) ? raw[0] : raw;
   }, [params]);
