@@ -40,6 +40,11 @@ export default function SavedPage() {
   const { authLoading, user, savedSpotIds, openAuthPrompt } = useAuth();
 
   useEffect(() => {
+    // Abbruch-Flag: Beim schnellen Entfernen mehrerer Spots laufen sonst
+    // mehrere Fetch-Ketten parallel und eine ältere Antwort kann einen
+    // bereits entfernten Spot wieder in die Liste schreiben.
+    let cancelled = false;
+
     async function loadSavedSpots() {
       if (!user) {
         setSpots([]);
@@ -47,11 +52,15 @@ export default function SavedPage() {
         return;
       }
 
+      setLoading(true);
+
       const { data: savedRows, error: savedError } = await supabase
         .from("saved_spots")
         .select("spot_id, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: true });
+
+      if (cancelled) return;
 
       if (savedError) {
         logSupabaseError("Konnte saved_spots nicht laden:", savedError);
@@ -68,14 +77,14 @@ export default function SavedPage() {
         return;
       }
 
-      setLoading(true);
-
       const { data, error } = await supabase
         .from("spots")
         .select(
           "id, name, description, address, image_url, city_id, tiktok_embed_id, google_maps_link, wolt_url, lieferando_url, uber_eats_url"
         )
         .in("id", savedIds);
+
+      if (cancelled) return;
 
       if (error) {
         logSupabaseError("Konnte Spot-Daten fuer gespeicherte Spots nicht laden:", error);
@@ -99,6 +108,8 @@ export default function SavedPage() {
           .from("cities")
           .select("id, name, slug")
           .in("id", cityIds);
+
+        if (cancelled) return;
 
         if (cityError) {
           logSupabaseError("Konnte Stadt-Daten fuer gespeicherte Spots nicht laden:", cityError);
@@ -128,6 +139,10 @@ export default function SavedPage() {
     }
 
     loadSavedSpots();
+
+    return () => {
+      cancelled = true;
+    };
   }, [savedSpotIds, user]);
 
 const savedCities = Array.from(

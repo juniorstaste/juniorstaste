@@ -49,6 +49,10 @@ export default function SpotMiniMap({ lat, lng, name, spotId, googleMapsLink, us
       }}
     >
       <MapContainer
+        // MapContainer wertet center nur beim Mount aus — bei Spot-zu-Spot-
+        // Navigation (gleiche Page-Instanz) bliebe die Karte sonst beim alten
+        // Spot zentriert. Der key erzwingt einen Remount pro Position.
+        key={`${lat},${lng}`}
         center={center}
         zoom={15}
         zoomControl={false}

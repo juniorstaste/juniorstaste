@@ -25,6 +25,9 @@ import {
 } from "@/lib/lastCityNavigation";
 import { prioritizeSpots } from "@/lib/prioritySpot";
 import { getPriceLevelValue } from "@/lib/priceLevel";
+import { logSupabaseError } from "@/lib/logSupabaseError";
+import { safeSetItem } from "@/lib/safeStorage";
+import { geolocationErrorMessage } from "@/lib/geolocationError";
 
 const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
 
@@ -177,7 +180,7 @@ export default function CityPage() {
   const params = useParams();
 
   const citySlug = useMemo(() => {
-    const raw = (params as any)?.slug;
+    const raw = (params as { slug?: string | string[] } | null)?.slug;
     if (!raw) return null;
     return Array.isArray(raw) ? raw[0] : raw;
   }, [params]);
@@ -235,10 +238,20 @@ export default function CityPage() {
     setView(requestedView);
   }, [searchParams]);
 
+  // View-Wechsel auch in die URL schreiben: Sonst erzwingt ein veralteter
+  // ?view=-Param bei Back-Navigation wieder die alte Ansicht und
+  // überschreibt die zuletzt gewählte View im localStorage.
+  function handleViewChange(nextView: ViewMode) {
+    setView(nextView);
+    if (citySlug) {
+      router.replace(buildCityViewHref(citySlug, nextView), { scroll: false });
+    }
+  }
+
   useEffect(() => {
-    if (typeof window === "undefined" || !citySlug) return;
-    window.localStorage.setItem(LAST_CITY_SLUG_KEY, citySlug);
-    window.localStorage.setItem(LAST_CITY_VIEW_KEY, view);
+    if (!citySlug) return;
+    safeSetItem(LAST_CITY_SLUG_KEY, citySlug);
+    safeSetItem(LAST_CITY_VIEW_KEY, view);
   }, [citySlug, view]);
 
   useEffect(() => {
@@ -248,7 +261,12 @@ export default function CityPage() {
         .select("id, name, slug")
         .order("name", { ascending: true });
 
-      if (!error) setCities((data as City[]) ?? []);
+      if (error) {
+        logSupabaseError("Konnte Städte nicht laden:", error);
+        return;
+      }
+
+      setCities((data as City[]) ?? []);
     }
 
     loadCities();
@@ -272,8 +290,8 @@ export default function CityPage() {
           const lng = pos.coords.longitude;
           router.push(`/near?lat=${lat}&lng=${lng}&r=30`);
         },
-        () => {
-          setGeoError("Standort konnte nicht abgerufen werden. Bitte Standort erlauben.");
+        (error) => {
+          setGeoError(geolocationErrorMessage(error));
           if (citySlug) setCitySelectValue(citySlug);
         },
         { enableHighAccuracy: true, timeout: 10000 }
@@ -301,13 +319,17 @@ export default function CityPage() {
         setIsRadiusFilterOpen(true);
         setSort("distance");
       },
-      () => setGeoError("Standort konnte nicht abgerufen werden. Bitte Standort erlauben."),
+      (error) => setGeoError(geolocationErrorMessage(error)),
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }
 
   useEffect(() => {
     if (!citySlug) return;
+
+    // Abbruch-Flag: Bei schnellem Kategorie-/Stadtwechsel darf eine ältere,
+    // langsamere Antwort die aktuelle nicht überschreiben.
+    let cancelled = false;
 
     async function loadSpots() {
       setLoading(true);
@@ -323,6 +345,8 @@ export default function CityPage() {
 
       const { data, error } = await query;
 
+      if (cancelled) return;
+
       if (error) {
         setErrorMsg(error.message);
         setSpots([]);
@@ -335,10 +359,16 @@ export default function CityPage() {
     }
 
     loadSpots();
+
+    return () => {
+      cancelled = true;
+    };
   }, [citySlug, category]);
 
   useEffect(() => {
     if (!citySlug) return;
+
+    let cancelled = false;
 
     async function loadCategories() {
       const { data, error } = await supabase
@@ -346,10 +376,15 @@ export default function CityPage() {
         .select("category_slug, category_name")
         .eq("city_slug", citySlug);
 
-      if (error) return;
+      if (cancelled) return;
+
+      if (error) {
+        logSupabaseError("Konnte Kategorien nicht laden:", error);
+        return;
+      }
 
       const map = new Map<string, string>();
-      (data ?? []).forEach((row: any) => {
+      (data ?? []).forEach((row: { category_slug: string | null; category_name: string | null }) => {
         if (row.category_slug) map.set(row.category_slug, row.category_name ?? row.category_slug);
       });
 
@@ -359,6 +394,10 @@ export default function CityPage() {
     }
 
     loadCategories();
+
+    return () => {
+      cancelled = true;
+    };
   }, [citySlug]);
 
   useEffect(() => {
@@ -368,7 +407,10 @@ export default function CityPage() {
         .select("*")
         .in("id", TASTE_DES_MONATS_IDS);
 
-      if (error) return;
+      if (error) {
+        logSupabaseError("Konnte Taste des Monats nicht laden:", error);
+        return;
+      }
 
       const ordered =
         (data as Spot[] | null)?.sort(
@@ -676,7 +718,7 @@ export default function CityPage() {
             <div className="flex justify-center">
               <div className={`flex ${segmentedWidthClass} rounded-full border border-white/10 bg-white/10 p-1 shadow-sm`}>
                 <button
-                  onClick={() => setView("list")}
+                  onClick={() => handleViewChange("list")}
                   className={`${segmentedButtonBase} ${
                     isListView
                       ? "jt-active-gradient-soft scale-[1.02] shadow-[0_8px_20px_rgba(255,124,144,0.18)]"
@@ -687,7 +729,7 @@ export default function CityPage() {
                 </button>
 
                 <button
-                  onClick={() => setView("map")}
+                  onClick={() => handleViewChange("map")}
                   className={`${segmentedButtonBase} ${
                     isMapView
                       ? "jt-active-gradient-soft scale-[1.02] shadow-[0_8px_20px_rgba(255,124,144,0.18)]"
@@ -698,7 +740,7 @@ export default function CityPage() {
                 </button>
 
                 <button
-                  onClick={() => setView("tasteDesMonats")}
+                  onClick={() => handleViewChange("tasteDesMonats")}
                   className={`${segmentedButtonBase} ${
                     isTasteDesMonatsView
                       ? "jt-active-gradient-soft scale-[1.02] shadow-[0_8px_20px_rgba(255,124,144,0.18)]"
@@ -1244,7 +1286,7 @@ export default function CityPage() {
         </div>
       )}
 
-      {!menuOpen ? <BottomTabs view={view} onChange={setView} /> : null}
+      {!menuOpen ? <BottomTabs view={view} onChange={handleViewChange} /> : null}
     </main>
   );
 }

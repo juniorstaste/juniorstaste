@@ -11,6 +11,7 @@ import {
   LAST_CITY_SLUG_KEY,
   LAST_CITY_VIEW_KEY,
 } from "@/lib/lastCityNavigation";
+import { safeGetItem, safeSetItem } from "@/lib/safeStorage";
 
 export default function GlobalBottomTabs() {
   const pathname = usePathname();
@@ -31,27 +32,16 @@ export default function GlobalBottomTabs() {
       return;
     }
 
-    if (typeof window === "undefined") {
-      setView("list");
-      return;
-    }
-
-    const storedView = window.localStorage.getItem(LAST_CITY_VIEW_KEY);
+    const storedView = safeGetItem(LAST_CITY_VIEW_KEY);
     setView(isCityTabView(storedView) ? storedView : "list");
   }, [pathname]);
 
   function handleChange(nextView: CityTabView) {
     setView(nextView);
 
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(LAST_CITY_VIEW_KEY, nextView);
-      const citySlug =
-        window.localStorage.getItem(LAST_CITY_SLUG_KEY) || LAST_CITY_FALLBACK_SLUG;
-      router.push(buildCityViewHref(citySlug, nextView));
-      return;
-    }
-
-    router.push(buildCityViewHref(LAST_CITY_FALLBACK_SLUG, nextView));
+    safeSetItem(LAST_CITY_VIEW_KEY, nextView);
+    const citySlug = safeGetItem(LAST_CITY_SLUG_KEY) || LAST_CITY_FALLBACK_SLUG;
+    router.push(buildCityViewHref(citySlug, nextView));
   }
 
   if (!pathname || pathname === "/") return null;

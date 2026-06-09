@@ -11,26 +11,12 @@ type Props = {
 };
 
 const PRELOAD_ROOT_MARGIN = "1200px 0px";
-const NEARBY_WARMUP_LIMIT = 3;
 const ACTIVE_THRESHOLD_STEPS = [0, 0.1, 0.2, 0.35, 0.5, 0.65, 0.8, 1];
 const MIN_ACTIVE_RATIO = 0.2;
 const INACTIVE_UNLOAD_RATIO = 0.35;
-const warmedVideoIds = new Set<string>();
 const embedVisibilityRatios = new Map<string, number>();
 const activeEmbedSubscribers = new Set<(videoId: string | null) => void>();
-let nearbyWarmupCount = 0;
 let globalActiveEmbedId: string | null = null;
-
-function getInitialShouldLoadIframe(videoId: string, loadMode: "eager" | "nearby") {
-  if (loadMode === "eager") return true;
-  if (warmedVideoIds.has(videoId)) return true;
-  if (nearbyWarmupCount < NEARBY_WARMUP_LIMIT) {
-    nearbyWarmupCount += 1;
-    warmedVideoIds.add(videoId);
-    return true;
-  }
-  return false;
-}
 
 function notifyActiveEmbedChange(videoId: string | null) {
   activeEmbedSubscribers.forEach((listener) => listener(videoId));
@@ -69,21 +55,20 @@ function TikTokEmbed({
   const [visibilityRatio, setVisibilityRatio] = useState(0);
   const [activeEmbedId, setActiveEmbedId] = useState<string | null>(globalActiveEmbedId);
   const [hasBeenActive, setHasBeenActive] = useState(false);
-  const [shouldLoadIframe, setShouldLoadIframe] = useState(() =>
-    getInitialShouldLoadIframe(videoId, loadMode)
-  );
+  const [shouldLoadIframe, setShouldLoadIframe] = useState(loadMode === "eager");
 
-  useEffect(() => {
+  // State zurücksetzen, wenn dieselbe Komponenten-Instanz ein anderes Video
+  // bekommt — als Render-Adjust statt setState-in-Effect (kein Extra-Frame
+  // mit altem State, keine kaskadierenden Renders).
+  const instanceKey = `${instanceId}:${videoId}:${loadMode}`;
+  const [prevInstanceKey, setPrevInstanceKey] = useState(instanceKey);
+
+  if (prevInstanceKey !== instanceKey) {
+    setPrevInstanceKey(instanceKey);
     setVisibilityRatio(0);
     setHasBeenActive(false);
-    setShouldLoadIframe(getInitialShouldLoadIframe(videoId, loadMode));
-  }, [instanceId, videoId, loadMode]);
-
-  useEffect(() => {
-    if (shouldLoadIframe) {
-      warmedVideoIds.add(videoId);
-    }
-  }, [shouldLoadIframe, videoId]);
+    setShouldLoadIframe(loadMode === "eager");
+  }
 
   useEffect(() => {
     if (height) return;
@@ -136,7 +121,9 @@ function TikTokEmbed({
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const [entry] = entries;
+        // Entries sind chronologisch gebatcht — nur der neueste zählt,
+        // sonst bleibt eine veraltete Visibility-Ratio hängen.
+        const entry = entries[entries.length - 1];
         if (!entry) return;
 
         const nextRatio = entry.isIntersecting ? entry.intersectionRatio : 0;
@@ -158,27 +145,20 @@ function TikTokEmbed({
     };
   }, [instanceId]);
 
-  useEffect(() => {
-    if (activeEmbedId === instanceId) {
-      setHasBeenActive(true);
-    }
-  }, [activeEmbedId, instanceId]);
+  // Render-Adjust statt Effect: "war schon aktiv" ist aus activeEmbedId ableitbar
+  if (activeEmbedId === instanceId && !hasBeenActive) {
+    setHasBeenActive(true);
+  }
 
   useEffect(() => {
-    if (loadMode === "eager") {
-      setShouldLoadIframe(true);
-      return;
-    }
-
-    if (shouldLoadIframe || !wrapRef.current) return;
+    if (loadMode === "eager" || shouldLoadIframe || !wrapRef.current) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        const [entry] = entries;
+        const entry = entries[entries.length - 1];
         if (!entry) return;
 
         if (entry.isIntersecting) {
-          warmedVideoIds.add(videoId);
           setShouldLoadIframe(true);
           observer.disconnect();
         }
@@ -194,7 +174,7 @@ function TikTokEmbed({
     return () => {
       observer.disconnect();
     };
-  }, [loadMode, shouldLoadIframe, videoId]);
+  }, [loadMode, shouldLoadIframe]);
 
   const finalHeight = height ?? dynamicHeight;
   const isActiveEmbed = activeEmbedId === instanceId;

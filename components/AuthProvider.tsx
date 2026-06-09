@@ -14,6 +14,7 @@ import { usePathname, useRouter } from "next/navigation";
 import AuthForm from "@/components/AuthForm";
 import { supabase } from "@/lib/supabaseClient";
 import { logSupabaseError } from "@/lib/logSupabaseError";
+import { safeGetItem, safeRemoveItem, safeSetItem } from "@/lib/safeStorage";
 
 type Profile = {
   id: string;
@@ -44,6 +45,14 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const POST_AUTH_KEY = "post_auth_action";
 const SAVED_SPOT_IDS_KEY = "saved_spot_ids";
+// Nach Ablauf wird eine gespeicherte post_auth_action verworfen, damit ein
+// späterer, unabhängiger Login keine veraltete Aktion mehr ausführt.
+const POST_AUTH_MAX_AGE_MS = 60 * 60 * 1000;
+
+type StoredPostAuthAction = {
+  ts: number;
+  action: PostAuthAction;
+};
 
 function isUuidLike(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -70,6 +79,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const mountedRef = useRef(true);
+  // ID des aktuell eingeloggten Users — damit in-flight Fetches nach einem
+  // Logout/Userwechsel ihr Ergebnis verwerfen statt veralteten State zu setzen.
+  const activeUserIdRef = useRef<string | null>(null);
+  // Verhindert doppelten Voll-Sync pro User (INITIAL_SESSION + SIGNED_IN
+  // feuern sonst beide pro Pageload) sowie Re-Sync bei TOKEN_REFRESHED.
+  const lastSyncedUserIdRef = useRef<string | null>(null);
+  const postAuthInFlightRef = useRef(false);
+  const togglingSpotIdsRef = useRef<Set<string>>(new Set());
 
   const [authLoading, setAuthLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
@@ -87,21 +104,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .eq("user_id", userId)
       .order("created_at", { ascending: true });
 
+    // Ergebnis verwerfen, wenn der User inzwischen ausgeloggt oder gewechselt ist
+    if (!mountedRef.current || activeUserIdRef.current !== userId) return;
+
     if (error) {
       logSupabaseError("Konnte gespeicherte Spots nicht laden:", error);
-      if (mountedRef.current) setSavedSpotIds([]);
+      setSavedSpotIds([]);
       return;
     }
 
-    if (mountedRef.current) {
-      setSavedSpotIds((data ?? []).map((row: { spot_id: string }) => row.spot_id));
-    }
+    setSavedSpotIds((data ?? []).map((row: { spot_id: string }) => row.spot_id));
   }, []);
 
   const migrateLocalSavedSpots = useCallback(async (userId: string) => {
     if (typeof window === "undefined") return;
 
-    const raw = window.localStorage.getItem(SAVED_SPOT_IDS_KEY);
+    const raw = safeGetItem(SAVED_SPOT_IDS_KEY);
     if (!raw) return;
 
     try {
@@ -118,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         : [];
 
       if (spotIds.length === 0) {
-        window.localStorage.removeItem(SAVED_SPOT_IDS_KEY);
+        safeRemoveItem(SAVED_SPOT_IDS_KEY);
         return;
       }
 
@@ -128,11 +146,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .in("id", spotIds);
 
       if (existingSpotsError) {
+        // Key behalten: transienter Fehler — Migration wird beim nächsten
+        // Auth-Event erneut versucht, statt die lokale Merkliste zu verlieren.
         logSupabaseError(
           "Konnte gueltige Spots fuer lokale Migration nicht pruefen:",
           existingSpotsError
         );
-        window.localStorage.removeItem(SAVED_SPOT_IDS_KEY);
         return;
       }
 
@@ -143,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const migratableSpotIds = spotIds.filter((spotId) => validSpotIds.has(spotId));
 
       if (migratableSpotIds.length === 0) {
-        window.localStorage.removeItem(SAVED_SPOT_IDS_KEY);
+        safeRemoveItem(SAVED_SPOT_IDS_KEY);
         return;
       }
 
@@ -158,12 +177,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
 
       if (error) {
+        // Key behalten: Upsert kann beim nächsten Auth-Event erneut versucht werden
         logSupabaseError("Konnte lokale gespeicherte Spots nicht migrieren:", error);
-        window.localStorage.removeItem(SAVED_SPOT_IDS_KEY);
         return;
       }
 
-      window.localStorage.removeItem(SAVED_SPOT_IDS_KEY);
+      safeRemoveItem(SAVED_SPOT_IDS_KEY);
     } catch (error) {
       console.error("Konnte lokale gespeicherte Spots nicht migrieren:", {
         error,
@@ -176,7 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         })(),
       });
-      window.localStorage.removeItem(SAVED_SPOT_IDS_KEY);
+      safeRemoveItem(SAVED_SPOT_IDS_KEY);
     }
   }, []);
 
@@ -193,13 +212,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .select("id, email, display_name")
       .single();
 
+    const canApply = () =>
+      mountedRef.current && activeUserIdRef.current === nextUser.id;
+
     if (error) {
-      if (mountedRef.current) setProfile(payload);
+      if (canApply()) setProfile(payload);
       return payload;
     }
 
     const nextProfile = data as Profile;
-    if (mountedRef.current) setProfile(nextProfile);
+    if (canApply()) setProfile(nextProfile);
     return nextProfile;
   }, []);
 
@@ -216,6 +238,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (nextUser) {
+      activeUserIdRef.current = nextUser.id;
+
       if (mountedRef.current) {
         setUser(nextUser);
         setAuthLoading(false);
@@ -236,6 +260,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!nextSession?.user) return null;
 
+    activeUserIdRef.current = nextSession.user.id;
+
     if (mountedRef.current) {
       setSession(nextSession);
       setUser(nextSession.user);
@@ -248,16 +274,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handlePostAuthAction = useCallback(
     async (nextUser: User) => {
       if (typeof window === "undefined") return;
+      if (postAuthInFlightRef.current) return;
 
-      const raw = window.localStorage.getItem(POST_AUTH_KEY);
+      const raw = safeGetItem(POST_AUTH_KEY);
       if (!raw) return;
 
-      window.localStorage.removeItem(POST_AUTH_KEY);
+      postAuthInFlightRef.current = true;
 
       try {
-        const action = JSON.parse(raw) as PostAuthAction;
+        let action: PostAuthAction;
+
+        try {
+          const stored = JSON.parse(raw) as Partial<StoredPostAuthAction>;
+
+          // Altformatige (ohne Timestamp) oder abgelaufene Actions verwerfen,
+          // damit ein späterer, unabhängiger Login sie nicht mehr ausführt.
+          if (
+            !stored ||
+            typeof stored.ts !== "number" ||
+            !stored.action ||
+            Date.now() - stored.ts > POST_AUTH_MAX_AGE_MS
+          ) {
+            safeRemoveItem(POST_AUTH_KEY);
+            return;
+          }
+
+          action = stored.action;
+        } catch {
+          safeRemoveItem(POST_AUTH_KEY);
+          return;
+        }
 
         if (action.type === "open-saved") {
+          safeRemoveItem(POST_AUTH_KEY);
           router.push(action.returnTo ?? "/saved");
           return;
         }
@@ -269,18 +318,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
 
           if (error && error.code !== "23505") {
+            // Key behalten: transienter Fehler — der nächste Sync versucht
+            // die Action erneut, statt den Speicherwunsch zu verlieren.
             logSupabaseError("Konnte gespeicherten Spot nach Login nicht anlegen:", error);
             return;
           }
 
+          safeRemoveItem(POST_AUTH_KEY);
           await loadSavedSpotIds(nextUser.id);
 
           if (action.returnTo) {
             router.push(action.returnTo);
           }
         }
-      } catch {
-        window.localStorage.removeItem(POST_AUTH_KEY);
+      } finally {
+        postAuthInFlightRef.current = false;
       }
     },
     [loadSavedSpotIds, router]
@@ -299,42 +351,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     mountedRef.current = true;
 
-    async function bootstrap() {
-      const {
-        data: { session: nextSession },
-      } = await supabase.auth.getSession();
-
-      if (!mountedRef.current) return;
-
-      setSession(nextSession);
-      setUser(nextSession?.user ?? null);
-
-      if (nextSession?.user) {
-        await syncUserState(nextSession.user);
-        if (mountedRef.current) setAuthPromptOpen(false);
-      } else {
-        setProfile(null);
-        setSavedSpotIds([]);
-      }
-
-      if (mountedRef.current) setAuthLoading(false);
-    }
-
-    void bootstrap();
-
+    // Kein separates bootstrap(): supabase-js feuert INITIAL_SESSION an alle
+    // Subscriber — ein zweiter manueller Sync würde Profil-Upsert, Migration
+    // und saved_spots-Fetch pro Pageload doppelt ausführen.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
+      activeUserIdRef.current = nextSession?.user?.id ?? null;
 
       if (!nextSession?.user) {
+        lastSyncedUserIdRef.current = null;
         setProfile(null);
         setSavedSpotIds([]);
         setAuthPromptOpen(false);
         setAuthLoading(false);
         return;
       }
+
+      // Token-Refresh (~stündlich) ändert nur die Session — kein erneuter
+      // Profil-Upsert/Merklisten-Sync nötig.
+      if (event === "TOKEN_REFRESHED") {
+        setAuthLoading(false);
+        return;
+      }
+
+      // Voll-Sync pro User nur einmal (INITIAL_SESSION und SIGNED_IN können
+      // beide pro Pageload eintreffen); USER_UPDATED synchronisiert erneut.
+      if (
+        event !== "USER_UPDATED" &&
+        lastSyncedUserIdRef.current === nextSession.user.id
+      ) {
+        setAuthLoading(false);
+        return;
+      }
+
+      lastSyncedUserIdRef.current = nextSession.user.id;
 
       void syncUserState(nextSession.user).finally(() => {
         if (mountedRef.current) {
@@ -352,7 +405,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const openAuthPrompt = useCallback((action?: PostAuthAction) => {
     if (typeof window !== "undefined" && action) {
-      window.localStorage.setItem(POST_AUTH_KEY, JSON.stringify(action));
+      const stored: StoredPostAuthAction = { ts: Date.now(), action };
+      safeSetItem(POST_AUTH_KEY, JSON.stringify(stored));
     }
 
     setAuthPromptOpen(true);
@@ -377,64 +431,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const toggleSavedSpot = useCallback(
     async (spotId: string) => {
-      console.log("SaveSpotButton geklickt:", spotId);
+      // In-Flight-Guard: Ein schneller zweiter Klick würde sonst den noch
+      // alten Zustand lesen und z.B. doppelt inserten statt zu entfernen.
+      if (togglingSpotIdsRef.current.has(spotId)) {
+        return savedSpotIdsSet.has(spotId);
+      }
 
-      if (!user) {
-        const activeUser = await resolveActiveUser();
+      togglingSpotIdsRef.current.add(spotId);
+
+      try {
+        if (!user) {
+          const activeUser = await resolveActiveUser();
+
+          if (!activeUser) {
+            openAuthPrompt({ type: "save-spot", spotId, returnTo: pathname });
+            return false;
+          }
+
+          if (mountedRef.current) {
+            setUser(activeUser);
+          }
+
+          await ensureProfile(activeUser);
+        }
+
+        const activeUser = user ?? (await resolveActiveUser());
 
         if (!activeUser) {
           openAuthPrompt({ type: "save-spot", spotId, returnTo: pathname });
           return false;
         }
 
-        if (mountedRef.current) {
-          setUser(activeUser);
+        const currentlySaved = savedSpotIdsSet.has(spotId);
+
+        if (currentlySaved) {
+          const { error } = await supabase
+            .from("saved_spots")
+            .delete()
+            .eq("user_id", activeUser.id)
+            .eq("spot_id", spotId);
+
+          if (error) {
+            logSupabaseError("Konnte gespeicherten Spot nicht entfernen:", error);
+            return false;
+          }
+
+          await loadSavedSpotIds(activeUser.id);
+
+          return true;
         }
 
-        await ensureProfile(activeUser);
-      }
+        const { error } = await supabase.from("saved_spots").insert({
+          user_id: activeUser.id,
+          spot_id: spotId,
+        });
 
-      const activeUser = user ?? (await resolveActiveUser());
-
-      if (!activeUser) {
-        openAuthPrompt({ type: "save-spot", spotId, returnTo: pathname });
-        return false;
-      }
-
-      console.log("Aktiver User fuer SaveSpot:", activeUser.id);
-
-      const currentlySaved = savedSpotIdsSet.has(spotId);
-
-      if (currentlySaved) {
-        const { error } = await supabase
-          .from("saved_spots")
-          .delete()
-          .eq("user_id", activeUser.id)
-          .eq("spot_id", spotId);
-
-        if (error) {
-          logSupabaseError("Konnte gespeicherten Spot nicht entfernen:", error);
+        if (error && error.code !== "23505") {
+          logSupabaseError("Konnte gespeicherten Spot nicht anlegen:", error);
           return false;
         }
 
         await loadSavedSpotIds(activeUser.id);
 
         return true;
+      } finally {
+        togglingSpotIdsRef.current.delete(spotId);
       }
-
-      const { error } = await supabase.from("saved_spots").insert({
-        user_id: activeUser.id,
-        spot_id: spotId,
-      });
-
-      if (error && error.code !== "23505") {
-        logSupabaseError("Konnte gespeicherten Spot nicht anlegen:", error);
-        return false;
-      }
-
-      await loadSavedSpotIds(activeUser.id);
-
-      return true;
     },
     [ensureProfile, loadSavedSpotIds, openAuthPrompt, pathname, resolveActiveUser, savedSpotIdsSet, user]
   );

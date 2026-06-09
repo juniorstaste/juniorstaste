@@ -5,6 +5,7 @@ export const runtime = "edge";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { logSupabaseError } from "@/lib/logSupabaseError";
 import dynamicImport from "next/dynamic";
 
 import DistanceLabel from "@/components/DistanceLabel";
@@ -140,10 +141,21 @@ export default function NearPage() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const lat = Number(params.get("lat"));
-  const lng = Number(params.get("lng"));
+  // Fehlende/leere Params explizit als ungültig behandeln: Number(null) und
+  // Number("") ergeben 0, sonst würde /near ohne Query um (0,0) suchen.
+  const latRaw = params.get("lat");
+  const lngRaw = params.get("lng");
+  const lat = latRaw === null || latRaw.trim() === "" ? NaN : Number(latRaw);
+  const lng = lngRaw === null || lngRaw.trim() === "" ? NaN : Number(lngRaw);
   const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lng);
   const initialRadius = Number(params.get("r")) || 30;
+
+  // Stabile Referenz: ein Inline-Literal würde bei jedem Render eine neue
+  // Objekt-Identität an CityMap geben (unnötige Memo-/Effect-Läufe).
+  const userPos = useMemo(
+    () => (hasValidCoords ? { lat, lng } : null),
+    [hasValidCoords, lat, lng]
+  );
 
   const [radius, setRadius] = useState<number>(initialRadius);
 
@@ -227,10 +239,13 @@ export default function NearPage() {
         .from("spots_with_city")
         .select("category_slug, category_name");
 
-      if (error) return;
+      if (error) {
+        logSupabaseError("Konnte Kategorien nicht laden:", error);
+        return;
+      }
 
       const m = new Map<string, string>();
-      (data ?? []).forEach((row: any) => {
+      (data ?? []).forEach((row: { category_slug: string | null; category_name: string | null }) => {
         if (row.category_slug) m.set(row.category_slug, row.category_name ?? row.category_slug);
       });
 
@@ -249,7 +264,10 @@ export default function NearPage() {
         .select("*")
         .in("id", TASTE_DES_MONATS_IDS);
 
-      if (error) return;
+      if (error) {
+        logSupabaseError("Konnte Taste des Monats nicht laden:", error);
+        return;
+      }
 
       const ordered =
         (data as Spot[] | null)?.sort(
@@ -267,7 +285,7 @@ export default function NearPage() {
 
     const q = search.trim().toLowerCase();
 
-    let list = spots.filter((s) => {
+    const list = spots.filter((s) => {
       if (typeof s.lat !== "number" || typeof s.lng !== "number") return false;
 
       const inRadius = haversineKm({ lat, lng }, { lat: s.lat, lng: s.lng }) <= radius;
@@ -306,11 +324,17 @@ export default function NearPage() {
 
   const legendCategorySpots = useMemo(() => {
     if (!selectedMapLegendSlug) return [];
-    return prioritizeSpots(
-      filteredSpots.filter(
-        (spot) => normalizeCategorySlug(spot.category_slug) === selectedMapLegendSlug
-      )
-    );
+
+    // "Alle" ist ein Sonderfall (kein echter Kategorie-Slug) — ohne ihn
+    // zeigte die Legende hier immer "0 Spots".
+    const categoryFilteredSpots =
+      selectedMapLegendSlug === "all"
+        ? [...filteredSpots]
+        : filteredSpots.filter(
+            (spot) => normalizeCategorySlug(spot.category_slug) === selectedMapLegendSlug
+          );
+
+    return prioritizeSpots(categoryFilteredSpots);
   }, [filteredSpots, selectedMapLegendSlug]);
 
   useEffect(() => {
@@ -526,7 +550,7 @@ export default function NearPage() {
                     <div className="shrink-0" style={{ width: getSelectWidth(selectedSortLabel, 154) }}>
                       <select
                         value={sort}
-                        onChange={(e) => setSort(e.target.value as any)}
+                        onChange={(e) => setSort(e.target.value as "distance" | "rating" | "price" | "newest")}
                         className={`${compactControlBase} ${sort !== "distance" ? "jt-active-gradient-soft border-transparent" : ""}`}
                         style={{ textAlignLast: "center" }}
                       >
@@ -572,7 +596,8 @@ export default function NearPage() {
             <CityMap
               center={[lat, lng]}
               spots={mapSpots}
-              userPos={{ lat, lng }}
+              categories={orderedCategories}
+              userPos={userPos}
               activeSpotId={activeSpotId}
               onActiveChange={(id: string) => setActiveSpotId(id)}
               onSpotClick={(id: string) => router.push(`/spot/${id}`)}

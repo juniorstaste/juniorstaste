@@ -18,6 +18,7 @@ import {
   normalizeCategorySlug,
 } from "@/lib/cityMapCategories";
 import { LAST_CITY_VIEW_KEY } from "@/lib/lastCityNavigation";
+import { safeSetItem } from "@/lib/safeStorage";
 import { prioritizeSpots } from "@/lib/prioritySpot";
 
 const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
@@ -209,8 +210,7 @@ export default function DiscoverPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(LAST_CITY_VIEW_KEY, view);
+    safeSetItem(LAST_CITY_VIEW_KEY, view);
   }, [view]);
 
   const categories = useMemo(() => {
@@ -323,11 +323,16 @@ export default function DiscoverPage() {
   const legendCategorySpots = useMemo(() => {
     if (!selectedMapLegendSlug) return [];
 
-    return prioritizeSpots(
-      filteredSpots.filter(
-        (spot) => normalizeCategorySlug(spot.category_slug) === selectedMapLegendSlug
-      )
-    );
+    // "Alle" ist ein Sonderfall (kein echter Kategorie-Slug) — ohne ihn
+    // zeigte die Legende hier immer "0 Spots".
+    const categoryFilteredSpots =
+      selectedMapLegendSlug === "all"
+        ? [...filteredSpots]
+        : filteredSpots.filter(
+            (spot) => normalizeCategorySlug(spot.category_slug) === selectedMapLegendSlug
+          );
+
+    return prioritizeSpots(categoryFilteredSpots);
   }, [filteredSpots, selectedMapLegendSlug]);
 
   useEffect(() => {
@@ -661,6 +666,7 @@ export default function DiscoverPage() {
           <CityMap
             center={mapCenter}
             spots={mapSpots}
+            categories={orderedCategories}
             userPos={userPos}
             userRadiusKm={15}
             activeSpotId={activeSpotId}
