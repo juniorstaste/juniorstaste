@@ -2,10 +2,10 @@ export const LAST_CITY_SLUG_KEY = "last_city_slug";
 export const LAST_CITY_VIEW_KEY = "last_city_view";
 export const LAST_CITY_FALLBACK_SLUG = "stuttgart";
 
-export type CityTabView = "list" | "map" | "tasteDesMonats";
+export type CityTabView = "list" | "map";
 
 export function isCityTabView(value: string | null | undefined): value is CityTabView {
-  return value === "list" || value === "map" || value === "tasteDesMonats";
+  return value === "list" || value === "map";
 }
 
 export function buildCityViewHref(citySlug: string, view: CityTabView) {

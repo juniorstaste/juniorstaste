@@ -23,7 +23,8 @@ type Profile = {
 
 type PostAuthAction =
   | { type: "open-saved"; returnTo?: string }
-  | { type: "save-spot"; spotId: string; returnTo?: string };
+  | { type: "save-spot"; spotId: string; returnTo?: string }
+  | { type: "like-spot"; spotId: string; returnTo?: string };
 
 type AuthContextValue = {
   authLoading: boolean;
@@ -274,6 +275,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           await loadSavedSpotIds(nextUser.id);
+
+          if (action.returnTo) {
+            router.push(action.returnTo);
+          }
+
+          return;
+        }
+
+        if (action.type === "like-spot") {
+          const { error } = await supabase.from("spot_likes").insert({
+            user_id: nextUser.id,
+            spot_id: action.spotId,
+          });
+
+          if (error && error.code !== "23505") {
+            logSupabaseError("Konnte Like nach Login nicht anlegen:", error);
+            return;
+          }
 
           if (action.returnTo) {
             router.push(action.returnTo);

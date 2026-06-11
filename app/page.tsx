@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import TopRightMenu from "@/components/TopRightMenu";
+import { LAST_CITY_SLUG_KEY, LAST_CITY_VIEW_KEY } from "@/lib/lastCityNavigation";
 
 type City = { id: string; name: string; slug: string; spotCount: number };
 
@@ -111,6 +112,15 @@ export default function Home() {
     router.push(`/near?lat=${coords.lat}&lng=${coords.lng}&r=${radiusKm}`);
   }
 
+  function goToCityFeed(citySlug: string) {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(LAST_CITY_SLUG_KEY, citySlug);
+      window.localStorage.setItem(LAST_CITY_VIEW_KEY, "list");
+    }
+
+    router.push("/for-you");
+  }
+
   return (
     <main className="min-h-screen w-full overflow-x-hidden bg-[#0f3b2e] px-5 pb-10 pt-6 text-white">
       <div className="mx-auto w-full max-w-[560px]">
@@ -198,7 +208,7 @@ export default function Home() {
               <button
                 key={city.slug}
                 type="button"
-                onClick={() => router.push(`/city/${city.slug}`)}
+                onClick={() => goToCityFeed(city.slug)}
                 className="flex w-full items-center justify-between rounded-[28px] border border-white/10 bg-white/5 px-5 py-4 text-left shadow-[0_10px_30px_rgba(5,18,14,0.16)] transition active:scale-[0.99] md:hover:bg-white/[0.07]"
               >
                 <div className="min-w-0">

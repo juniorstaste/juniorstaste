@@ -38,6 +38,12 @@ body {
 html, body {
   background-color: #0f3b2e !important;
 }
+
+html.for-you-page-active,
+body.for-you-page-active {
+  background-color: #000 !important;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -70,4 +76,47 @@ html, body {
   100% {
     transform: translateX(100%);
   }
+}
+
+@keyframes jt-tab-bounce {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes jt-play-icon-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes jt-like-heart-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.62);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.24);
+  }
+}
+
+.for-you-tiktok-embed iframe {
+  width: 100% !important;
+  max-width: none !important;
 }
