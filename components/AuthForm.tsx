@@ -197,6 +197,8 @@ export default function AuthForm({
 
       {view === "signup" ? (
         <input
+          id="signup-name"
+          name="name"
           type="text"
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -207,16 +209,20 @@ export default function AuthForm({
       ) : null}
 
       <input
+        id={view === "login" ? "login-email" : "signup-email"}
+        name="email"
         type="email"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         className={inputClass}
         placeholder="E-Mail-Adresse"
-        autoComplete="email"
+        autoComplete={view === "login" ? "username" : "email"}
       />
 
       {view !== "forgotPassword" ? (
         <input
+          id={view === "login" ? "login-password" : "signup-password"}
+          name={view === "signup" ? "new-password" : "password"}
           type="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
@@ -228,6 +234,8 @@ export default function AuthForm({
 
       {view === "signup" ? (
         <input
+          id="signup-password-confirm"
+          name="new-password-confirm"
           type="password"
           value={passwordConfirm}
           onChange={(event) => setPasswordConfirm(event.target.value)}

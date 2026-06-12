@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import AuthForm from "@/components/AuthForm";
 import { supabase } from "@/lib/supabaseClient";
@@ -78,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>([]);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
 
   const savedSpotIdsSet = useMemo(() => new Set(savedSpotIds), [savedSpotIds]);
 
@@ -369,6 +371,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [syncUserState]);
 
+  useEffect(() => {
+    setPortalReady(true);
+
+    return () => {
+      setPortalReady(false);
+    };
+  }, []);
+
   const openAuthPrompt = useCallback((action?: PostAuthAction) => {
     if (typeof window !== "undefined" && action) {
       window.localStorage.setItem(POST_AUTH_KEY, JSON.stringify(action));
@@ -493,40 +503,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={value}>
       {children}
 
-      {!user && authPromptOpen ? (
-        <div className="fixed inset-0 z-[70]">
-          <button
-            type="button"
-            onClick={closeAuthPrompt}
-            className="absolute inset-0 bg-black/35"
-            aria-label="Login schließen"
-          />
-
-          <div className="absolute inset-x-4 top-1/2 mx-auto w-full max-w-[380px] -translate-y-1/2 rounded-[28px] border border-[#ece6da] bg-[#e8decc] p-5 shadow-2xl">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <div className="text-lg font-extrabold text-[#0f3b2e]">
-                  Willkommen bei JuniorsTaste
-                </div>
-                <p className="mt-1 text-sm text-[#0f3b2e]/80">
-                  Erstelle ein Konto oder logge dich mit E-Mail und Passwort ein.
-                </p>
-              </div>
-
+      {!user && authPromptOpen && portalReady
+        ? createPortal(
+            <div className="fixed inset-0 z-[4000]">
               <button
                 type="button"
                 onClick={closeAuthPrompt}
-                className="text-[28px] leading-none text-[#0f3b2e]"
+                className="absolute inset-0 bg-black/45"
                 aria-label="Login schließen"
-              >
-                ×
-              </button>
-            </div>
+              />
 
-            <AuthForm mode="modal" initialView="signup" />
-          </div>
-        </div>
-      ) : null}
+              <div className="absolute inset-x-4 top-1/2 mx-auto w-full max-w-[380px] -translate-y-1/2 rounded-[28px] border border-[#ece6da] bg-[#e8decc] p-5 shadow-2xl">
+                <div className="mb-4 flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-lg font-extrabold text-[#0f3b2e]">
+                      Willkommen bei JuniorsTaste
+                    </div>
+                    <p className="mt-1 text-sm text-[#0f3b2e]/80">
+                      Erstelle ein Konto oder logge dich mit E-Mail und Passwort ein.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={closeAuthPrompt}
+                    className="text-[28px] leading-none text-[#0f3b2e]"
+                    aria-label="Login schließen"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <AuthForm mode="modal" initialView="signup" />
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </AuthContext.Provider>
   );
 }

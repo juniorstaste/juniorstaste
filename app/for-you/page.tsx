@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookmarkSimple, ChatCircle, Heart, PaperPlaneTilt } from "@phosphor-icons/react";
 import { useAuth } from "@/components/AuthProvider";
+import DeliveryButtons from "@/components/DeliveryButtons";
 import { supabase } from "@/lib/supabaseClient";
 import { logSupabaseError } from "@/lib/logSupabaseError";
 import { prioritizeSpots } from "@/lib/prioritySpot";
@@ -14,6 +15,9 @@ type FeedSpot = {
   description?: string | null;
   address?: string | null;
   google_maps_link?: string | null;
+  wolt_url?: string | null;
+  lieferando_url?: string | null;
+  uber_eats_url?: string | null;
   created_at?: string | null;
   video_url: string | null;
   tiktok_like_count?: number | null;
@@ -24,9 +28,8 @@ type LikeTrigger = "button" | "double-tap";
 function FeedVideoSlide({
   spot,
   isActive,
-  isSoundEnabled,
   onToggleSound,
-  onAutoplayFallbackMuted,
+  isSoundEnabled,
   onActive,
   isLiked,
   likeCount,
@@ -35,12 +38,12 @@ function FeedVideoSlide({
   onToggleSave,
   onRequireAuthForComment,
   onOpenSpot,
+  setVideoRef,
 }: {
   spot: FeedSpot;
   isActive: boolean;
-  isSoundEnabled: boolean;
   onToggleSound: () => void;
-  onAutoplayFallbackMuted: () => void;
+  isSoundEnabled: boolean;
   onActive: (id: string) => void;
   isLiked: boolean;
   likeCount: number;
@@ -49,6 +52,7 @@ function FeedVideoSlide({
   onToggleSave: (spotId: string) => Promise<boolean>;
   onRequireAuthForComment: () => void;
   onOpenSpot: (spotId: string) => void;
+  setVideoRef: (spotId: string, node: HTMLVideoElement | null) => void;
 }) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -71,55 +75,13 @@ function FeedVideoSlide({
   const HOLD_SPEED_ZONE_START = 0.8;
   const DOUBLE_TAP_DELAY_MS = 240;
 
-  async function playActiveVideo() {
-    const video = videoRef.current;
-    if (!video) return;
+  useEffect(() => {
+    setVideoRef(spot.id, videoRef.current);
 
-    video.currentTime = 0;
-    video.muted = !isSoundEnabled;
-
-    try {
-      await video.play();
-      setIsPaused(false);
-    } catch (error) {
-      if (isSoundEnabled) {
-        video.muted = true;
-
-        try {
-          await video.play();
-          onAutoplayFallbackMuted();
-          setIsPaused(false);
-          return;
-        } catch (fallbackError) {
-          if (process.env.NODE_ENV !== "production") {
-            console.error("[for-you] muted fallback play failed", {
-              id: spot.id,
-              name: spot.name,
-              error: fallbackError,
-            });
-          }
-        }
-      }
-
-      if (process.env.NODE_ENV !== "production") {
-        console.error("[for-you] active video play failed", {
-          id: spot.id,
-          name: spot.name,
-          error,
-        });
-      }
-    }
-  }
-
-  function resetVideoPlayback() {
-    const video = videoRef.current;
-    if (!video) return;
-
-    video.pause();
-    video.currentTime = 0;
-    setProgress(0);
-    setIsPaused(false);
-  }
+    return () => {
+      setVideoRef(spot.id, null);
+    };
+  }, [setVideoRef, spot.id]);
 
   function resetPlaybackRate() {
     const video = videoRef.current;
@@ -206,7 +168,7 @@ function FeedVideoSlide({
     holdTimeoutRef.current = window.setTimeout(() => {
       const video = videoRef.current;
       if (!video) return;
-      video.playbackRate = 2;
+      video.playbackRate = 1.75;
       setIsSpeedHolding(true);
       suppressTapRef.current = true;
     }, HOLD_THRESHOLD_MS);
@@ -277,27 +239,10 @@ function FeedVideoSlide({
   }
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    video.muted = !isSoundEnabled;
-  }, [isSoundEnabled]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
     resetPlaybackRate();
     clearSingleTapTimeout();
     suppressTapRef.current = false;
     lastTapAtRef.current = 0;
-
-    if (!isActive) {
-      resetVideoPlayback();
-      return;
-    }
-
-    void playActiveVideo();
   }, [isActive]);
 
   useEffect(() => {
@@ -356,12 +301,12 @@ function FeedVideoSlide({
       (entries) => {
         const [entry] = entries;
         if (!entry?.isIntersecting) return;
-        if (entry.intersectionRatio >= 0.6) {
+        if (entry.intersectionRatio >= 0.75) {
           onActive(spot.id);
         }
       },
       {
-        threshold: [0.35, 0.6, 0.8],
+        threshold: [0.5, 0.75, 0.95],
       }
     );
 
@@ -377,7 +322,6 @@ function FeedVideoSlide({
       clearHoldTimeout();
       clearSingleTapTimeout();
       resetPlaybackRate();
-      resetVideoPlayback();
     };
   }, []);
 
@@ -447,6 +391,8 @@ function FeedVideoSlide({
       <video
         ref={videoRef}
         src={spot.video_url ?? undefined}
+        data-for-you-video="true"
+        data-spot-id={spot.id}
         muted
         playsInline
         loop
@@ -465,8 +411,12 @@ function FeedVideoSlide({
       />
 
       {isSpeedHolding ? (
-        <div className="pointer-events-none absolute right-6 top-[calc(env(safe-area-inset-top)+1.25rem)] text-sm font-semibold text-white/85">
-          2x
+        <div className="pointer-events-none absolute right-6 top-[calc(env(safe-area-inset-top)+1.25rem)] z-20">
+          <div className="flex h-9 w-11 items-center justify-center rounded-full border border-white/20 bg-[linear-gradient(135deg,rgba(255,124,144,0.42),rgba(255,225,164,0.32))] backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.24)]">
+            <span className="flex h-full w-full items-center justify-center text-[11px] font-medium leading-none tracking-[-0.01em] text-white/88">
+              1.75x
+            </span>
+          </div>
         </div>
       ) : null}
 
@@ -645,6 +595,18 @@ function FeedVideoSlide({
           {spot.address ? (
             <p className="mt-2 line-clamp-1 text-sm leading-snug text-white/82">{spot.address}</p>
           ) : null}
+
+          {spot.wolt_url || spot.lieferando_url || spot.uber_eats_url ? (
+            <div className="pointer-events-auto mt-3 flex flex-wrap gap-2">
+              <DeliveryButtons
+                spotId={spot.id}
+                woltUrl={spot.wolt_url}
+                lieferandoUrl={spot.lieferando_url}
+                uberEatsUrl={spot.uber_eats_url}
+                buttonClassName="flex h-9 min-w-[92px] items-center justify-center rounded-2xl bg-[#e8decc] px-3 py-2 text-[#0f3b2e] shadow-sm transition active:scale-95"
+              />
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -755,11 +717,13 @@ export default function ForYouPage() {
   const router = useRouter();
   const { user, openAuthPrompt, isSavedSpot, toggleSavedSpot } = useAuth();
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const [spots, setSpots] = useState<FeedSpot[]>([]);
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [likedSpotIds, setLikedSpotIds] = useState<Record<string, boolean>>({});
   const [appLikeCounts, setAppLikeCounts] = useState<Record<string, number>>({});
+  const [videoRegistryVersion, setVideoRegistryVersion] = useState(0);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -791,7 +755,7 @@ export default function ForYouPage() {
       const withTikTokLikes = await supabase
         .from("spots")
         .select(
-          "id, name, description, address, google_maps_link, video_url, created_at, tiktok_like_count"
+          "id, name, description, address, google_maps_link, wolt_url, lieferando_url, uber_eats_url, video_url, created_at, tiktok_like_count"
         )
         .not("video_url", "is", null)
         .order("created_at", { ascending: false });
@@ -799,7 +763,9 @@ export default function ForYouPage() {
       if (withTikTokLikes.error) {
         const fallback = await supabase
           .from("spots")
-          .select("id, name, description, address, google_maps_link, video_url, created_at")
+          .select(
+            "id, name, description, address, google_maps_link, wolt_url, lieferando_url, uber_eats_url, video_url, created_at"
+          )
           .not("video_url", "is", null)
           .order("created_at", { ascending: false });
 
@@ -905,6 +871,58 @@ export default function ForYouPage() {
         })
       );
     };
+  }, []);
+
+  useEffect(() => {
+    if (!spots.length || !activeSpotId) return;
+
+    const activeVideo = videoRefs.current[activeSpotId] ?? null;
+
+    Object.entries(videoRefs.current).forEach(([spotId, video]) => {
+      if (!video) return;
+
+      if (spotId !== activeSpotId) {
+        video.pause();
+        video.currentTime = 0;
+        video.muted = true;
+      }
+    });
+
+    if (!activeVideo) return;
+
+    activeVideo.muted = !isSoundEnabled;
+
+    void activeVideo.play().catch(async (error) => {
+      if (isSoundEnabled) {
+        activeVideo.muted = true;
+        setIsSoundEnabled(false);
+
+        try {
+          await activeVideo.play();
+          return;
+        } catch (fallbackError) {
+          if (process.env.NODE_ENV !== "production") {
+            console.error("[for-you] muted fallback play failed", {
+              id: activeSpotId,
+              error: fallbackError,
+            });
+          }
+        }
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        console.error("[for-you] active video play failed", {
+          id: activeSpotId,
+          error,
+        });
+      }
+    });
+  }, [activeSpotId, isSoundEnabled, spots, videoRegistryVersion]);
+
+  const setVideoRef = useCallback((spotId: string, node: HTMLVideoElement | null) => {
+    if (videoRefs.current[spotId] === node) return;
+    videoRefs.current[spotId] = node;
+    setVideoRegistryVersion((current) => current + 1);
   }, []);
 
   async function toggleLike(spotId: string, trigger: LikeTrigger) {
@@ -1043,9 +1061,8 @@ export default function ForYouPage() {
               key={spot.id}
               spot={spot}
               isActive={activeSpotId === spot.id}
-              isSoundEnabled={isSoundEnabled}
               onToggleSound={() => setIsSoundEnabled((current) => !current)}
-              onAutoplayFallbackMuted={() => setIsSoundEnabled(false)}
+              isSoundEnabled={isSoundEnabled}
               onActive={setActiveSpotId}
               isLiked={likedSpotIds[spot.id] === true}
               likeCount={(appLikeCounts[spot.id] ?? 0) + (spot.tiktok_like_count ?? 0)}
@@ -1054,6 +1071,7 @@ export default function ForYouPage() {
               onToggleSave={toggleSaveFromForYou}
               onRequireAuthForComment={requireAuthForComment}
               onOpenSpot={(spotId) => router.push(`/spot/${spotId}`)}
+              setVideoRef={setVideoRef}
             />
           ))
         )}
