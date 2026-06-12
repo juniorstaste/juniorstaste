@@ -40,7 +40,7 @@ export default function SpotMiniMap({ lat, lng, name, spotId, googleMapsLink, us
   return (
     <div
       style={{
-        height: 220,
+        height: 160,
         width: "100%",
         borderRadius: 12,
         overflow: "hidden",

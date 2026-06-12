@@ -222,8 +222,6 @@ export default function CityPage() {
     "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold transition-all duration-150";
   const compactControlBase =
     "w-full appearance-none rounded-full border border-white/10 bg-white/10 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-white/15 active:scale-[1.03] focus:outline-none";
-  const segmentedButtonBase =
-    "flex min-w-0 flex-1 transform-gpu items-center justify-center whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97]";
 
   useEffect(() => {
     if (citySlug) setCitySelectValue(citySlug);
@@ -282,7 +280,7 @@ export default function CityPage() {
       return;
     }
 
-    if (next) router.push(buildCityViewHref(next, view));
+    if (next) router.push(buildCityViewHref(next, view === "map" ? "map" : "list"));
   }
 
   function requestNearbySpots() {
@@ -586,7 +584,6 @@ export default function CityPage() {
   const isTasteDesMonatsView = view === "tasteDesMonats";
   const sharedContentWidthClass = "w-[94%] max-w-[500px]";
   const searchWidthClass = isSearchExpanded ? sharedContentWidthClass : sharedContentWidthClass;
-  const segmentedWidthClass = sharedContentWidthClass;
   const headerTitle = isTasteDesMonatsView ? "Taste des Monats" : "Entdecken";
   const headerSubtitle =
     isTasteDesMonatsView
@@ -670,47 +667,6 @@ export default function CityPage() {
             </div>
           </div>
         ) : null}
-
-        {!isMapView && (
-          <div className="mb-4 text-left">
-            <div className="flex justify-center">
-              <div className={`flex ${segmentedWidthClass} rounded-full border border-white/10 bg-white/10 p-1 shadow-sm`}>
-                <button
-                  onClick={() => setView("list")}
-                  className={`${segmentedButtonBase} ${
-                    isListView
-                      ? "jt-active-gradient-soft scale-[1.02] shadow-[0_8px_20px_rgba(255,124,144,0.18)]"
-                      : "bg-transparent text-white/80 hover:bg-white/10"
-                  }`}
-                >
-                  Liste
-                </button>
-
-                <button
-                  onClick={() => setView("map")}
-                  className={`${segmentedButtonBase} ${
-                    isMapView
-                      ? "jt-active-gradient-soft scale-[1.02] shadow-[0_8px_20px_rgba(255,124,144,0.18)]"
-                      : "bg-transparent text-white/80 hover:bg-white/10"
-                  }`}
-                >
-                  Karte
-                </button>
-
-                <button
-                  onClick={() => setView("tasteDesMonats")}
-                  className={`${segmentedButtonBase} ${
-                    isTasteDesMonatsView
-                      ? "jt-active-gradient-soft scale-[1.02] shadow-[0_8px_20px_rgba(255,124,144,0.18)]"
-                      : "bg-transparent text-white/80 hover:bg-white/10"
-                  }`}
-                >
-                  Taste des Monats
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {isListView && (
           <div className="mb-4">
@@ -1244,7 +1200,7 @@ export default function CityPage() {
         </div>
       )}
 
-      {!menuOpen ? <BottomTabs view={view} onChange={setView} /> : null}
+      {!menuOpen ? <BottomTabs view={isMapView ? "map" : "list"} onChange={setView} /> : null}
     </main>
   );
 }

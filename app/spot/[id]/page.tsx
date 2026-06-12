@@ -1,12 +1,11 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import StarRating from "@/components/StarRating";
 import DistanceLabel from "@/components/DistanceLabel";
-import TikTokEmbed from "@/components/TikTokEmbed";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
 import ShareSpotButton from "@/components/ShareSpotButton";
@@ -22,10 +21,14 @@ type Spot = {
   name: string;
   description: string | null;
   address: string | null;
+  city_id?: string | null;
+  category_id?: string | null;
   lat: number | null;
   lng: number | null;
   image_url: string | null;
-  tiktok_embed_id: string | null;
+  tiktok_embed_id?: string | null;
+  tiktok_url?: string | null;
+  video_url?: string | null;
   google_maps_link: string | null;
   rating: number | null;
   price_level: number | null;
@@ -70,6 +73,8 @@ export default function SpotDetailPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const hasNativeVideo = Boolean(spot?.video_url?.trim());
 
   // Spot laden
   useEffect(() => {
@@ -77,7 +82,7 @@ export default function SpotDetailPage() {
 
     async function load() {
       const { data, error } = await supabase
-        .from("spots_with_city")
+        .from("spots")
         .select("*")
         .eq("id", spotId)
         .maybeSingle();
@@ -88,11 +93,48 @@ export default function SpotDetailPage() {
         return;
       }
 
-      setSpot(data as Spot);
+      const baseSpot = data as Spot | null;
+
+      if (!baseSpot) {
+        setSpot(null);
+        setLoading(false);
+        return;
+      }
+
+      const [cityResult, categoryResult] = await Promise.all([
+        baseSpot.city_id
+          ? supabase.from("cities").select("name, slug").eq("id", baseSpot.city_id).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        baseSpot.category_id
+          ? supabase
+              .from("categories")
+              .select("name, slug")
+              .eq("id", baseSpot.category_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[spot-detail] loaded spot media", {
+          id: baseSpot.id,
+          name: baseSpot.name,
+          video_url: baseSpot.video_url,
+          tiktok_url: baseSpot.tiktok_url,
+          tiktok_embed_id: baseSpot.tiktok_embed_id,
+        });
+      }
+
+      setSpot({
+        ...baseSpot,
+        city_name: cityResult.data?.name ?? null,
+        city_slug: cityResult.data?.slug ?? null,
+        category_name: categoryResult.data?.name ?? null,
+        category_slug: categoryResult.data?.slug ?? null,
+      });
       setLoading(false);
     }
 
-    load();
+    void load();
   }, [spotId]);
 
   useEffect(() => {
@@ -169,12 +211,49 @@ export default function SpotDetailPage() {
     );
   }, []);
 
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (!video || !hasNativeVideo) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+
+        if (!entry) return;
+
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+          void video.play().catch(() => {
+            // Mobile browsers may still block autoplay in some cases.
+          });
+          return;
+        }
+
+        video.pause();
+      },
+      {
+        threshold: [0, 0.6, 1],
+      }
+    );
+
+    observer.observe(video);
+
+    return () => {
+      observer.disconnect();
+      video.pause();
+    };
+  }, [hasNativeVideo, spot?.video_url]);
+
   if (!spotId) return null;
 
   const wolt = spot?.wolt_url ?? null;
   const lieferando = spot?.lieferando_url ?? null;
   const uberEats = spot?.uber_eats_url ?? null;
-
+  const tiktokOpenUrl = spot?.tiktok_url?.trim()
+    ? spot.tiktok_url.trim()
+    : spot?.tiktok_embed_id?.trim()
+      ? `https://www.tiktok.com/@juniorstaste/video/${spot.tiktok_embed_id.trim()}`
+      : null;
   return (
     <main className="mx-auto min-h-screen max-w-xl bg-[#0f3b2e] px-6 py-8 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white">
 
@@ -333,20 +412,46 @@ className="flex items-center justify-start active:scale-[1.03] transition"
             />
           </div>
 
-          {/* TikTok */}
-          {spot.tiktok_embed_id && (
-  <div className="mt-4 flex justify-center">
-    <div className="w-full w-full rounded-2xl overflow-hidden shadow-lg">
-      <TikTokEmbed
-        key={`${spot.id}-${spot.tiktok_embed_id}`}
-        embedInstanceId={`${spot.id}-${spot.tiktok_embed_id}`}
-        username="juniorstaste"
-        videoId={spot.tiktok_embed_id}
-        height={760}
-      />
-    </div>
-  </div>
-)}
+          {/* Video / Placeholder */}
+          <div className="mt-4 flex justify-center">
+            <div className="w-full rounded-2xl overflow-hidden shadow-lg">
+              <div className="w-full rounded-2xl bg-[#f6efe3] p-2">
+                {hasNativeVideo ? (
+                  <div className="overflow-hidden rounded-xl bg-black">
+                    <video
+                      ref={videoRef}
+                      src={spot.video_url!}
+                      controls
+                      muted
+                      playsInline
+                      preload="auto"
+                      onLoadedMetadata={(event) => {
+                        event.currentTarget.currentTime = 0;
+                      }}
+                      className="block h-auto w-full"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex min-h-[420px] items-center justify-center rounded-xl bg-[#f3ecdf] px-6 text-center">
+                    <p className="text-sm font-semibold text-[#6b6256]">Video folgt</p>
+                  </div>
+                )}
+
+                {tiktokOpenUrl ? (
+                  <div className="mt-2 rounded-xl bg-[#0f3b2e] px-3 py-2 text-center">
+                    <a
+                      href={tiktokOpenUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[13px] font-semibold text-white no-underline"
+                    >
+                      Auf TikTok öffnen
+                    </a>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
 
           {recommendations.length > 0 ? (
             <section className="mt-8">

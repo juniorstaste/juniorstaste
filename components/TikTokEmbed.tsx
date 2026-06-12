@@ -8,6 +8,7 @@ type Props = {
   username?: string;
   height?: number;
   loadMode?: "eager" | "nearby";
+  variant?: "card" | "fullscreen";
 };
 
 const PRELOAD_ROOT_MARGIN = "1200px 0px";
@@ -62,6 +63,7 @@ function TikTokEmbed({
   username,
   height,
   loadMode = "eager",
+  variant = "card",
 }: Props) {
   const instanceId = embedInstanceId ?? videoId;
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -91,12 +93,17 @@ function TikTokEmbed({
     function updateHeight() {
       if (!wrapRef.current) return;
 
-      const width = wrapRef.current.offsetWidth;
+      let nextHeight = 760;
 
-      let nextHeight = Math.round(width * 1.62 + 105);
+      if (variant === "fullscreen") {
+        nextHeight = wrapRef.current.offsetHeight || window.innerHeight;
+      } else {
+        const width = wrapRef.current.offsetWidth;
+        nextHeight = Math.round(width * 1.62 + 105);
 
-      if (nextHeight < 640) nextHeight = 640;
-      if (nextHeight > 820) nextHeight = 820;
+        if (nextHeight < 640) nextHeight = 640;
+        if (nextHeight > 820) nextHeight = 820;
+      }
 
       setDynamicHeight(nextHeight);
     }
@@ -117,7 +124,7 @@ function TikTokEmbed({
       resizeObserver.disconnect();
       window.removeEventListener("resize", updateHeight);
     };
-  }, [height]);
+  }, [height, variant]);
 
   useEffect(() => {
     function handleActiveEmbedChange(nextActiveEmbedId: string | null) {
@@ -209,16 +216,20 @@ function TikTokEmbed({
   : `https://www.tiktok.com/video/${videoId}`;
 
 
+  const isFullscreen = variant === "fullscreen";
+
   return (
     <div
       ref={wrapRef}
+      className={isFullscreen ? "for-you-tiktok-embed h-full w-full" : undefined}
       style={{
         width: "100%",
-        margin: "0 auto",
-        borderRadius: 16,
+        height: isFullscreen ? "100%" : undefined,
+        margin: isFullscreen ? "0" : "0 auto",
+        borderRadius: isFullscreen ? 0 : 16,
         overflow: "hidden",
-        backgroundColor: "#f6efe3",
-        padding: 8,
+        backgroundColor: isFullscreen ? "transparent" : "#f6efe3",
+        padding: isFullscreen ? 0 : 8,
         boxSizing: "border-box",
       }}
     >
@@ -235,7 +246,10 @@ function TikTokEmbed({
             display: "block",
             overflow: "hidden",
             background: "transparent",
-            borderRadius: 12,
+            borderRadius: isFullscreen ? 0 : 12,
+            width: "100%",
+            height: isFullscreen ? "100%" : finalHeight,
+            maxWidth: "none",
           }}
           allow="autoplay; encrypted-media"
           allowFullScreen
@@ -246,9 +260,11 @@ function TikTokEmbed({
           style={{
             width: "100%",
             height: finalHeight,
-            borderRadius: 12,
+            borderRadius: isFullscreen ? 0 : 12,
             background:
-              "linear-gradient(180deg, rgba(15,59,46,0.18) 0%, rgba(15,59,46,0.08) 100%)",
+              variant === "fullscreen"
+                ? "linear-gradient(180deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.92) 100%)"
+                : "linear-gradient(180deg, rgba(15,59,46,0.18) 0%, rgba(15,59,46,0.08) 100%)",
             position: "relative",
           }}
           aria-hidden="true"
@@ -266,30 +282,32 @@ function TikTokEmbed({
         </div>
       )}
 
-      <div
-        style={{
-          marginTop: 8,
-          textAlign: "center",
-          backgroundColor: "#0f3b2e",
-          borderRadius: 12,
-          padding: "10px 12px",
-        }}
-      >
-        <a
-  href={link}
-  target="_blank"
-  rel="noreferrer"
-  style={{
-    fontSize: 13,
-    opacity: 1,
-    color: "#ffffff",
-    textDecoration: "none",
-    fontWeight: 600,
-  }}
->
-  Auf TikTok öffnen
-</a>
-      </div>
+      {!isFullscreen ? (
+        <div
+          style={{
+            marginTop: 8,
+            textAlign: "center",
+            backgroundColor: "#0f3b2e",
+            borderRadius: 12,
+            padding: "10px 12px",
+          }}
+        >
+          <a
+            href={link}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              fontSize: 13,
+              opacity: 1,
+              color: "#ffffff",
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
+          >
+            Auf TikTok öffnen
+          </a>
+        </div>
+      ) : null}
     </div>
   );
 }

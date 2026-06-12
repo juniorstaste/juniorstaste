@@ -820,7 +820,7 @@ export default function NearPage() {
         </div>
       )}
 
-      {!menuOpen ? <BottomTabs view={view} onChange={setView} /> : null}
+      {!menuOpen ? <BottomTabs view={view === "map" ? "map" : "list"} onChange={setView} /> : null}
     </main>
   );
 }

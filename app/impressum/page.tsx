@@ -28,9 +28,11 @@ export default function ImpressumPage() {
             <p>
               Emmanuel-Junior Nager
               <br />
-              Bettina-von-Arnim-Straße 21/1
+              heyhey. Management GmbH
               <br />
-              73760 Ostfildern
+              Rosensteinstraße 19
+              <br />
+              70191 Stuttgart
             </p>
 
             <div>
