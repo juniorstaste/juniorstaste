@@ -35,13 +35,23 @@ body {
 .leaflet-popup-content-wrapper {
   border-radius: 14px !important;
 }
-html, body {
+html,
+body {
   background-color: #0f3b2e !important;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 html.for-you-page-active,
 body.for-you-page-active {
-  background-color: #000 !important;
+  background-color: #0f3b2e !important;
 }
 
 .no-scrollbar::-webkit-scrollbar {

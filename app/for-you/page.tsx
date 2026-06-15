@@ -58,6 +58,7 @@ function FeedVideoSlide({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
   const wasPlayingBeforeScrubRef = useRef(false);
+  const scrubPointerIdRef = useRef<number | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [isSpeedHolding, setIsSpeedHolding] = useState(false);
   const [heartBurstVisible, setHeartBurstVisible] = useState(false);
@@ -122,14 +123,20 @@ function FeedVideoSlide({
   function scrubToClientX(clientX: number) {
     const video = videoRef.current;
     const progressBar = progressBarRef.current;
+    const duration =
+      video?.duration && Number.isFinite(video.duration) && video.duration > 0
+        ? video.duration
+        : videoDuration;
 
-    if (!video || !progressBar || !video.duration || !Number.isFinite(video.duration)) return;
+    if (!video || !progressBar || !duration || !Number.isFinite(duration)) return;
 
     const rect = progressBar.getBoundingClientRect();
     const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    video.currentTime = ratio * video.duration;
-    setScrubTime(video.currentTime);
-    setVideoDuration(video.duration);
+    const nextTime = ratio * duration;
+
+    video.currentTime = nextTime;
+    setScrubTime(nextTime);
+    setVideoDuration(duration);
     setProgress(ratio);
   }
 
@@ -270,30 +277,6 @@ function FeedVideoSlide({
   }, [isScrubbing, spot.id]);
 
   useEffect(() => {
-    if (!isScrubbing) return;
-
-    function handlePointerMove(event: PointerEvent) {
-      event.preventDefault();
-      scrubToClientX(event.clientX);
-    }
-
-    function handlePointerUp(event: PointerEvent) {
-      event.preventDefault();
-      finishScrubbing();
-    }
-
-    window.addEventListener("pointermove", handlePointerMove, { passive: false });
-    window.addEventListener("pointerup", handlePointerUp, { passive: false });
-    window.addEventListener("pointercancel", handlePointerUp, { passive: false });
-
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
-  }, [isScrubbing, isActive]);
-
-  useEffect(() => {
     const node = sectionRef.current;
     if (!node) return;
 
@@ -346,8 +329,30 @@ function FeedVideoSlide({
       wasPlayingBeforeScrubRef.current = false;
     }
 
+    scrubPointerIdRef.current = event.pointerId;
+    event.currentTarget.setPointerCapture(event.pointerId);
     setIsScrubbing(true);
     scrubToClientX(event.clientX);
+  }
+
+  function handleProgressPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (!isScrubbing || scrubPointerIdRef.current !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    scrubToClientX(event.clientX);
+  }
+
+  function handleProgressPointerEnd(event: React.PointerEvent<HTMLDivElement>) {
+    if (scrubPointerIdRef.current !== null && scrubPointerIdRef.current !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    scrubPointerIdRef.current = null;
+    finishScrubbing();
   }
 
   async function handleHeartClick(event: React.SyntheticEvent) {
@@ -380,7 +385,7 @@ function FeedVideoSlide({
     <section
       ref={sectionRef}
       key={spot.id}
-      className="relative h-[100dvh] w-screen snap-start overflow-hidden bg-black select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]"
+      className="relative h-full min-h-full w-screen snap-start overflow-hidden select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]"
       onPointerDown={handlePointerDown}
       onPointerUp={() => {
         void handlePointerUp();
@@ -398,7 +403,7 @@ function FeedVideoSlide({
         loop
         preload="auto"
         controls={false}
-        className="absolute inset-0 h-full w-full object-cover bg-black"
+        className="absolute inset-0 z-0 h-full w-full object-cover"
         onPause={() => setIsPaused(true)}
         onPlay={() => setIsPaused(false)}
         onError={() => {
@@ -626,24 +631,9 @@ function FeedVideoSlide({
         ref={progressBarRef}
         className="absolute bottom-[calc(5.55rem+env(safe-area-inset-bottom))] left-4 right-4 z-20 touch-none"
         onPointerDown={handleProgressPointerDown}
-        onPointerMove={(event) => {
-          if (!isScrubbing) return;
-          event.preventDefault();
-          event.stopPropagation();
-          scrubToClientX(event.clientX);
-        }}
-        onPointerUp={(event) => {
-          if (!isScrubbing) return;
-          event.preventDefault();
-          event.stopPropagation();
-          finishScrubbing();
-        }}
-        onPointerCancel={(event) => {
-          if (!isScrubbing) return;
-          event.preventDefault();
-          event.stopPropagation();
-          finishScrubbing();
-        }}
+        onPointerMove={handleProgressPointerMove}
+        onPointerUp={handleProgressPointerEnd}
+        onPointerCancel={handleProgressPointerEnd}
       >
         <div
           className={`overflow-hidden rounded-full bg-white/20 transition-all duration-200 ease-out ${
@@ -1029,7 +1019,7 @@ export default function ForYouPage() {
   }
 
   return (
-    <main className="fixed inset-0 z-[1000] h-[100dvh] w-screen overflow-hidden bg-black text-white select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]">
+    <main className="fixed inset-0 z-[1000] w-screen overflow-hidden text-white select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]">
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[1100] px-4 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
         <div className="mx-auto flex w-full max-w-[560px] items-center justify-between">
           <button
@@ -1049,10 +1039,10 @@ export default function ForYouPage() {
 
       <div
         ref={scrollRef}
-        className="no-scrollbar absolute inset-0 h-[100dvh] w-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain bg-black"
+        className="no-scrollbar absolute inset-0 h-full w-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain"
       >
         {spots.length === 0 ? (
-          <section className="flex h-[100dvh] w-screen snap-start items-center justify-center bg-black px-6 text-center">
+          <section className="flex h-full min-h-full w-screen snap-start items-center justify-center px-6 text-center">
             <p className="text-sm font-medium text-white/70">Noch keine Feed-Videos verf&uuml;gbar.</p>
           </section>
         ) : (
