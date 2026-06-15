@@ -385,7 +385,7 @@ function FeedVideoSlide({
     <section
       ref={sectionRef}
       key={spot.id}
-      className="relative h-[100dvh] w-screen snap-start overflow-hidden bg-black select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]"
+      className="relative h-full min-h-full w-screen snap-start overflow-hidden select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]"
       onPointerDown={handlePointerDown}
       onPointerUp={() => {
         void handlePointerUp();
@@ -403,7 +403,7 @@ function FeedVideoSlide({
         loop
         preload="auto"
         controls={false}
-        className="absolute inset-0 h-full w-full object-cover bg-black"
+        className="absolute inset-0 z-0 h-full w-full object-cover"
         onPause={() => setIsPaused(true)}
         onPlay={() => setIsPaused(false)}
         onError={() => {
@@ -1019,7 +1019,7 @@ export default function ForYouPage() {
   }
 
   return (
-    <main className="fixed inset-0 z-[1000] h-[100dvh] w-screen overflow-hidden bg-black text-white select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]">
+    <main className="fixed inset-0 z-[1000] w-screen overflow-hidden text-white select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]">
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[1100] px-4 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
         <div className="mx-auto flex w-full max-w-[560px] items-center justify-between">
           <button
@@ -1039,10 +1039,10 @@ export default function ForYouPage() {
 
       <div
         ref={scrollRef}
-        className="no-scrollbar absolute inset-0 h-[100dvh] w-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain bg-black"
+        className="no-scrollbar absolute inset-0 h-full w-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain"
       >
         {spots.length === 0 ? (
-          <section className="flex h-[100dvh] w-screen snap-start items-center justify-center bg-black px-6 text-center">
+          <section className="flex h-full min-h-full w-screen snap-start items-center justify-center px-6 text-center">
             <p className="text-sm font-medium text-white/70">Noch keine Feed-Videos verf&uuml;gbar.</p>
           </section>
         ) : (

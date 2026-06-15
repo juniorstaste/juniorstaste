@@ -260,117 +260,119 @@ export default function TopRightMenu({ onOpenChange }: Props) {
       />
 
       <aside
-        className={`absolute right-0 top-0 flex h-full w-[280px] max-w-[82vw] flex-col bg-[#e8decc] shadow-2xl transition-transform duration-300 ease-out ${
-          open ? "translate-x-0" : "translate-x-full"
+        className={`absolute right-0 top-0 flex h-full w-[280px] max-w-[82vw] origin-top-right flex-col overflow-hidden border-l border-white/20 bg-[#e8decc] shadow-[0_28px_60px_rgba(0,0,0,0.28)] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          open
+            ? "translate-x-0 translate-y-0 rotate-0 scale-100 opacity-100"
+            : "translate-x-[108%] -translate-y-[6%] rotate-[8deg] scale-95 opacity-0"
         }`}
       >
-        <div className="flex items-center justify-between border-b border-[#ece6da] px-5 py-4">
-          <div className="text-[15px] font-bold text-[#0f3b2e]">Menü</div>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="text-[26px] leading-none text-[#0f3b2e] transition hover:opacity-70"
-            aria-label="Menü schließen"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="border-b border-[#ece6da] px-4 py-4">
-          <div className="rounded-2xl bg-[#fffaf2] p-4 shadow-sm">
-            <div className="mb-3 flex items-start gap-3">
-              <div className="mt-0.5 shrink-0">
-                <AccountIcon />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="text-[15px] font-bold text-[#0f3b2e]">Account</div>
-
-                {authLoading ? (
-                  <p className="mt-1 text-sm text-[#0f3b2e]/70">Account wird geladen…</p>
-                ) : user ? (
-                  <>
-                    <p className="mt-1 truncate text-sm font-semibold text-[#0f3b2e]">
-                      {displayName}
-                    </p>
-                    <p className="truncate text-sm text-[#0f3b2e]/75">{user.email}</p>
-                  </>
-                ) : (
-                  <p className="mt-1 text-sm text-[#0f3b2e]/75">
-                    Logge dich mit E-Mail und Passwort ein oder erstelle ein neues Konto.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {user ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  void signOut();
-                }}
-                className="w-full rounded-2xl border border-[#d8ccb7] bg-[#e8decc] px-4 py-3 text-[15px] font-semibold text-[#0f3b2e] transition hover:bg-[#ded3be]"
-              >
-                Logout
-              </button>
-            ) : (
-              <AuthForm mode="drawer" initialView="login" />
-            )}
-          </div>
-        </div>
-
-        <div className="flex min-h-0 flex-1 flex-col">
-          <nav className="px-3 py-3">
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between border-b border-[#ece6da] px-5 py-4">
+            <div className="text-[15px] font-bold text-[#0f3b2e]">Menü</div>
             <button
               type="button"
-              onClick={handleSavedSpotsClick}
-              className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
+              onClick={() => setOpen(false)}
+              className="text-[26px] leading-none text-[#0f3b2e] transition hover:opacity-70"
+              aria-label="Menü schließen"
             >
-              <span className="shrink-0">{menuItems[0].icon}</span>
-              <span className="text-[15px] font-semibold">{menuItems[0].label}</span>
+              ×
             </button>
+          </div>
 
-            {menuItems.slice(1).map((item) => (
+          <div className="border-b border-[#ece6da] px-4 py-4">
+            <div className="rounded-2xl bg-[#fffaf2] p-4 shadow-sm">
+              <div className="mb-3 flex items-start gap-3">
+                <div className="mt-0.5 shrink-0">
+                  <AccountIcon />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="text-[15px] font-bold text-[#0f3b2e]">Account</div>
+
+                  {authLoading ? (
+                    <p className="mt-1 text-sm text-[#0f3b2e]/70">Account wird geladen…</p>
+                  ) : user ? (
+                    <>
+                      <p className="mt-1 truncate text-sm font-semibold text-[#0f3b2e]">
+                        {displayName}
+                      </p>
+                      <p className="truncate text-sm text-[#0f3b2e]/75">{user.email}</p>
+                    </>
+                  ) : (
+                    <p className="mt-1 text-sm text-[#0f3b2e]/75">
+                      Logge dich mit E-Mail und Passwort ein oder erstelle ein neues Konto.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {user ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    void signOut();
+                  }}
+                  className="w-full rounded-2xl border border-[#d8ccb7] bg-[#e8decc] px-4 py-3 text-[15px] font-semibold text-[#0f3b2e] transition hover:bg-[#ded3be]"
+                >
+                  Logout
+                </button>
+              ) : (
+                <AuthForm mode="drawer" initialView="login" />
+              )}
+            </div>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col">
+            <nav className="px-3 py-3">
               <button
-                key={item.label}
                 type="button"
-                disabled={item.disabled}
-                onClick={() => {
-                  if (item.disabled) return;
-                  handleNavigate(item.href);
-                }}
-                className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition ${
-                  item.disabled
-                    ? "cursor-default opacity-55"
-                    : "hover:bg-[#f6efe3]"
-                }`}
-                title={item.disabled ? "Bald verfügbar" : undefined}
-                aria-disabled={item.disabled ? "true" : undefined}
-              >
-                <span className="shrink-0">{item.icon}</span>
-                <span className="text-[15px] font-semibold">{item.label}</span>
-              </button>
-            ))}
-
-            {!user && authHint ? (
-              <p className="px-3 pt-2 text-sm text-[#7b3a2a]">{authHint}</p>
-            ) : null}
-          </nav>
-
-          <nav className="mt-auto border-t border-[#d8ccb7] px-3 py-3">
-            {legalItems.map((item) => (
-              <button
-                key={item.href}
-                type="button"
-                onClick={() => handleNavigate(item.href)}
+                onClick={handleSavedSpotsClick}
                 className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
               >
-                <span className="shrink-0">{item.icon}</span>
-                <span className="text-[15px] font-semibold">{item.label}</span>
+                <span className="shrink-0">{menuItems[0].icon}</span>
+                <span className="text-[15px] font-semibold">{menuItems[0].label}</span>
               </button>
-            ))}
-          </nav>
+
+              {menuItems.slice(1).map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  disabled={item.disabled}
+                  onClick={() => {
+                    if (item.disabled) return;
+                    handleNavigate(item.href);
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition ${
+                    item.disabled ? "cursor-default opacity-55" : "hover:bg-[#f6efe3]"
+                  }`}
+                  title={item.disabled ? "Bald verfügbar" : undefined}
+                  aria-disabled={item.disabled ? "true" : undefined}
+                >
+                  <span className="shrink-0">{item.icon}</span>
+                  <span className="text-[15px] font-semibold">{item.label}</span>
+                </button>
+              ))}
+
+              {!user && authHint ? (
+                <p className="px-3 pt-2 text-sm text-[#7b3a2a]">{authHint}</p>
+              ) : null}
+            </nav>
+
+            <nav className="mt-auto border-t border-[#d8ccb7] px-3 py-3">
+              {legalItems.map((item) => (
+                <button
+                  key={item.href}
+                  type="button"
+                  onClick={() => handleNavigate(item.href)}
+                  className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
+                >
+                  <span className="shrink-0">{item.icon}</span>
+                  <span className="text-[15px] font-semibold">{item.label}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
         </div>
       </aside>
     </div>
