@@ -41,7 +41,7 @@ export default function AuthForm({
 }: Props) {
   const [view, setView] = useState<AuthView>(initialView);
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -58,12 +58,12 @@ export default function AuthForm({
     event.preventDefault();
 
     const trimmedEmail = email.trim();
-    const trimmedName = name.trim();
+    const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
     const trimmedPasswordConfirm = passwordConfirm.trim();
 
-    if (view === "signup" && !trimmedName) {
-      setErrorMsg("Bitte gib deinen Namen ein.");
+    if (view === "signup" && !trimmedUsername) {
+      setErrorMsg("Bitte gib deinen Username ein.");
       setSuccessMsg(null);
       return;
     }
@@ -106,7 +106,8 @@ export default function AuthForm({
         options: {
           emailRedirectTo,
           data: {
-            display_name: trimmedName,
+            username: trimmedUsername,
+            display_name: trimmedUsername,
           },
         },
       });
@@ -189,7 +190,7 @@ export default function AuthForm({
 
       <div className="text-sm text-[#0f3b2e]/80">
         {view === "signup"
-          ? "Erstelle dein Konto mit Name und E-Mail. Danach bestaetigst du den Link in deinem Postfach."
+          ? "Erstelle dein Konto mit Username und E-Mail. Danach bestaetigst du den Link in deinem Postfach."
           : view === "login"
           ? "Logge dich mit deiner E-Mail-Adresse und deinem Passwort ein."
           : "Gib deine E-Mail-Adresse ein. Wir schicken dir einen Link zum Zuruecksetzen deines Passworts."}
@@ -197,14 +198,14 @@ export default function AuthForm({
 
       {view === "signup" ? (
         <input
-          id="signup-name"
-          name="name"
+          id="signup-username"
+          name="username"
           type="text"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
+          value={username}
+          onChange={(event) => setUsername(event.target.value)}
           className={inputClass}
-          placeholder="Name"
-          autoComplete="name"
+          placeholder="Username"
+          autoComplete="username"
         />
       ) : null}
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BookmarkSimple, ChatCircle, Heart, PaperPlaneTilt } from "@phosphor-icons/react";
 import { useAuth } from "@/components/AuthProvider";
 import DeliveryButtons from "@/components/DeliveryButtons";
+import SpotCommentsSheet from "@/components/SpotCommentsSheet";
 import { supabase } from "@/lib/supabaseClient";
 import { logSupabaseError } from "@/lib/logSupabaseError";
 import { prioritizeSpots } from "@/lib/prioritySpot";
@@ -12,6 +13,7 @@ import { prioritizeSpots } from "@/lib/prioritySpot";
 type FeedSpot = {
   id: string;
   name?: string | null;
+  image_url?: string | null;
   description?: string | null;
   address?: string | null;
   google_maps_link?: string | null;
@@ -36,7 +38,7 @@ function FeedVideoSlide({
   onLike,
   isSaved,
   onToggleSave,
-  onRequireAuthForComment,
+  onOpenComments,
   onOpenSpot,
   setVideoRef,
 }: {
@@ -50,7 +52,7 @@ function FeedVideoSlide({
   onLike: (spotId: string, trigger: LikeTrigger) => Promise<boolean>;
   isSaved: boolean;
   onToggleSave: (spotId: string) => Promise<boolean>;
-  onRequireAuthForComment: () => void;
+  onOpenComments: (spot: FeedSpot) => void;
   onOpenSpot: (spotId: string) => void;
   setVideoRef: (spotId: string, node: HTMLVideoElement | null) => void;
 }) {
@@ -58,7 +60,6 @@ function FeedVideoSlide({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
   const wasPlayingBeforeScrubRef = useRef(false);
-  const scrubPointerIdRef = useRef<number | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [isSpeedHolding, setIsSpeedHolding] = useState(false);
   const [heartBurstVisible, setHeartBurstVisible] = useState(false);
@@ -123,20 +124,14 @@ function FeedVideoSlide({
   function scrubToClientX(clientX: number) {
     const video = videoRef.current;
     const progressBar = progressBarRef.current;
-    const duration =
-      video?.duration && Number.isFinite(video.duration) && video.duration > 0
-        ? video.duration
-        : videoDuration;
 
-    if (!video || !progressBar || !duration || !Number.isFinite(duration)) return;
+    if (!video || !progressBar || !video.duration || !Number.isFinite(video.duration)) return;
 
     const rect = progressBar.getBoundingClientRect();
     const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
-    const nextTime = ratio * duration;
-
-    video.currentTime = nextTime;
-    setScrubTime(nextTime);
-    setVideoDuration(duration);
+    video.currentTime = ratio * video.duration;
+    setScrubTime(video.currentTime);
+    setVideoDuration(video.duration);
     setProgress(ratio);
   }
 
@@ -189,7 +184,7 @@ function FeedVideoSlide({
     resetPlaybackRate();
   }
 
-  function finishScrubbing() {
+  const finishScrubbing = useCallback(() => {
     const video = videoRef.current;
 
     setIsScrubbing(false);
@@ -205,7 +200,7 @@ function FeedVideoSlide({
     }
 
     setIsPaused(video.paused);
-  }
+  }, [isActive]);
 
   async function handlePointerUp() {
     const shouldSuppressTap = suppressTapRef.current;
@@ -246,10 +241,16 @@ function FeedVideoSlide({
   }
 
   useEffect(() => {
-    resetPlaybackRate();
+    const video = videoRef.current;
+    if (video) {
+      video.playbackRate = 1;
+    }
     clearSingleTapTimeout();
     suppressTapRef.current = false;
     lastTapAtRef.current = 0;
+    queueMicrotask(() => {
+      setIsSpeedHolding(false);
+    });
   }, [isActive]);
 
   useEffect(() => {
@@ -275,6 +276,30 @@ function FeedVideoSlide({
       video.removeEventListener("seeked", syncProgress);
     };
   }, [isScrubbing, spot.id]);
+
+  useEffect(() => {
+    if (!isScrubbing) return;
+
+    function handlePointerMove(event: PointerEvent) {
+      event.preventDefault();
+      scrubToClientX(event.clientX);
+    }
+
+    function handlePointerUp(event: PointerEvent) {
+      event.preventDefault();
+      finishScrubbing();
+    }
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", handlePointerUp, { passive: false });
+    window.addEventListener("pointercancel", handlePointerUp, { passive: false });
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, [finishScrubbing, isActive, isScrubbing]);
 
   useEffect(() => {
     const node = sectionRef.current;
@@ -329,30 +354,8 @@ function FeedVideoSlide({
       wasPlayingBeforeScrubRef.current = false;
     }
 
-    scrubPointerIdRef.current = event.pointerId;
-    event.currentTarget.setPointerCapture(event.pointerId);
     setIsScrubbing(true);
     scrubToClientX(event.clientX);
-  }
-
-  function handleProgressPointerMove(event: React.PointerEvent<HTMLDivElement>) {
-    if (!isScrubbing || scrubPointerIdRef.current !== event.pointerId) return;
-    event.preventDefault();
-    event.stopPropagation();
-    scrubToClientX(event.clientX);
-  }
-
-  function handleProgressPointerEnd(event: React.PointerEvent<HTMLDivElement>) {
-    if (scrubPointerIdRef.current !== null && scrubPointerIdRef.current !== event.pointerId) return;
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-
-    scrubPointerIdRef.current = null;
-    finishScrubbing();
   }
 
   async function handleHeartClick(event: React.SyntheticEvent) {
@@ -403,7 +406,7 @@ function FeedVideoSlide({
         loop
         preload="auto"
         controls={false}
-        className="absolute inset-0 z-0 h-full w-full object-cover"
+        className="absolute inset-0 z-0 h-full w-full object-cover transition-all duration-300 ease-out"
         onPause={() => setIsPaused(true)}
         onPlay={() => setIsPaused(false)}
         onError={() => {
@@ -494,7 +497,7 @@ function FeedVideoSlide({
           className="inline-flex h-11 w-11 items-center justify-center"
           onClick={(event) => {
             swallowInteraction(event);
-            onRequireAuthForComment();
+            onOpenComments(spot);
           }}
           onPointerDown={swallowInteraction}
           onPointerUp={swallowInteraction}
@@ -631,9 +634,24 @@ function FeedVideoSlide({
         ref={progressBarRef}
         className="absolute bottom-[calc(5.55rem+env(safe-area-inset-bottom))] left-4 right-4 z-20 touch-none"
         onPointerDown={handleProgressPointerDown}
-        onPointerMove={handleProgressPointerMove}
-        onPointerUp={handleProgressPointerEnd}
-        onPointerCancel={handleProgressPointerEnd}
+        onPointerMove={(event) => {
+          if (!isScrubbing) return;
+          event.preventDefault();
+          event.stopPropagation();
+          scrubToClientX(event.clientX);
+        }}
+        onPointerUp={(event) => {
+          if (!isScrubbing) return;
+          event.preventDefault();
+          event.stopPropagation();
+          finishScrubbing();
+        }}
+        onPointerCancel={(event) => {
+          if (!isScrubbing) return;
+          event.preventDefault();
+          event.stopPropagation();
+          finishScrubbing();
+        }}
       >
         <div
           className={`overflow-hidden rounded-full bg-white/20 transition-all duration-200 ease-out ${
@@ -705,7 +723,7 @@ function formatTime(seconds: number) {
 
 export default function ForYouPage() {
   const router = useRouter();
-  const { user, openAuthPrompt, isSavedSpot, toggleSavedSpot } = useAuth();
+  const { user, profile, openAuthPrompt, isSavedSpot, toggleSavedSpot } = useAuth();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const [spots, setSpots] = useState<FeedSpot[]>([]);
@@ -714,6 +732,7 @@ export default function ForYouPage() {
   const [likedSpotIds, setLikedSpotIds] = useState<Record<string, boolean>>({});
   const [appLikeCounts, setAppLikeCounts] = useState<Record<string, number>>({});
   const [videoRegistryVersion, setVideoRegistryVersion] = useState(0);
+  const [commentSpot, setCommentSpot] = useState<FeedSpot | null>(null);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -745,7 +764,7 @@ export default function ForYouPage() {
       const withTikTokLikes = await supabase
         .from("spots")
         .select(
-          "id, name, description, address, google_maps_link, wolt_url, lieferando_url, uber_eats_url, video_url, created_at, tiktok_like_count"
+          "id, name, image_url, description, address, google_maps_link, wolt_url, lieferando_url, uber_eats_url, video_url, created_at, tiktok_like_count"
         )
         .not("video_url", "is", null)
         .order("created_at", { ascending: false });
@@ -754,7 +773,7 @@ export default function ForYouPage() {
         const fallback = await supabase
           .from("spots")
           .select(
-            "id, name, description, address, google_maps_link, wolt_url, lieferando_url, uber_eats_url, video_url, created_at"
+            "id, name, image_url, description, address, google_maps_link, wolt_url, lieferando_url, uber_eats_url, video_url, created_at"
           )
           .not("video_url", "is", null)
           .order("created_at", { ascending: false });
@@ -1012,10 +1031,13 @@ export default function ForYouPage() {
     return toggleSavedSpot(spotId);
   }
 
-  function requireAuthForComment() {
+  function handleCommentIntent(spot: FeedSpot) {
     if (!user) {
       openAuthPrompt();
+      return;
     }
+
+    setCommentSpot(spot);
   }
 
   return (
@@ -1059,13 +1081,26 @@ export default function ForYouPage() {
               onLike={toggleLike}
               isSaved={isSavedSpot(spot.id)}
               onToggleSave={toggleSaveFromForYou}
-              onRequireAuthForComment={requireAuthForComment}
+              onOpenComments={handleCommentIntent}
               onOpenSpot={(spotId) => router.push(`/spot/${spotId}`)}
               setVideoRef={setVideoRef}
             />
           ))
         )}
       </div>
+
+      <SpotCommentsSheet
+        key={commentSpot?.id ?? "for-you-comments-closed"}
+        open={commentSpot !== null}
+        onClose={() => setCommentSpot(null)}
+        spotId={commentSpot?.id ?? null}
+        spotName={commentSpot?.name ?? null}
+        spotImageUrl={commentSpot?.image_url ?? null}
+        user={user}
+        profile={profile}
+        onRequireAuth={() => openAuthPrompt()}
+        variant="for-you"
+      />
     </main>
   );
 }

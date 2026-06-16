@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import AuthForm from "@/components/AuthForm";
 import { useAuth } from "@/components/AuthProvider";
@@ -190,12 +190,11 @@ export default function TopRightMenu({ onOpenChange }: Props) {
   const { authLoading, user, profile, signOut, openAuthPrompt } = useAuth();
   const [open, setOpen] = useState(false);
   const [authHint, setAuthHint] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   useEffect(() => {
     onOpenChange?.(open);
