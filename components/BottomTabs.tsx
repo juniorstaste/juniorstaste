@@ -73,36 +73,34 @@ function ForYouIcon() {
 export default function BottomTabs({ view, onChange }: Props) {
   const router = useRouter();
   const [isCompact, setIsCompact] = useState(false);
-  const [recentlyTappedTab, setRecentlyTappedTab] = useState<Tab | null>(null);
-  const SCROLL_DIRECTION_THRESHOLD = 6;
-  const baseBtn =
-    "flex items-center justify-center whitespace-nowrap rounded-[20px] font-semibold " +
-    "transform-gpu transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97]";
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const [recentlyTappedTab, setRecentlyTappedTab] = useState<Tab | null>(() => {
+    if (typeof window === "undefined") return null;
 
     const raw = window.sessionStorage.getItem(RECENT_TAB_STORAGE_KEY);
-    if (!raw) return;
+    if (!raw) return null;
 
     try {
       const parsed = JSON.parse(raw) as { tab?: Tab; expiresAt?: number };
       if (!parsed.tab || typeof parsed.expiresAt !== "number") {
         window.sessionStorage.removeItem(RECENT_TAB_STORAGE_KEY);
-        return;
+        return null;
       }
 
-      const remaining = parsed.expiresAt - Date.now();
-      if (remaining <= 0) {
+      if (parsed.expiresAt <= Date.now()) {
         window.sessionStorage.removeItem(RECENT_TAB_STORAGE_KEY);
-        return;
+        return null;
       }
 
-      setRecentlyTappedTab(parsed.tab);
+      return parsed.tab;
     } catch {
       window.sessionStorage.removeItem(RECENT_TAB_STORAGE_KEY);
+      return null;
     }
-  }, []);
+  });
+  const SCROLL_DIRECTION_THRESHOLD = 6;
+  const baseBtn =
+    "flex items-center justify-center whitespace-nowrap rounded-[20px] font-semibold " +
+    "transform-gpu transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97]";
 
   useEffect(() => {
     if (!recentlyTappedTab) return;

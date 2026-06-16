@@ -4,18 +4,19 @@ import { supabase } from "@/lib/supabaseClient";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
+import { BookmarkSimple, ChatCircle, Heart, PaperPlaneTilt } from "@phosphor-icons/react";
 import DistanceLabel from "@/components/DistanceLabel";
 import BottomTabs from "@/components/BottomTabs";
 import TopRightMenu from "@/components/TopRightMenu";
 import SaveSpotButton from "@/components/SaveSpotButton";
 import ShareSpotButton from "@/components/ShareSpotButton";
-import SpotTikTokSection from "@/components/SpotTikTokSection";
 import DeliveryButtons from "@/components/DeliveryButtons";
+import { useAuth } from "@/components/AuthProvider";
+import SpotCommentsSheet from "@/components/SpotCommentsSheet";
 import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 import {
   getColorForCategory,
   labelFromCategorySlug,
-  normalizeCategorySlug,
 } from "@/lib/cityMapCategories";
 import {
   buildCityViewHref,
@@ -34,10 +35,15 @@ type Spot = {
   slug: string;
   description: string | null;
   address: string | null;
+  city_id?: string | null;
+  category_id?: string | null;
   lat: number | null;
   lng: number | null;
   image_url: string | null;
   tiktok_embed_id: string | null;
+  tiktok_url?: string | null;
+  video_url?: string | null;
+  tiktok_like_count?: number | null;
   google_maps_link: string | null;
 
   rating: number | null;
@@ -171,16 +177,563 @@ function getCategorySortOrder(slug?: string | null, name?: string | null) {
   return 99;
 }
 
+function VideoSpotCard({
+  spot,
+  distanceKm,
+  isLiked,
+  onToggleLike,
+  onOpenComments,
+  onOpenSpot,
+}: {
+  spot: Spot;
+  distanceKm?: number;
+  isLiked: boolean;
+  onToggleLike: (spotId: string) => Promise<boolean>;
+  onOpenComments: (spot: Spot) => void;
+  onOpenSpot: (spotId: string) => void;
+}) {
+  const { isSavedSpot, toggleSavedSpot } = useAuth();
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isSpeedHolding, setIsSpeedHolding] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [likePopping, setLikePopping] = useState(false);
+  const [savePopping, setSavePopping] = useState(false);
+  const holdTimeoutRef = useRef<number | null>(null);
+  const suppressTapRef = useRef(false);
+  const saved = isSavedSpot(spot.id);
+  const videoUrl = spot.video_url?.trim() ?? "";
+  const hasDeliveryOptions = Boolean(spot.wolt_url || spot.lieferando_url || spot.uber_eats_url);
+  const gradientId = `city-video-card-gradient-${spot.id}`;
+  const HOLD_THRESHOLD_MS = 220;
+  const HOLD_SPEED_ZONE_START = 0.8;
+
+  useEffect(() => {
+    const node = cardRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        setIsVisible(entry.isIntersecting && entry.intersectionRatio >= 0.6);
+      },
+      { threshold: [0.25, 0.6, 0.9] }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = isMuted;
+  }, [isMuted]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (!isVisible) {
+      video.pause();
+      video.currentTime = 0;
+      video.playbackRate = 1;
+      queueMicrotask(() => {
+        setIsPaused(false);
+        setIsSpeedHolding(false);
+      });
+      return;
+    }
+
+    video.muted = isMuted;
+    void video.play().catch(() => {
+      // Mobile autoplay can still be blocked in some edge cases.
+    });
+  }, [isMuted, isVisible]);
+
+  function clearHoldTimeout() {
+    if (holdTimeoutRef.current == null) return;
+    window.clearTimeout(holdTimeoutRef.current);
+    holdTimeoutRef.current = null;
+  }
+
+  function resetPlaybackRate() {
+    const video = videoRef.current;
+    if (!video) return;
+    video.playbackRate = 1;
+    setIsSpeedHolding(false);
+  }
+
+  async function togglePlayback() {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.paused) {
+      try {
+        await video.play();
+        setIsPaused(false);
+      } catch (error) {
+        console.error("CityPage-Video konnte nicht fortgesetzt werden:", error);
+      }
+      return;
+    }
+
+    video.pause();
+    setIsPaused(true);
+  }
+
+  function handleVideoPointerDown(event: React.PointerEvent<HTMLButtonElement>) {
+    clearHoldTimeout();
+    suppressTapRef.current = false;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const isRightEdgeZone = event.clientX > rect.left + rect.width * HOLD_SPEED_ZONE_START;
+    if (!isRightEdgeZone) return;
+
+    event.preventDefault();
+
+    holdTimeoutRef.current = window.setTimeout(() => {
+      const video = videoRef.current;
+      if (!video) return;
+      video.playbackRate = 1.75;
+      setIsSpeedHolding(true);
+      suppressTapRef.current = true;
+    }, HOLD_THRESHOLD_MS);
+  }
+
+  async function handleVideoPointerUp() {
+    const shouldSuppressTap = suppressTapRef.current;
+    clearHoldTimeout();
+    if (isSpeedHolding) {
+      suppressTapRef.current = true;
+    }
+    resetPlaybackRate();
+
+    if (shouldSuppressTap) {
+      window.setTimeout(() => {
+        suppressTapRef.current = false;
+      }, 0);
+      return;
+    }
+
+    await togglePlayback();
+  }
+
+  function handleVideoPointerCancel() {
+    clearHoldTimeout();
+    if (isSpeedHolding) {
+      suppressTapRef.current = true;
+    }
+    resetPlaybackRate();
+  }
+
+  function handleToggleMuted(event: React.SyntheticEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const video = videoRef.current;
+    const nextMuted = !isMuted;
+
+    setIsMuted(nextMuted);
+    if (video) video.muted = nextMuted;
+  }
+
+  async function handleLike(event: React.SyntheticEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const likedAfterToggle = await onToggleLike(spot.id);
+    if (!likedAfterToggle) return;
+
+    setLikePopping(false);
+    requestAnimationFrame(() => {
+      setLikePopping(true);
+      window.setTimeout(() => setLikePopping(false), 280);
+    });
+  }
+
+  async function handleSave(event: React.SyntheticEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const wasSaved = saved;
+    const changed = await toggleSavedSpot(spot.id);
+
+    if (!changed || wasSaved) return;
+
+    setSavePopping(false);
+    requestAnimationFrame(() => {
+      setSavePopping(true);
+      window.setTimeout(() => setSavePopping(false), 280);
+    });
+  }
+
+  async function handleShare(event: React.SyntheticEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (typeof window === "undefined") return;
+
+    const url = `${window.location.origin}/spot/${spot.id}`;
+    const shareData = {
+      title: spot.name,
+      text: `Schau dir ${spot.name} bei Junior's Taste an.`,
+      url,
+    };
+
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+        if (typeof navigator.canShare !== "function" || navigator.canShare(shareData)) {
+          await navigator.share(shareData);
+          return;
+        }
+      }
+
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        return;
+      }
+
+      window.prompt("Link kopieren:", url);
+    } catch (error) {
+      if ((error as Error)?.name === "AbortError") return;
+      console.error("Teilen fehlgeschlagen:", error);
+    }
+  }
+
+  return (
+    <div
+      ref={cardRef}
+      className="relative min-h-[34rem] cursor-pointer overflow-hidden rounded-[28px] border border-white/10 bg-[#0f3b2e] shadow-[0_20px_45px_rgba(0,0,0,0.22)] select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]"
+    >
+      <svg className="absolute h-0 w-0" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#ff7c90" />
+            <stop offset="100%" stopColor="#ffe1a4" />
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <video
+        ref={videoRef}
+        src={videoUrl}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        className="absolute inset-0 h-full w-full object-cover"
+        onPause={() => setIsPaused(true)}
+        onPlay={() => setIsPaused(false)}
+      />
+
+      <button
+        type="button"
+        aria-label={isPaused ? "Video abspielen" : "Video pausieren"}
+        className="absolute inset-0 z-[1] block touch-manipulation select-none [-webkit-touch-callout:none] [-webkit-user-select:none]"
+        onPointerDown={handleVideoPointerDown}
+        onPointerUp={(event) => {
+          event.preventDefault();
+          void handleVideoPointerUp();
+        }}
+        onPointerCancel={handleVideoPointerCancel}
+        onPointerLeave={handleVideoPointerCancel}
+      />
+
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/10 to-black/15" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/35 to-transparent" />
+
+      {isSpeedHolding ? (
+        <div className="pointer-events-none absolute right-6 top-5 z-20">
+          <div className="flex h-9 w-11 items-center justify-center rounded-full border border-white/20 bg-[linear-gradient(135deg,rgba(255,124,144,0.42),rgba(255,225,164,0.32))] backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.24)]">
+            <span className="flex h-full w-full items-center justify-center text-[11px] font-medium leading-none tracking-[-0.01em] text-white/88">
+              1.75x
+            </span>
+          </div>
+        </div>
+      ) : null}
+
+      {isPaused ? (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+          <svg
+            width="56"
+            height="56"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+            className="animate-[jt-play-icon-in_220ms_ease-out] text-white/88"
+          >
+            <path
+              d="M8 6.5v11l9-5.5-9-5.5Z"
+              fill="currentColor"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+      ) : null}
+
+      <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between px-4 pt-4">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onOpenSpot(spot.id);
+          }}
+          className="flex min-w-0 items-start gap-3 text-left"
+        >
+          {spot.image_url ? (
+            <img
+              src={spot.image_url}
+              alt={spot.name}
+              className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-1 ring-white/20"
+            />
+          ) : (
+            <div className="h-16 w-16 shrink-0 rounded-2xl bg-white/10 ring-1 ring-white/20" />
+          )}
+
+          <div className="min-w-0 pt-1 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)]">
+            {spot.city_name ? (
+              <p className="line-clamp-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/75">
+                {spot.city_name}
+              </p>
+            ) : null}
+
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/90">
+              {typeof spot.rating === "number" ? (
+                <span className="jt-text-gradient inline-flex items-center gap-1">
+                  <span>★</span>
+                  <span className="font-semibold">{spot.rating.toFixed(1)}</span>
+                </span>
+              ) : null}
+
+              {typeof spot.price_level === "number" ? (
+                <span
+                  className="inline-flex items-center gap-0.5 font-semibold text-white"
+                  aria-label={`Preisniveau ${getPriceLevelValue(spot.price_level, 4)} von 4`}
+                >
+                  {Array.from({ length: 4 }, (_, index) => (
+                    <span
+                      key={index}
+                      className={
+                        index < getPriceLevelValue(spot.price_level, 4)
+                          ? "text-white"
+                          : "text-white/30"
+                      }
+                    >
+                      €
+                    </span>
+                  ))}
+                </span>
+              ) : null}
+
+              {typeof distanceKm === "number" ? (
+                <span className="text-white/80">{distanceKm.toFixed(1).replace(".", ",")} km</span>
+              ) : null}
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <div className="absolute right-3 top-[74%] z-20 flex -translate-y-1/2 flex-col items-center gap-4 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)]">
+        <button
+          type="button"
+          aria-label={isLiked ? "Like entfernen" : "Like setzen"}
+          className={`inline-flex h-10 w-10 items-center justify-center transition-transform duration-200 ${
+            likePopping ? "save-bounce" : ""
+          }`}
+          onClick={(event) => {
+            void handleLike(event);
+          }}
+        >
+          <Heart
+            size={26}
+            weight="fill"
+            aria-hidden="true"
+            className={isLiked ? "" : "text-white"}
+            style={isLiked ? { fill: `url(#${gradientId})` } : undefined}
+          />
+        </button>
+
+        <button
+          type="button"
+          aria-label="Kommentare"
+          className="inline-flex h-10 w-10 items-center justify-center text-white"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onOpenComments(spot);
+          }}
+        >
+          <ChatCircle size={26} weight="fill" aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          aria-label={saved ? "Spot aus Favoriten entfernen" : "Spot speichern"}
+          className={`inline-flex h-10 w-10 items-center justify-center text-white transition-transform duration-200 ${
+            savePopping ? "save-bounce" : ""
+          }`}
+          onClick={(event) => {
+            void handleSave(event);
+          }}
+        >
+          <BookmarkSimple
+            size={26}
+            weight="fill"
+            aria-hidden="true"
+            className={saved ? "" : "text-white"}
+            style={saved ? { fill: `url(#${gradientId})` } : undefined}
+          />
+        </button>
+
+        <button
+          type="button"
+          aria-label="Teilen"
+          className="inline-flex h-10 w-10 items-center justify-center text-white"
+          onClick={(event) => {
+            void handleShare(event);
+          }}
+        >
+          <PaperPlaneTilt size={26} weight="fill" aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          aria-label={isMuted ? "Ton einschalten" : "Ton ausschalten"}
+          className="inline-flex h-10 w-10 items-center justify-center text-white"
+          onClick={handleToggleMuted}
+        >
+          {isMuted ? (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M5 10h4l5-4v12l-5-4H5v-4Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="m18 9 3 3m0-3-3 3"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          ) : (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M5 10h4l5-4v12l-5-4H5v-4Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M18 9a4 4 0 0 1 0 6"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-4">
+        <div className="max-w-[calc(100%-4.5rem)] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onOpenSpot(spot.id);
+            }}
+            className="line-clamp-2 text-left text-[22px] font-extrabold leading-tight text-white"
+          >
+            {spot.name}
+          </button>
+
+          {spot.description ? (
+            <p className="mt-2 line-clamp-3 text-sm font-medium leading-snug text-white/88">
+              {spot.description}
+            </p>
+          ) : null}
+
+          {spot.address ? (
+            <p className="mt-2 line-clamp-2 text-sm leading-snug text-white/82">{spot.address}</p>
+          ) : null}
+
+          {hasDeliveryOptions ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <DeliveryButtons
+                spotId={spot.id}
+                woltUrl={spot.wolt_url ?? null}
+                lieferandoUrl={spot.lieferando_url ?? null}
+                uberEatsUrl={spot.uber_eats_url ?? null}
+                buttonClassName="flex h-9 min-w-[92px] items-center justify-center rounded-2xl bg-[#e8decc] px-3 py-2 text-[#0f3b2e] shadow-sm transition active:scale-95"
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <style jsx>{`
+        .save-bounce {
+          animation: savePop 280ms ease-out;
+        }
+
+        @keyframes savePop {
+          0% {
+            transform: scale(1);
+          }
+          35% {
+            transform: scale(1.18);
+          }
+          65% {
+            transform: scale(0.94);
+          }
+          100% {
+            transform: scale(1);
+          }
+        }
+
+        @keyframes jt-play-icon-in {
+          0% {
+            opacity: 0;
+            transform: scale(0.88);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function CityPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const params = useParams();
+  const params = useParams<{ slug?: string | string[] }>();
+  const { user, profile, openAuthPrompt } = useAuth();
 
   const citySlug = useMemo(() => {
-    const raw = (params as any)?.slug;
+    const raw = params?.slug;
     if (!raw) return null;
     return Array.isArray(raw) ? raw[0] : raw;
   }, [params]);
+
+  const initialView = useMemo<ViewMode>(() => {
+    const requestedView = searchParams.get("view");
+    return isCityTabView(requestedView) ? requestedView : "list";
+  }, [searchParams]);
 
   const [spots, setSpots] = useState<Spot[]>([]);
   const [tasteDesMonatsSpots, setTasteDesMonatsSpots] = useState<Spot[]>([]);
@@ -188,15 +741,15 @@ export default function CityPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [cities, setCities] = useState<City[]>([]);
-  const [citySelectValue, setCitySelectValue] = useState<string>("");
+  const [citySelectValue, setCitySelectValue] = useState<string>(() => citySlug ?? "");
 
   const [category, setCategory] = useState<string>("all");
   const [categories, setCategories] = useState<{ slug: string; name: string }[]>([]);
 
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<ViewMode>("list");
+  const [view, setView] = useState<ViewMode>(initialView);
   const [sort, setSort] = useState<"newest" | "rating" | "price" | "distance">("newest");
-  const [deliveryFilter, setDeliveryFilter] = useState<"all" | "with" | "without">("all");
+  const [deliveryFilter, setDeliveryFilter] = useState<"all" | "with">("all");
 
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [radiusKm, setRadiusKm] = useState<number>(30);
@@ -204,40 +757,54 @@ export default function CityPage() {
   const [isRadiusFilterOpen, setIsRadiusFilterOpen] = useState(false);
 
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
+  const [likedVideoSpotIds, setLikedVideoSpotIds] = useState<Record<string, boolean>>({});
   const [selectedMapLegendSlug, setSelectedMapLegendSlug] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const [commentSpot, setCommentSpot] = useState<Spot | null>(null);
   const legendListRef = useRef<HTMLDivElement | null>(null);
+  const filterMenuRef = useRef<HTMLDivElement | null>(null);
   const mapLocationRequestedRef = useRef(false);
 
-  const topText = "text-white";
-
-  const controlBase =
-    "w-full px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] " +
-    "text-[#0f2a22] placeholder:text-[#0f2a22]/50 font-semibold shadow-sm transition-colors transition-transform duration-150 hover:bg-[#efe5d6] " +
-    "active:scale-[1.03] focus:outline-none";
   const chipButtonBase =
     "shrink-0 overflow-hidden rounded-full border border-white/10 bg-white/10 p-1 text-sm font-semibold shadow-sm transition-all duration-150 active:scale-[1.03]";
   const chipInnerBase =
     "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold transition-all duration-150";
-  const compactControlBase =
-    "w-full appearance-none rounded-full border border-white/10 bg-white/10 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-white/15 active:scale-[1.03] focus:outline-none";
-
-  useEffect(() => {
-    if (citySlug) setCitySelectValue(citySlug);
-  }, [citySlug]);
-
-  useEffect(() => {
-    const requestedView = searchParams.get("view");
-    if (!isCityTabView(requestedView)) return;
-    setView(requestedView);
-  }, [searchParams]);
+  const insetFilterShellBase =
+    "rounded-full border border-white/10 bg-white/10 p-1 shadow-sm transition-all duration-150";
+  const insetFilterInnerBase =
+    "w-full appearance-none rounded-full px-4 py-2 text-center text-sm font-semibold text-white transition-all duration-150 focus:outline-none";
 
   useEffect(() => {
     if (typeof window === "undefined" || !citySlug) return;
     window.localStorage.setItem(LAST_CITY_SLUG_KEY, citySlug);
     window.localStorage.setItem(LAST_CITY_VIEW_KEY, view);
   }, [citySlug, view]);
+
+  useEffect(() => {
+    if (!isFilterMenuOpen) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!filterMenuRef.current) return;
+      if (filterMenuRef.current.contains(event.target as Node)) return;
+      setIsFilterMenuOpen(false);
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsFilterMenuOpen(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isFilterMenuOpen]);
 
   useEffect(() => {
     async function loadCities() {
@@ -311,13 +878,53 @@ export default function CityPage() {
       setLoading(true);
       setErrorMsg(null);
 
+      const { data: cityData, error: cityError } = await supabase
+        .from("cities")
+        .select("id, name, slug")
+        .eq("slug", citySlug)
+        .maybeSingle();
+
+      if (cityError || !cityData) {
+        setErrorMsg(cityError?.message ?? "Stadt konnte nicht geladen werden.");
+        setSpots([]);
+        setLoading(false);
+        return;
+      }
+
+      let categoryId: string | null = null;
+
+      if (category !== "all") {
+        const { data: categoryData, error: categoryError } = await supabase
+          .from("categories")
+          .select("id, name, slug")
+          .eq("slug", category)
+          .maybeSingle();
+
+        if (categoryError) {
+          setErrorMsg(categoryError.message);
+          setSpots([]);
+          setLoading(false);
+          return;
+        }
+
+        if (!categoryData) {
+          setSpots([]);
+          setLoading(false);
+          return;
+        }
+
+        categoryId = categoryData.id;
+      }
+
       let query = supabase
-        .from("spots_with_city")
+        .from("spots")
         .select("*")
-        .eq("city_slug", citySlug)
+        .eq("city_id", cityData.id)
         .order("created_at", { ascending: false });
 
-      if (category !== "all") query = query.eq("category_slug", category);
+      if (categoryId) {
+        query = query.eq("category_id", categoryId);
+      }
 
       const { data, error } = await query;
 
@@ -327,8 +934,46 @@ export default function CityPage() {
         setLoading(false);
         return;
       }
+      const baseSpots = (data as Spot[]) ?? [];
+      const categoryIds = Array.from(
+        new Set(
+          baseSpots
+            .map((spot) => spot.category_id)
+            .filter((value): value is string => typeof value === "string" && value.length > 0)
+        )
+      );
 
-      setSpots((data as Spot[]) ?? []);
+      let categoryMap = new Map<string, { name: string | null; slug: string | null }>();
+
+      if (categoryIds.length > 0) {
+        const { data: categoryRows } = await supabase
+          .from("categories")
+          .select("id, name, slug")
+          .in("id", categoryIds);
+
+        categoryMap = new Map(
+          ((categoryRows as { id: string; name: string | null; slug: string | null }[] | null) ?? []).map(
+            (row) => [row.id, { name: row.name, slug: row.slug }]
+          )
+        );
+      }
+
+      setSpots(
+        baseSpots.map((spot) => {
+          const categoryEntry =
+            spot.category_id && categoryMap.has(spot.category_id)
+              ? categoryMap.get(spot.category_id)
+              : null;
+
+          return {
+            ...spot,
+            city_name: cityData.name,
+            city_slug: cityData.slug,
+            category_name: categoryEntry?.name ?? spot.category_name ?? null,
+            category_slug: categoryEntry?.slug ?? spot.category_slug ?? null,
+          };
+        })
+      );
       setLoading(false);
     }
 
@@ -339,16 +984,44 @@ export default function CityPage() {
     if (!citySlug) return;
 
     async function loadCategories() {
+      const { data: cityData, error: cityError } = await supabase
+        .from("cities")
+        .select("id")
+        .eq("slug", citySlug)
+        .maybeSingle();
+
+      if (cityError || !cityData) return;
+
+      const { data: citySpots, error: spotsError } = await supabase
+        .from("spots")
+        .select("category_id")
+        .eq("city_id", cityData.id);
+
+      if (spotsError) return;
+
+      const categoryIds = Array.from(
+        new Set(
+          ((citySpots as { category_id: string | null }[] | null) ?? [])
+            .map((row) => row.category_id)
+            .filter((value): value is string => typeof value === "string" && value.length > 0)
+        )
+      );
+
+      if (categoryIds.length === 0) {
+        setCategories([]);
+        return;
+      }
+
       const { data, error } = await supabase
-        .from("spots_with_city")
-        .select("category_slug, category_name")
-        .eq("city_slug", citySlug);
+        .from("categories")
+        .select("slug, name")
+        .in("id", categoryIds);
 
       if (error) return;
 
       const map = new Map<string, string>();
-      (data ?? []).forEach((row: any) => {
-        if (row.category_slug) map.set(row.category_slug, row.category_name ?? row.category_slug);
+      ((data as { slug: string | null; name: string | null }[] | null) ?? []).forEach((row) => {
+        if (row.slug) map.set(row.slug, row.name ?? row.slug);
       });
 
       const list = Array.from(map.entries()).map(([slug, name]) => ({ slug, name }));
@@ -400,8 +1073,6 @@ export default function CityPage() {
 
     if (deliveryFilter === "with") {
       list = list.filter((s) => hasDeliveryOption(s));
-    } else if (deliveryFilter === "without") {
-      list = list.filter((s) => !hasDeliveryOption(s));
     }
 
     if (sort === "rating") {
@@ -426,6 +1097,113 @@ export default function CityPage() {
 
     return prioritizeSpots(list);
   }, [spots, search, sort, userPos, radiusKm, deliveryFilter]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLikedVideoSpots() {
+      const videoSpotIds = filteredSpots
+        .filter((spot) => Boolean(spot.video_url?.trim()))
+        .map((spot) => spot.id);
+
+      if (!user || videoSpotIds.length === 0) {
+        if (!cancelled) {
+          setLikedVideoSpotIds({});
+        }
+        return;
+      }
+
+      const activeUser = user;
+      const { data, error } = await supabase
+        .from("spot_likes")
+        .select("spot_id")
+        .eq("user_id", activeUser.id)
+        .in("spot_id", videoSpotIds);
+
+      if (error) {
+        console.error("Konnte Likes fuer CityPage-Video-Spots nicht laden:", error);
+        return;
+      }
+
+      if (cancelled) return;
+
+      setLikedVideoSpotIds(
+        Object.fromEntries(
+          ((data as { spot_id: string }[] | null) ?? []).map((row) => [row.spot_id, true])
+        )
+      );
+    }
+
+    void loadLikedVideoSpots();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filteredSpots, user]);
+
+  async function toggleVideoSpotLike(spotId: string) {
+    const alreadyLiked = likedVideoSpotIds[spotId] === true;
+    const returnTo = citySlug ? buildCityViewHref(citySlug, "list") : "/";
+
+    if (!user) {
+      openAuthPrompt({ type: "like-spot", spotId, returnTo });
+      return alreadyLiked;
+    }
+
+    const activeUser = user;
+
+    setLikedVideoSpotIds((current) => {
+      const next = { ...current };
+      if (alreadyLiked) {
+        delete next[spotId];
+      } else {
+        next[spotId] = true;
+      }
+      return next;
+    });
+
+    if (alreadyLiked) {
+      const { error } = await supabase
+        .from("spot_likes")
+        .delete()
+        .eq("user_id", activeUser.id)
+        .eq("spot_id", spotId);
+
+      if (error) {
+        console.error("Konnte Like in der CityPage nicht entfernen:", error);
+        setLikedVideoSpotIds((current) => ({ ...current, [spotId]: true }));
+        return true;
+      }
+
+      return false;
+    }
+
+    const { error } = await supabase.from("spot_likes").insert({
+      user_id: activeUser.id,
+      spot_id: spotId,
+    });
+
+    if (error && error.code !== "23505") {
+      console.error("Konnte Like in der CityPage nicht speichern:", error);
+      setLikedVideoSpotIds((current) => {
+        const next = { ...current };
+        delete next[spotId];
+        return next;
+      });
+      return false;
+    }
+
+    return true;
+  }
+
+  function handleVideoCommentIntent(spot: Spot) {
+    if (!user) {
+      openAuthPrompt();
+      return;
+    }
+
+    setCommentSpot(spot);
+  }
 
   const distanceById = useMemo(() => {
     const map = new Map<string, number>();
@@ -545,27 +1323,6 @@ export default function CityPage() {
 
   if (!citySlug) return <main className="p-4">Lade Stadt…</main>;
 
-  const selectedCategoryLabel =
-    category === "all"
-      ? "Kategorie: Alle"
-      : categories.find((c) => c.slug === category)?.name ?? "Kategorie";
-
-  const selectedSortLabel =
-    sort === "newest"
-      ? "Sortierung: Neueste"
-      : sort === "rating"
-      ? "Best bewertet"
-      : sort === "price"
-      ? "Preis"
-      : "Nähe (GPS)";
-
-  const selectedDeliveryLabel =
-    deliveryFilter === "all"
-      ? "Lieferung: Alle"
-      : deliveryFilter === "with"
-      ? "Mit Lieferung"
-      : "Vor Ort essen";
-
   const currentCityName =
     cities.find((c) => c.slug === citySelectValue)?.name ??
     citySlug
@@ -583,7 +1340,7 @@ export default function CityPage() {
   const isMapView = view === "map";
   const isTasteDesMonatsView = view === "tasteDesMonats";
   const sharedContentWidthClass = "w-[94%] max-w-[500px]";
-  const searchWidthClass = isSearchExpanded ? sharedContentWidthClass : sharedContentWidthClass;
+  const searchWidthClass = isSearchExpanded ? "w-full" : "w-full";
   const headerTitle = isTasteDesMonatsView ? "Taste des Monats" : "Entdecken";
   const headerSubtitle =
     isTasteDesMonatsView
@@ -658,7 +1415,7 @@ export default function CityPage() {
         </div>
 
         {!isMapView ? (
-          <div className="mb-4 flex justify-center">
+          <div className="mb-4">
             <div className={sharedContentWidthClass}>
               <h1 className="text-[30px] font-extrabold leading-none text-white">{headerTitle}</h1>
               <p className="mt-2 text-sm font-medium text-white/70">
@@ -671,30 +1428,110 @@ export default function CityPage() {
         {isListView && (
           <div className="mb-4">
             <div className="flex flex-col gap-3">
-              <div className="flex justify-center">
-                <div
-                  className={`min-w-0 transition-all duration-300 ease-out ${searchWidthClass}`}
-                >
-                  <div className="relative flex h-9 items-center rounded-full border border-white/10 bg-white/10 px-3 shadow-sm transition-all duration-300 ease-out">
-                    <span
-                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white transition-all duration-300 ease-out"
-                      aria-hidden="true"
-                    >
-                      🔍
-                    </span>
-                    <input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      onFocus={() => setIsSearchFocused(true)}
-                      onBlur={() => setIsSearchFocused(false)}
-                      placeholder="Foodspots, Burrito, Burger ..."
-                      className="h-full min-w-0 flex-1 border-0 bg-transparent pl-5 text-sm font-medium text-white placeholder:text-xs placeholder:font-normal placeholder:text-white/35 focus:outline-none"
-                    />
+              <div className="relative w-full" ref={filterMenuRef}>
+                <div className="relative w-full pr-12">
+                  <div
+                    className={`min-w-0 transition-all duration-300 ease-out ${searchWidthClass}`}
+                  >
+                    <div className="relative flex h-10 items-center rounded-full border border-white/10 bg-white/10 px-3 shadow-sm transition-all duration-300 ease-out">
+                      <span
+                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white transition-all duration-300 ease-out"
+                        aria-hidden="true"
+                      >
+                        🔍
+                      </span>
+                      <input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        onFocus={() => setIsSearchFocused(true)}
+                        onBlur={() => setIsSearchFocused(false)}
+                        placeholder="Foodspots, Burrito, Burger ..."
+                        className="h-full min-w-0 flex-1 border-0 bg-transparent pl-5 text-sm font-medium text-white placeholder:text-xs placeholder:font-normal placeholder:text-white/35 focus:outline-none"
+                      />
+                    </div>
                   </div>
+
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsFilterMenuOpen((current) => !current)}
+                  className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white shadow-sm transition-all duration-150 hover:bg-white/15 active:scale-[1.03] focus:outline-none"
+                  aria-label="Filter öffnen"
+                  aria-expanded={isFilterMenuOpen}
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    className="text-white"
+                  >
+                    <path
+                      d="M4 7h16M7 12h10M10 17h4"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+
+                {isFilterMenuOpen ? (
+                  <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[220px] rounded-[22px] border border-white/10 bg-[#124433]/92 p-3 shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+                    <div className="flex flex-col gap-2.5">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                        Filter
+                      </div>
+
+                      <div className={insetFilterShellBase}>
+                        <select
+                          value={sort}
+                          onChange={(e) => {
+                            const nextSort = e.target.value as "newest" | "rating" | "price" | "distance";
+                            if (nextSort === "distance") {
+                              requestNearbySpots();
+                              setIsFilterMenuOpen(false);
+                              return;
+                            }
+
+                            setSort(nextSort);
+                            setIsFilterMenuOpen(false);
+                          }}
+                          className={`${insetFilterInnerBase} jt-active-gradient-soft`}
+                          style={{ textAlignLast: "center" }}
+                        >
+                          <option value="newest">Sortierung: Neueste</option>
+                          <option value="rating">Best bewertet</option>
+                          <option value="price">Preis</option>
+                          <option value="distance">Nähe (GPS)</option>
+                        </select>
+                      </div>
+
+                      <div className={insetFilterShellBase}>
+                        <select
+                          value={deliveryFilter}
+                          onChange={(e) => {
+                            setDeliveryFilter(e.target.value as "all" | "with");
+                            setIsFilterMenuOpen(false);
+                          }}
+                          className={`${insetFilterInnerBase} ${
+                            deliveryFilter === "all"
+                              ? "bg-transparent hover:bg-white/10"
+                              : "jt-active-gradient-soft"
+                          }`}
+                          style={{ textAlignLast: "center" }}
+                        >
+                          <option value="all">Alle</option>
+                          <option value="with">Mit Lieferung</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
-              <div className="text-left">
+              <div className={sharedContentWidthClass}>
                 <div className="w-full max-w-full overflow-x-auto no-scrollbar">
                   <div className="flex min-w-max gap-2">
                     <button
@@ -740,52 +1577,6 @@ export default function CityPage() {
                         </span>
                       </button>
                     ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-left">
-                <div className="w-full max-w-full overflow-x-auto no-scrollbar">
-                  <div className="flex min-w-max justify-center gap-2">
-                    <div className="shrink-0" style={{ width: getSelectWidth(selectedSortLabel, 144) }}>
-                      <select
-                        value={sort}
-                        onChange={(e) => {
-                          const nextSort = e.target.value as "newest" | "rating" | "price" | "distance";
-                          if (nextSort === "distance") {
-                            requestNearbySpots();
-                            return;
-                          }
-
-                          setSort(nextSort);
-                        }}
-                        className={`${compactControlBase} ${sort !== "newest" ? "jt-active-gradient-soft border-transparent" : ""}`}
-                        style={{ textAlignLast: "center" }}
-                      >
-                        <option value="newest">Sortierung: Neueste</option>
-                        <option value="rating">Best bewertet</option>
-                        <option value="price">Preis</option>
-                        <option value="distance">
-                          Nähe (GPS)
-                        </option>
-                      </select>
-                    </div>
-
-                    <div className="shrink-0" style={{ width: getSelectWidth(selectedDeliveryLabel, 144) }}>
-                      <select
-                        value={deliveryFilter}
-                        onChange={(e) =>
-                          setDeliveryFilter(e.target.value as "all" | "with" | "without")
-                        }
-                        className={`${compactControlBase} ${deliveryFilter !== "all" ? "jt-active-gradient-soft border-transparent" : ""}`}
-                        style={{ textAlignLast: "center" }}
-                      >
-                        <option value="all">Lieferung: Alle</option>
-                        <option value="with">Mit Lieferung</option>
-                        <option value="without">Vor Ort essen</option>
-                      </select>
-                    </div>
-
                   </div>
                 </div>
               </div>
@@ -1075,6 +1866,21 @@ export default function CityPage() {
             const wolt = s.wolt_url ?? null;
             const lieferando = s.lieferando_url ?? null;
             const uberEats = s.uber_eats_url ?? null;
+            const hasNativeVideo = Boolean(s.video_url?.trim());
+
+            if (hasNativeVideo) {
+              return (
+                <VideoSpotCard
+                  key={s.id}
+                  spot={s}
+                  distanceKm={distanceById.get(s.id)}
+                  isLiked={likedVideoSpotIds[s.id] === true}
+                  onToggleLike={toggleVideoSpotLike}
+                  onOpenComments={handleVideoCommentIntent}
+                  onOpenSpot={(spotId) => router.push(`/spot/${spotId}`)}
+                />
+              );
+            }
 
             return (
   <div
@@ -1184,21 +1990,23 @@ export default function CityPage() {
 
     
     </div>
-
-    {/* TikTok als eigener Bereich unterhalb */}
-    {s.tiktok_embed_id ? (
-      <SpotTikTokSection
-        key={`${s.id}-${s.tiktok_embed_id}`}
-        embedInstanceId={`${s.id}-${s.tiktok_embed_id}`}
-        videoId={s.tiktok_embed_id}
-        onClick={(e) => e.stopPropagation()}
-      />
-    ) : null}
   </div>
 );
           })}
         </div>
       )}
+
+      <SpotCommentsSheet
+        key={commentSpot?.id ?? "city-comments-closed"}
+        open={commentSpot !== null}
+        onClose={() => setCommentSpot(null)}
+        spotId={commentSpot?.id ?? null}
+        spotName={commentSpot?.name ?? null}
+        spotImageUrl={commentSpot?.image_url ?? null}
+        user={user}
+        profile={profile}
+        onRequireAuth={() => openAuthPrompt()}
+      />
 
       {!menuOpen ? <BottomTabs view={isMapView ? "map" : "list"} onChange={setView} /> : null}
     </main>
