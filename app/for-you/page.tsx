@@ -26,6 +26,10 @@ type FeedSpot = {
 };
 
 type LikeTrigger = "button" | "double-tap";
+const FOR_YOU_VIEWPORT_HEIGHT = "calc(100dvh + env(safe-area-inset-bottom))";
+const FOR_YOU_PROGRESS_BOTTOM = "calc(7.25rem + env(safe-area-inset-bottom))";
+const FOR_YOU_SCRUB_TIME_BOTTOM = "calc(7.7rem + env(safe-area-inset-bottom))";
+const FOR_YOU_CAPTION_BOTTOM = "calc(8.35rem + env(safe-area-inset-bottom))";
 
 function FeedVideoSlide({
   spot,
@@ -388,7 +392,11 @@ function FeedVideoSlide({
     <section
       ref={sectionRef}
       key={spot.id}
-      className="relative h-full min-h-full w-screen snap-start overflow-hidden select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]"
+      className="relative h-[100dvh] min-h-[100dvh] w-screen snap-start overflow-hidden select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]"
+      style={{
+        height: FOR_YOU_VIEWPORT_HEIGHT,
+        minHeight: FOR_YOU_VIEWPORT_HEIGHT,
+      }}
       onPointerDown={handlePointerDown}
       onPointerUp={() => {
         void handlePointerUp();
@@ -407,6 +415,7 @@ function FeedVideoSlide({
         preload="auto"
         controls={false}
         className="absolute inset-0 z-0 h-full w-full object-cover transition-all duration-300 ease-out"
+        style={{ bottom: "calc(-1 * env(safe-area-inset-bottom))" }}
         onPause={() => setIsPaused(true)}
         onPlay={() => setIsPaused(false)}
         onError={() => {
@@ -581,9 +590,10 @@ function FeedVideoSlide({
       </div>
 
       <div
-        className={`pointer-events-none absolute bottom-[calc(7.85rem+env(safe-area-inset-bottom))] left-4 right-[6.5rem] z-20 transition-opacity duration-200 ease-out ${
+        className={`pointer-events-none absolute left-4 right-[6.5rem] z-20 transition-opacity duration-200 ease-out ${
           isScrubbing ? "opacity-0" : "opacity-100"
         }`}
+        style={{ bottom: FOR_YOU_CAPTION_BOTTOM }}
       >
         <div className="max-w-[calc(100vw-7.5rem)] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
           <button
@@ -619,9 +629,10 @@ function FeedVideoSlide({
       </div>
 
       <div
-        className={`pointer-events-none absolute bottom-[calc(7.15rem+env(safe-area-inset-bottom))] left-1/2 z-20 -translate-x-1/2 transition-all duration-200 ease-out ${
+        className={`pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 transition-all duration-200 ease-out ${
           isScrubbing ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
         }`}
+        style={{ bottom: FOR_YOU_SCRUB_TIME_BOTTOM }}
       >
         <div className="flex items-center gap-2 text-[18px] font-semibold drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
           <span className="jt-text-gradient">{formatTime(scrubTime)}</span>
@@ -632,7 +643,8 @@ function FeedVideoSlide({
 
       <div
         ref={progressBarRef}
-        className="absolute bottom-[calc(5.55rem+env(safe-area-inset-bottom))] left-4 right-4 z-20 touch-none"
+        className="absolute left-4 right-4 z-20 touch-none"
+        style={{ bottom: FOR_YOU_PROGRESS_BOTTOM }}
         onPointerDown={handleProgressPointerDown}
         onPointerMove={(event) => {
           if (!isScrubbing) return;
@@ -740,13 +752,13 @@ export default function ForYouPage() {
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     const previousThemeColor = themeColorMeta?.getAttribute("content");
 
-    html.classList.add("for-you-page-active");
-    body.classList.add("for-you-page-active");
+    html.classList.add("fullscreen-route-active");
+    body.classList.add("fullscreen-route-active");
     themeColorMeta?.setAttribute("content", "#000000");
 
     return () => {
-      html.classList.remove("for-you-page-active");
-      body.classList.remove("for-you-page-active");
+      html.classList.remove("fullscreen-route-active");
+      body.classList.remove("fullscreen-route-active");
 
       if (previousThemeColor) {
         themeColorMeta?.setAttribute("content", previousThemeColor);
@@ -911,7 +923,7 @@ export default function ForYouPage() {
           return;
         } catch (fallbackError) {
           if (process.env.NODE_ENV !== "production") {
-            console.error("[for-you] muted fallback play failed", {
+            console.debug("[for-you] muted fallback play failed", {
               id: activeSpotId,
               error: fallbackError,
             });
@@ -920,7 +932,7 @@ export default function ForYouPage() {
       }
 
       if (process.env.NODE_ENV !== "production") {
-        console.error("[for-you] active video play failed", {
+        console.debug("[for-you] active video play failed", {
           id: activeSpotId,
           error,
         });
@@ -1041,7 +1053,13 @@ export default function ForYouPage() {
   }
 
   return (
-    <main className="fixed inset-0 z-[1000] w-screen overflow-hidden text-white select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]">
+    <main
+      className="fixed inset-0 z-[1000] w-screen overflow-hidden text-white select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]"
+      style={{
+        height: FOR_YOU_VIEWPORT_HEIGHT,
+        minHeight: FOR_YOU_VIEWPORT_HEIGHT,
+      }}
+    >
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[1100] px-4 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
         <div className="mx-auto flex w-full max-w-[560px] items-center justify-between">
           <button
@@ -1061,10 +1079,20 @@ export default function ForYouPage() {
 
       <div
         ref={scrollRef}
-        className="no-scrollbar absolute inset-0 h-full w-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain"
+        className="no-scrollbar absolute inset-0 w-screen snap-y snap-mandatory overflow-y-scroll overscroll-y-contain"
+        style={{
+          height: FOR_YOU_VIEWPORT_HEIGHT,
+          minHeight: FOR_YOU_VIEWPORT_HEIGHT,
+        }}
       >
         {spots.length === 0 ? (
-          <section className="flex h-full min-h-full w-screen snap-start items-center justify-center px-6 text-center">
+          <section
+            className="flex h-[100dvh] min-h-[100dvh] w-screen snap-start items-center justify-center px-6 text-center"
+            style={{
+              height: FOR_YOU_VIEWPORT_HEIGHT,
+              minHeight: FOR_YOU_VIEWPORT_HEIGHT,
+            }}
+          >
             <p className="text-sm font-medium text-white/70">Noch keine Feed-Videos verf&uuml;gbar.</p>
           </section>
         ) : (

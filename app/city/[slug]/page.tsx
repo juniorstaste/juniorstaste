@@ -407,7 +407,7 @@ function VideoSpotCard({
   return (
     <div
       ref={cardRef}
-      className="relative min-h-[34rem] cursor-pointer overflow-hidden rounded-[28px] border border-white/10 bg-[#0f3b2e] shadow-[0_20px_45px_rgba(0,0,0,0.22)] select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]"
+      className="relative min-h-[30rem] cursor-pointer overflow-hidden rounded-[28px] border border-white/10 bg-[#0f3b2e] shadow-[0_20px_45px_rgba(0,0,0,0.22)] select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none] sm:min-h-[34rem]"
     >
       <svg className="absolute h-0 w-0" aria-hidden="true" focusable="false">
         <defs>
@@ -447,7 +447,7 @@ function VideoSpotCard({
       <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/35 to-transparent" />
 
       {isSpeedHolding ? (
-        <div className="pointer-events-none absolute right-6 top-5 z-20">
+        <div className="pointer-events-none absolute right-4 top-4 z-20 sm:right-6 sm:top-5">
           <div className="flex h-9 w-11 items-center justify-center rounded-full border border-white/20 bg-[linear-gradient(135deg,rgba(255,124,144,0.42),rgba(255,225,164,0.32))] backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.24)]">
             <span className="flex h-full w-full items-center justify-center text-[11px] font-medium leading-none tracking-[-0.01em] text-white/88">
               1.75x
@@ -491,10 +491,10 @@ function VideoSpotCard({
             <img
               src={spot.image_url}
               alt={spot.name}
-              className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-1 ring-white/20"
+              className="h-14 w-14 shrink-0 rounded-2xl object-cover ring-1 ring-white/20 sm:h-16 sm:w-16"
             />
           ) : (
-            <div className="h-16 w-16 shrink-0 rounded-2xl bg-white/10 ring-1 ring-white/20" />
+            <div className="h-14 w-14 shrink-0 rounded-2xl bg-white/10 ring-1 ring-white/20 sm:h-16 sm:w-16" />
           )}
 
           <div className="min-w-0 pt-1 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)]">
@@ -540,7 +540,7 @@ function VideoSpotCard({
         </button>
       </div>
 
-      <div className="absolute right-3 top-[74%] z-20 flex -translate-y-1/2 flex-col items-center gap-4 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)]">
+      <div className="absolute right-2.5 top-[72%] z-20 flex -translate-y-1/2 flex-col items-center gap-4 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)] sm:right-3 sm:top-[74%]">
         <button
           type="button"
           aria-label={isLiked ? "Like entfernen" : "Like setzen"}
@@ -646,7 +646,7 @@ function VideoSpotCard({
       </div>
 
       <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-4">
-        <div className="max-w-[calc(100%-4.5rem)] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
+        <div className="max-w-[calc(100%-4rem)] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] sm:max-w-[calc(100%-4.5rem)]">
           <button
             type="button"
             onClick={(event) => {
@@ -1332,14 +1332,14 @@ export default function CityPage() {
     "Stadt";
 
   function getSelectWidth(label: string, min = 140) {
-    return `${Math.max(min, label.length * 9 + 48)}px`;
+    return `${Math.max(min, label.length * 8 + 44)}px`;
   }
 
   const isSearchExpanded = isSearchFocused || search.trim().length > 0;
   const isListView = view === "list";
   const isMapView = view === "map";
   const isTasteDesMonatsView = view === "tasteDesMonats";
-  const sharedContentWidthClass = "w-[94%] max-w-[500px]";
+  const sharedContentWidthClass = "mx-auto w-full max-w-[500px]";
   const searchWidthClass = isSearchExpanded ? "w-full" : "w-full";
   const headerTitle = isTasteDesMonatsView ? "Taste des Monats" : "Entdecken";
   const headerSubtitle =
@@ -1356,9 +1356,9 @@ export default function CityPage() {
   });
 
   return (
-    <main className="mx-auto max-w-[560px] p-4 pb-28">
+    <main className="mx-auto max-w-[560px] px-4 pb-28 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
       <div className="mb-5">
-        <div className="relative mb-10 mt-3 h-10">
+        <div className="relative mb-8 mt-3 h-10 sm:mb-10">
           {isTasteDesMonatsView ? (
             <button
               type="button"
@@ -1369,7 +1369,7 @@ export default function CityPage() {
               <img
                 src="/logos/citypage-logo.png"
                 alt="Junior's Taste"
-                className="h-auto w-[148px]"
+                className="h-auto w-[132px] sm:w-[148px]"
               />
             </button>
           ) : (
@@ -1383,13 +1383,13 @@ export default function CityPage() {
                 <img
                   src="/logos/citypage-logo.png"
                   alt="Junior's Taste"
-                  className="h-auto w-[148px]"
+                  className="h-auto w-[132px] sm:w-[148px]"
                 />
               </button>
 
               <div
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-                style={{ width: getSelectWidth(currentCityName, 84) }}
+                style={{ width: `min(${getSelectWidth(currentCityName, 84)}, calc(100vw - 11rem))` }}
               >
                 <select
                   value={citySelectValue}
@@ -1417,7 +1417,9 @@ export default function CityPage() {
         {!isMapView ? (
           <div className="mb-4">
             <div className={sharedContentWidthClass}>
-              <h1 className="text-[30px] font-extrabold leading-none text-white">{headerTitle}</h1>
+              <h1 className="text-[28px] font-extrabold leading-none text-white sm:text-[30px]">
+                {headerTitle}
+              </h1>
               <p className="mt-2 text-sm font-medium text-white/70">
                 {headerSubtitle}
               </p>
@@ -1428,8 +1430,8 @@ export default function CityPage() {
         {isListView && (
           <div className="mb-4">
             <div className="flex flex-col gap-3">
-              <div className="relative w-full" ref={filterMenuRef}>
-                <div className="relative w-full pr-12">
+              <div className={`${sharedContentWidthClass} relative`} ref={filterMenuRef}>
+                <div className="relative w-full pr-[3.25rem]">
                   <div
                     className={`min-w-0 transition-all duration-300 ease-out ${searchWidthClass}`}
                   >
@@ -1478,7 +1480,7 @@ export default function CityPage() {
                 </button>
 
                 {isFilterMenuOpen ? (
-                  <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[220px] rounded-[22px] border border-white/10 bg-[#124433]/92 p-3 shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+                  <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[min(220px,calc(100vw-2rem))] rounded-[22px] border border-white/10 bg-[#124433]/92 p-3 shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl">
                     <div className="flex flex-col gap-2.5">
                       <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
                         Filter

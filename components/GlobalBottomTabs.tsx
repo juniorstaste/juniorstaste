@@ -69,5 +69,11 @@ export default function GlobalBottomTabs() {
     return null;
   }
 
-  return <BottomTabs view={view} onChange={handleChange} />;
+  return (
+    <BottomTabs
+      view={view}
+      onChange={handleChange}
+      edgeToEdge={pathname === "/for-you"}
+    />
+  );
 }

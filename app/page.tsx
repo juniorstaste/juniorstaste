@@ -122,23 +122,23 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen w-full overflow-x-hidden bg-[#0f3b2e] px-5 pb-10 pt-6 text-white">
+    <main className="min-h-screen w-full overflow-x-hidden bg-[#0f3b2e] px-4 pb-10 pt-[calc(env(safe-area-inset-top)+0.5rem)] text-white sm:px-5">
       <div className="mx-auto w-full max-w-[560px]">
-        <div className="fixed right-4 top-6 z-50">
+        <div className="fixed right-4 top-[calc(env(safe-area-inset-top)+0.5rem)] z-50">
           <TopRightMenu />
         </div>
 
-        <section className="relative -mx-5 min-h-[320px] overflow-hidden px-5 pb-1 pt-0 sm:mx-0 sm:px-0">
+        <section className="relative -mx-4 min-h-[clamp(250px,38vh,320px)] overflow-hidden px-4 pb-1 pt-0 sm:mx-0 sm:px-0">
           <div className="absolute inset-0">
             <img
               src="/logo-transparent.png"
               alt=""
               aria-hidden="true"
-              className="absolute left-1/2 top-[-22%] w-[96%] max-w-[560px] -translate-x-1/2"
+              className="absolute left-1/2 top-[-14%] w-[min(96vw,560px)] -translate-x-1/2 sm:top-[-20%]"
             />
           </div>
 
-          <div className="relative z-10 pb-0 pt-[138px]" />
+          <div className="relative z-10 pb-0 pt-[clamp(108px,23vw,138px)]" />
         </section>
 
         <section id="cities" className="mt-0">

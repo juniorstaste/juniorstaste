@@ -9,6 +9,7 @@ type Tab = "for-you" | View | "saved";
 type Props = {
   view: Tab;
   onChange: (v: View) => void;
+  edgeToEdge?: boolean;
 };
 
 const RECENT_TAB_STORAGE_KEY = "jt_recent_bottom_tab";
@@ -70,7 +71,11 @@ function ForYouIcon() {
   );
 }
 
-export default function BottomTabs({ view, onChange }: Props) {
+export default function BottomTabs({
+  view,
+  onChange,
+  edgeToEdge = false,
+}: Props) {
   const router = useRouter();
   const [isCompact, setIsCompact] = useState(false);
   const [recentlyTappedTab, setRecentlyTappedTab] = useState<Tab | null>(() => {
@@ -98,6 +103,7 @@ export default function BottomTabs({ view, onChange }: Props) {
     }
   });
   const SCROLL_DIRECTION_THRESHOLD = 6;
+  const SCROLL_TOP_EXPANDED_THRESHOLD = 10;
   const baseBtn =
     "flex items-center justify-center whitespace-nowrap rounded-[20px] font-semibold " +
     "transform-gpu transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97]";
@@ -129,9 +135,17 @@ export default function BottomTabs({ view, onChange }: Props) {
 
   useEffect(() => {
     let lastScrollY = typeof window !== "undefined" ? window.scrollY : 0;
+    setIsCompact(lastScrollY > SCROLL_TOP_EXPANDED_THRESHOLD);
 
     const onScroll = () => {
       const nextScrollY = window.scrollY;
+
+      if (nextScrollY <= SCROLL_TOP_EXPANDED_THRESHOLD) {
+        setIsCompact(false);
+        lastScrollY = nextScrollY;
+        return;
+      }
+
       const delta = nextScrollY - lastScrollY;
 
       if (Math.abs(delta) <= SCROLL_DIRECTION_THRESHOLD) return;
