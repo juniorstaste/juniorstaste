@@ -424,9 +424,9 @@ export default function DiscoverPage() {
         <div className="relative mb-10 mt-3 h-10">
           <button
             type="button"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/for-you")}
             className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center justify-start"
-            aria-label="Zur Startseite"
+            aria-label="Zur For You Page"
           >
             <img
               src="/logos/citypage-logo.png"

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookmarkSimple, ChatCircle, Heart, PaperPlaneTilt } from "@phosphor-icons/react";
 import { useAuth } from "@/components/AuthProvider";
 import DeliveryButtons from "@/components/DeliveryButtons";
+import ForYouBottomTabs from "@/components/ForYouBottomTabs";
 import SpotCommentsSheet from "@/components/SpotCommentsSheet";
 import { supabase } from "@/lib/supabaseClient";
 import { logSupabaseError } from "@/lib/logSupabaseError";
@@ -26,10 +27,13 @@ type FeedSpot = {
 };
 
 type LikeTrigger = "button" | "double-tap";
-const FOR_YOU_VIEWPORT_HEIGHT = "calc(100dvh + env(safe-area-inset-bottom))";
-const FOR_YOU_PROGRESS_BOTTOM = "calc(7.25rem + env(safe-area-inset-bottom))";
-const FOR_YOU_SCRUB_TIME_BOTTOM = "calc(7.7rem + env(safe-area-inset-bottom))";
-const FOR_YOU_CAPTION_BOTTOM = "calc(8.35rem + env(safe-area-inset-bottom))";
+type VideoPreload = "auto" | "metadata" | "none";
+const FOR_YOU_VIEWPORT_HEIGHT = "100dvh";
+const FOR_YOU_PROGRESS_BOTTOM = "7.25rem";
+const FOR_YOU_SCRUB_TIME_BOTTOM = "7.7rem";
+const FOR_YOU_CAPTION_BOTTOM = "8.35rem";
+const FOR_YOU_ACTIVE_SPOT_KEY = "jt:for-you:active-spot-id";
+const FOR_YOU_SCROLL_TOP_KEY = "jt:for-you:scroll-top";
 
 function FeedVideoSlide({
   spot,
@@ -45,6 +49,7 @@ function FeedVideoSlide({
   onOpenComments,
   onOpenSpot,
   setVideoRef,
+  videoPreload,
 }: {
   spot: FeedSpot;
   isActive: boolean;
@@ -59,6 +64,7 @@ function FeedVideoSlide({
   onOpenComments: (spot: FeedSpot) => void;
   onOpenSpot: (spotId: string) => void;
   setVideoRef: (spotId: string, node: HTMLVideoElement | null) => void;
+  videoPreload: VideoPreload;
 }) {
   const sectionRef = useRef<HTMLElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -81,7 +87,7 @@ function FeedVideoSlide({
   const HOLD_SPEED_ZONE_START = 0.8;
   const DOUBLE_TAP_DELAY_MS = 240;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setVideoRef(spot.id, videoRef.current);
 
     return () => {
@@ -412,10 +418,9 @@ function FeedVideoSlide({
         muted
         playsInline
         loop
-        preload="auto"
+        preload={videoPreload}
         controls={false}
         className="absolute inset-0 z-0 h-full w-full object-cover transition-all duration-300 ease-out"
-        style={{ bottom: "calc(-1 * env(safe-area-inset-bottom))" }}
         onPause={() => setIsPaused(true)}
         onPlay={() => setIsPaused(false)}
         onError={() => {
@@ -745,6 +750,7 @@ export default function ForYouPage() {
   const [appLikeCounts, setAppLikeCounts] = useState<Record<string, number>>({});
   const [videoRegistryVersion, setVideoRegistryVersion] = useState(0);
   const [commentSpot, setCommentSpot] = useState<FeedSpot | null>(null);
+  const restoredForYouPositionRef = useRef(false);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -752,13 +758,13 @@ export default function ForYouPage() {
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     const previousThemeColor = themeColorMeta?.getAttribute("content");
 
-    html.classList.add("fullscreen-route-active");
-    body.classList.add("fullscreen-route-active");
+    html.classList.add("for-you-page-active");
+    body.classList.add("for-you-page-active");
     themeColorMeta?.setAttribute("content", "#000000");
 
     return () => {
-      html.classList.remove("fullscreen-route-active");
-      body.classList.remove("fullscreen-route-active");
+      html.classList.remove("for-you-page-active");
+      body.classList.remove("for-you-page-active");
 
       if (previousThemeColor) {
         themeColorMeta?.setAttribute("content", previousThemeColor);
@@ -816,8 +822,15 @@ export default function ForYouPage() {
         );
       }
 
-      setSpots(prioritizeSpots<FeedSpot>(normalized));
-      setActiveSpotId((current) => current ?? normalized[0]?.id ?? null);
+      const prioritized = prioritizeSpots<FeedSpot>(normalized);
+      const storedActiveSpotId =
+        typeof window !== "undefined"
+          ? window.sessionStorage.getItem(FOR_YOU_ACTIVE_SPOT_KEY)
+          : null;
+      const restoredActiveSpot = prioritized.find((spot) => spot.id === storedActiveSpotId);
+
+      setSpots(prioritized);
+      setActiveSpotId((current) => current ?? restoredActiveSpot?.id ?? prioritized[0]?.id ?? null);
     }
 
     loadFeedSpots();
@@ -893,6 +906,56 @@ export default function ForYouPage() {
       );
     };
   }, []);
+
+  useEffect(() => {
+    if (!activeSpotId || typeof window === "undefined") return;
+    window.sessionStorage.setItem(FOR_YOU_ACTIVE_SPOT_KEY, activeSpotId);
+  }, [activeSpotId]);
+
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node || typeof window === "undefined") return;
+
+    const savePosition = () => {
+      window.sessionStorage.setItem(FOR_YOU_SCROLL_TOP_KEY, String(node.scrollTop));
+    };
+
+    node.addEventListener("scroll", savePosition, { passive: true });
+    window.addEventListener("pagehide", savePosition);
+
+    return () => {
+      savePosition();
+      node.removeEventListener("scroll", savePosition);
+      window.removeEventListener("pagehide", savePosition);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (restoredForYouPositionRef.current || !spots.length || typeof window === "undefined") {
+      return;
+    }
+
+    const node = scrollRef.current;
+    if (!node) return;
+
+    const storedActiveSpotId = window.sessionStorage.getItem(FOR_YOU_ACTIVE_SPOT_KEY);
+    const storedIndex = storedActiveSpotId
+      ? spots.findIndex((spot) => spot.id === storedActiveSpotId)
+      : -1;
+    const storedScrollTop = Number(window.sessionStorage.getItem(FOR_YOU_SCROLL_TOP_KEY) ?? "");
+    const nextScrollTop =
+      storedIndex >= 0
+        ? storedIndex * node.clientHeight
+        : Number.isFinite(storedScrollTop)
+        ? storedScrollTop
+        : 0;
+
+    if (nextScrollTop > 0) {
+      node.scrollTop = nextScrollTop;
+    }
+
+    restoredForYouPositionRef.current = true;
+  }, [spots]);
 
   useEffect(() => {
     if (!spots.length || !activeSpotId) return;
@@ -1052,9 +1115,18 @@ export default function ForYouPage() {
     setCommentSpot(spot);
   }
 
+  const activeSpotIndex = activeSpotId
+    ? spots.findIndex((spot) => spot.id === activeSpotId)
+    : -1;
+
   return (
+    /*
+      /for-you owns its fullscreen shell. Keep global app layout, safe-area,
+      header, and shared BottomTabs changes out of this route unless this root
+      contract is intentionally updated.
+    */
     <main
-      className="fixed inset-0 z-[1000] w-screen overflow-hidden text-white select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]"
+      className="for-you-root fixed inset-0 isolate z-[1000] h-[100dvh] w-screen overflow-hidden bg-black text-white select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]"
       style={{
         height: FOR_YOU_VIEWPORT_HEIGHT,
         minHeight: FOR_YOU_VIEWPORT_HEIGHT,
@@ -1064,9 +1136,9 @@ export default function ForYouPage() {
         <div className="mx-auto flex w-full max-w-[560px] items-center justify-between">
           <button
             type="button"
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/for-you")}
             className="pointer-events-auto flex items-center justify-start"
-            aria-label="Zur Startseite"
+            aria-label="Zur For You Page"
           >
             <img
               src="/logos/citypage-logo.png"
@@ -1096,26 +1168,39 @@ export default function ForYouPage() {
             <p className="text-sm font-medium text-white/70">Noch keine Feed-Videos verf&uuml;gbar.</p>
           </section>
         ) : (
-          spots.map((spot) => (
-            <FeedVideoSlide
-              key={spot.id}
-              spot={spot}
-              isActive={activeSpotId === spot.id}
-              onToggleSound={() => setIsSoundEnabled((current) => !current)}
-              isSoundEnabled={isSoundEnabled}
-              onActive={setActiveSpotId}
-              isLiked={likedSpotIds[spot.id] === true}
-              likeCount={(appLikeCounts[spot.id] ?? 0) + (spot.tiktok_like_count ?? 0)}
-              onLike={toggleLike}
-              isSaved={isSavedSpot(spot.id)}
-              onToggleSave={toggleSaveFromForYou}
-              onOpenComments={handleCommentIntent}
-              onOpenSpot={(spotId) => router.push(`/spot/${spotId}`)}
-              setVideoRef={setVideoRef}
-            />
-          ))
+          spots.map((spot, index) => {
+            const effectiveActiveIndex = activeSpotIndex >= 0 ? activeSpotIndex : 0;
+            const videoPreload: VideoPreload =
+              index === effectiveActiveIndex
+                ? "auto"
+                : index === effectiveActiveIndex + 1
+                ? "metadata"
+                : "none";
+
+            return (
+              <FeedVideoSlide
+                key={spot.id}
+                spot={spot}
+                isActive={activeSpotId === spot.id}
+                videoPreload={videoPreload}
+                onToggleSound={() => setIsSoundEnabled((current) => !current)}
+                isSoundEnabled={isSoundEnabled}
+                onActive={setActiveSpotId}
+                isLiked={likedSpotIds[spot.id] === true}
+                likeCount={(appLikeCounts[spot.id] ?? 0) + (spot.tiktok_like_count ?? 0)}
+                onLike={toggleLike}
+                isSaved={isSavedSpot(spot.id)}
+                onToggleSave={toggleSaveFromForYou}
+                onOpenComments={handleCommentIntent}
+                onOpenSpot={(spotId) => router.push(`/spot/${spotId}`)}
+                setVideoRef={setVideoRef}
+              />
+            );
+          })
         )}
       </div>
+
+      <ForYouBottomTabs />
 
       <SpotCommentsSheet
         key={commentSpot?.id ?? "for-you-comments-closed"}

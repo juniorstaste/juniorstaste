@@ -368,10 +368,10 @@ export default function SpotDetailPage() {
       return;
     }
 
-    router.push("/");
+    router.push("/for-you");
   }}
 className="flex items-center justify-start transition active:scale-[1.03]"
-  aria-label="Zur Startseite"
+  aria-label="Zur For You Page"
 >
   <img
     src="/logos/citypage-logo.png"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/AuthProvider";
 import TopRightMenu from "@/components/TopRightMenu";
@@ -17,6 +17,7 @@ const TASTE_DES_MONATS_IDS = [
   "0f63bbc8-7050-4406-b512-3e133965a1e4",
   "4eb57f03-101e-4d80-98cc-42d3f148b57a",
 ];
+const SAVED_SCROLL_KEY_PREFIX = "jt:scroll:saved";
 
 type Spot = {
   id: string;
@@ -124,6 +125,33 @@ function SpotCard({ spot, onOpenSpot }: { spot: Spot; onOpenSpot: (spotId: strin
   );
 }
 
+function SavedSkeleton() {
+  return (
+    <div className="grid gap-4">
+      {Array.from({ length: 4 }, (_, index) => (
+        <div
+          key={index}
+          className="rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 shadow-sm"
+        >
+          <div className="flex gap-3">
+            <div className="h-16 w-16 shrink-0 rounded-xl bg-[#eadfce] ring-1 ring-black/5" />
+            <div className="min-w-0 flex-1 pt-1 pr-14">
+              <div className="h-3.5 w-2/3 rounded-full bg-[#d8cdbd]" />
+              <div className="mt-3 h-3 w-24 rounded-full bg-[#e2d7c6]" />
+              <div className="mt-3 h-3 w-full rounded-full bg-[#e2d7c6]" />
+              <div className="mt-2 h-3 w-4/5 rounded-full bg-[#e2d7c6]" />
+            </div>
+          </div>
+          <div className="ml-[76px] mt-3 flex gap-2">
+            <div className="h-8 w-24 rounded-xl bg-[#eadfce]" />
+            <div className="h-8 w-24 rounded-xl bg-[#eadfce]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function SavedPage() {
   const [savedSpots, setSavedSpots] = useState<Spot[]>([]);
   const [likedSpots, setLikedSpots] = useState<Spot[]>([]);
@@ -136,6 +164,42 @@ export default function SavedPage() {
   const [viewMode, setViewMode] = useState<SavedViewMode>("saved");
   const router = useRouter();
   const { authLoading, user, savedSpotIds, openAuthPrompt } = useAuth();
+  const isCurrentViewLoading = viewMode === "saved" ? loadingSaved : loadingLikes;
+  const scrollStorageKey = `${SAVED_SCROLL_KEY_PREFIX}:${viewMode}:${selectedCitySlug}`;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const saveScroll = () => {
+      window.sessionStorage.setItem(scrollStorageKey, String(window.scrollY));
+    };
+
+    window.addEventListener("scroll", saveScroll, { passive: true });
+    window.addEventListener("pagehide", saveScroll);
+
+    return () => {
+      saveScroll();
+      window.removeEventListener("scroll", saveScroll);
+      window.removeEventListener("pagehide", saveScroll);
+    };
+  }, [scrollStorageKey]);
+
+  useLayoutEffect(() => {
+    if (authLoading || isCurrentViewLoading || typeof window === "undefined") return;
+
+    const storedScrollY = Number(window.sessionStorage.getItem(scrollStorageKey) ?? "");
+    if (!Number.isFinite(storedScrollY) || storedScrollY <= 0) return;
+
+    window.scrollTo(0, storedScrollY);
+  }, [authLoading, isCurrentViewLoading, scrollStorageKey]);
+
+  function handleViewModeChange(nextViewMode: SavedViewMode) {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(scrollStorageKey, String(window.scrollY));
+    }
+
+    setViewMode(nextViewMode);
+  }
 
   useEffect(() => {
     async function loadTasteDesMonatsSpots() {
@@ -378,17 +442,15 @@ export default function SavedPage() {
   );
 
   const visibleSpots = viewMode === "saved" ? filteredSavedSpots : filteredLikedSpots;
-  const isCurrentViewLoading = viewMode === "saved" ? loadingSaved : loadingLikes;
-
   return (
     <main className="min-h-screen bg-[#0f3b2e]">
       <div className="mx-auto max-w-[560px] px-4 pb-28 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
         <div className="mb-5">
           <div className="relative mb-8 mt-3 h-10 sm:mb-10">
             <button
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/for-you")}
               className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center justify-start transition active:scale-[1.03]"
-              aria-label="Zur Startseite"
+              aria-label="Zur For You Page"
             >
               <img
                 src="/logos/citypage-logo.png"
@@ -507,7 +569,7 @@ export default function SavedPage() {
             <div className="inline-flex rounded-full border border-white/10 bg-white/10 p-1 shadow-sm backdrop-blur-sm">
               <button
                 type="button"
-                onClick={() => setViewMode("saved")}
+                onClick={() => handleViewModeChange("saved")}
                 className={`min-w-[120px] rounded-full px-4 py-2 text-sm font-semibold transition sm:min-w-[136px] sm:px-5 ${
                   viewMode === "saved" ? "jt-active-gradient" : "text-white/80"
                 }`}
@@ -516,7 +578,7 @@ export default function SavedPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setViewMode("likes")}
+                onClick={() => handleViewModeChange("likes")}
                 className={`min-w-[120px] rounded-full px-4 py-2 text-sm font-semibold transition sm:min-w-[136px] sm:px-5 ${
                   viewMode === "likes" ? "jt-active-gradient" : "text-white/80"
                 }`}
@@ -528,7 +590,7 @@ export default function SavedPage() {
         </div>
 
         {authLoading ? (
-          <p className="text-white/80">Prüfe Login…</p>
+          <SavedSkeleton />
         ) : !user ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
             <div className="mb-2 font-semibold">Bitte melde dich an</div>
@@ -546,9 +608,7 @@ export default function SavedPage() {
             </button>
           </div>
         ) : isCurrentViewLoading ? (
-          <p className="text-white/80">
-            {viewMode === "saved" ? "Lade gespeicherte Spots…" : "Lade gelikte Spots…"}
-          </p>
+          <SavedSkeleton />
         ) : viewMode === "saved" && savedSpots.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
             <div className="mb-2 font-semibold">Noch nichts gespeichert</div>

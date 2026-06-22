@@ -1,232 +1,121 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import AuthForm from "@/components/AuthForm";
+import { useAuth } from "@/components/AuthProvider";
 import { useRouter } from "next/navigation";
-import TopRightMenu from "@/components/TopRightMenu";
-import { LAST_CITY_SLUG_KEY, LAST_CITY_VIEW_KEY } from "@/lib/lastCityNavigation";
 
-type City = { id: string; name: string; slug: string; spotCount: number };
+function AppleIcon() {
+  return (
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M16.5 2.2c0 1.2-.5 2.3-1.3 3.1-.8.9-2 1.5-3.1 1.4-.1-1.1.4-2.3 1.2-3.1.8-.9 2.1-1.5 3.2-1.4ZM20.4 17.4c-.5 1.2-.8 1.7-1.5 2.7-1 1.5-2.4 3.3-4.1 3.3-1.5 0-1.9-1-3.9-1s-2.5 1-3.9 1c-1.7 0-3-1.7-4.1-3.2C.1 16 .6 11.1 4 9.1c1.2-.7 2.7-1.1 4.1-1.1 1.5 0 2.9 1 3.8 1 .9 0 2.6-1.2 4.4-1 1.4.1 3.3.6 4.5 2.4-3.9 2.1-3.3 7.5-.4 9Z" />
+    </svg>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M22.6 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h5.9c-.3 1.3-1 2.4-2.1 3.2v2.6h3.4c2-1.8 3.4-4.5 3.4-7.8Z" />
+      <path fill="#34A853" d="M12 23c2.9 0 5.3-.9 7.1-2.6l-3.4-2.6c-.9.6-2.1 1-3.7 1-2.8 0-5.1-1.9-6-4.4H2.5v2.7C4.3 20.6 7.9 23 12 23Z" />
+      <path fill="#FBBC05" d="M6 14.4c-.2-.6-.3-1.3-.3-2s.1-1.4.3-2V7.7H2.5C1.8 9.1 1.4 10.7 1.4 12.4s.4 3.3 1.1 4.7L6 14.4Z" />
+      <path fill="#EA4335" d="M12 6c1.6 0 3 .6 4.1 1.6l3-3C17.3 2.9 14.9 2 12 2 7.9 2 4.3 4.4 2.5 7.7L6 10.4C6.9 7.9 9.2 6 12 6Z" />
+    </svg>
+  );
+}
+
+function MailIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4.5 6.5h15a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16V8a1.5 1.5 0 0 1 1.5-1.5Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="m4 8 8 5 8-5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export default function Home() {
-  const [cities, setCities] = useState<City[]>([]);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [geoError, setGeoError] = useState<string | null>(null);
-  const [geoLoading, setGeoLoading] = useState(false);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [radiusKm, setRadiusKm] = useState<number>(30);
-  const [radiusOpen, setRadiusOpen] = useState<boolean>(false);
-
+  const [emailOpen, setEmailOpen] = useState(false);
+  const { authLoading, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    async function loadCities() {
-      const { data: cityRows, error: citiesError } = await supabase
-        .from("cities")
-        .select("id, name, slug");
-
-      if (citiesError) {
-        setErrorMsg(citiesError.message);
-        return;
-      }
-
-      const { data: spotRows, error: spotsError } = await supabase
-        .from("spots")
-        .select("city_id");
-
-      if (spotsError) {
-        setErrorMsg(spotsError.message);
-        return;
-      }
-
-      const spotCounts = new Map<string, number>();
-
-      (spotRows ?? []).forEach((spot: { city_id: string | null }) => {
-        if (!spot.city_id) return;
-        spotCounts.set(spot.city_id, (spotCounts.get(spot.city_id) ?? 0) + 1);
-      });
-
-      const sortedCities = ((cityRows ?? []) as Array<{ id: string; name: string; slug: string }>)
-        .map((city) => ({
-          ...city,
-          spotCount: spotCounts.get(city.id) ?? 0,
-        }))
-        .sort((a, b) => {
-          if (b.spotCount !== a.spotCount) return b.spotCount - a.spotCount;
-          return a.name.localeCompare(b.name);
-        });
-
-      setCities(sortedCities);
+    if (!authLoading && user) {
+      router.replace("/for-you");
     }
+  }, [authLoading, router, user]);
 
-    loadCities();
-  }, []);
+  const socialButtonClass =
+    "flex h-[54px] w-full items-center rounded-2xl border border-[#dacdb9] bg-[#fffaf2] px-4 text-[15px] font-semibold text-[#0f2a22] shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55";
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.location.hash !== "#cities") return;
-
-    const scrollToCities = () => {
-      document.getElementById("cities")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    };
-
-    const timeoutId = window.setTimeout(scrollToCities, 80);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, []);
-
-  function requestLocation() {
-    setGeoError(null);
-    setGeoLoading(true);
-
-    if (!navigator.geolocation) {
-      setGeoError("Standort wird von deinem Browser nicht unterstützt.");
-      setGeoLoading(false);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        });
-        setRadiusOpen(true);
-        setGeoLoading(false);
-      },
-      () => {
-        setGeoError("Standort konnte nicht abgerufen werden.");
-        setGeoLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  }
-
-  function goToNearPage() {
-    if (!coords) return;
-    router.push(`/near?lat=${coords.lat}&lng=${coords.lng}&r=${radiusKm}`);
-  }
-
-  function goToCityFeed(citySlug: string) {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(LAST_CITY_SLUG_KEY, citySlug);
-      window.localStorage.setItem(LAST_CITY_VIEW_KEY, "list");
-    }
-
-    router.push("/for-you");
+  if (authLoading || user) {
+    return <main className="min-h-screen w-full bg-[#0f3b2e]" />;
   }
 
   return (
-    <main className="min-h-screen w-full overflow-x-hidden bg-[#0f3b2e] px-4 pb-10 pt-[calc(env(safe-area-inset-top)+0.5rem)] text-white sm:px-5">
+    <main className="min-h-screen w-full overflow-x-hidden bg-[#0f3b2e] px-4 pb-8 pt-[calc(env(safe-area-inset-top)+0.5rem)] text-white sm:px-5">
       <div className="mx-auto w-full max-w-[560px]">
-        <div className="fixed right-4 top-[calc(env(safe-area-inset-top)+0.5rem)] z-50">
-          <TopRightMenu />
-        </div>
-
         <section className="relative -mx-4 min-h-[clamp(250px,38vh,320px)] overflow-hidden px-4 pb-1 pt-0 sm:mx-0 sm:px-0">
           <div className="absolute inset-0">
             <img
-              src="/logo-transparent.png"
+              src="/logo-juniors-taste-primary.png"
               alt=""
               aria-hidden="true"
-              className="absolute left-1/2 top-[-14%] w-[min(96vw,560px)] -translate-x-1/2 sm:top-[-20%]"
+              className="absolute left-1/2 top-[18%] w-[min(96vw,560px)] -translate-x-1/2 sm:top-[12%]"
             />
           </div>
 
           <div className="relative z-10 pb-0 pt-[clamp(108px,23vw,138px)]" />
         </section>
 
-        <section id="cities" className="mt-0">
-          <div className="mb-4 flex w-full flex-col gap-4">
-            <button
-              onClick={requestLocation}
-              disabled={geoLoading}
-              className="jt-active-gradient h-[56px] w-full rounded-2xl text-lg font-semibold transition active:scale-[1.03] md:hover:scale-[1.03] disabled:opacity-70"
-            >
-              {geoLoading ? "Standort wird geladen…" : "📍 Standort verwenden"}
+        <section className="mx-auto mt-0 w-full max-w-[420px] rounded-[28px] border border-white/12 bg-[#e8decc] p-4 text-[#0f3b2e] shadow-[0_18px_54px_rgba(5,18,14,0.24)]">
+          <div className="space-y-3">
+            <button type="button" disabled className={socialButtonClass}>
+              <span className="flex h-6 w-8 items-center justify-start text-[#0f2a22]">
+                <AppleIcon />
+              </span>
+              <span className="flex-1 text-center">Mit Apple anmelden</span>
+              <span className="w-8" aria-hidden="true" />
             </button>
 
-            {radiusOpen && (
-              <div className="w-full rounded-[24px] border border-white/12 bg-white/8 p-4 text-left shadow-sm backdrop-blur-sm">
-                <div className="mb-3 font-semibold text-white">Umkreis wählen</div>
-
-                <select
-                  value={radiusKm}
-                  onChange={(e) => setRadiusKm(Number(e.target.value))}
-                  className="h-[48px] w-full rounded-xl bg-[#e8decc] px-3 font-semibold text-[#0f3b2e]"
-                >
-                  <option value={2}>2 km</option>
-                  <option value={5}>5 km</option>
-                  <option value={10}>10 km</option>
-                  <option value={15}>15 km</option>
-                  <option value={20}>20 km</option>
-                  <option value={25}>25 km</option>
-                  <option value={30}>30 km</option>
-                </select>
-
-                <div className="mt-4 flex gap-3">
-                  <button
-                    onClick={goToNearPage}
-                    className="h-[48px] flex-1 rounded-xl bg-[#e8decc] font-semibold text-[#0f3b2e] shadow-md transition active:scale-[1.02] md:hover:scale-[1.02]"
-                  >
-                    Weiter →
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setRadiusOpen(false);
-                      setCoords(null);
-                    }}
-                    className="h-[48px] rounded-xl border border-white/20 bg-white/10 px-4 text-white"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            )}
+            <button type="button" disabled className={socialButtonClass}>
+              <span className="flex h-6 w-8 items-center justify-start">
+                <GoogleIcon />
+              </span>
+              <span className="flex-1 text-center">Mit Google anmelden</span>
+              <span className="w-8" aria-hidden="true" />
+            </button>
 
             <button
-              onClick={() => router.push("/discover")}
-              className="jt-active-gradient h-[56px] w-full rounded-2xl text-lg font-semibold transition active:scale-[1.03] md:hover:scale-[1.03]"
+              type="button"
+              onClick={() => setEmailOpen((current) => !current)}
+              className={socialButtonClass}
+              aria-expanded={emailOpen}
             >
-              Ohne Stadt entdecken
+              <span className="flex h-6 w-8 items-center justify-start text-[#0f2a22]">
+                <MailIcon />
+              </span>
+              <span className="flex-1 text-center">Mit E-Mail-Adresse anmelden</span>
+              <span className="w-8" aria-hidden="true" />
             </button>
           </div>
 
-          <div className="mb-4 flex items-center justify-between gap-3 px-1">
-            <h2 className="text-[19px] font-extrabold text-white">Wähle deine Stadt</h2>
-            <span className="text-sm text-white/45">{cities.length} Städte</span>
-          </div>
-
-          <div className="grid gap-3">
-            {cities.map((city) => (
-              <button
-                key={city.slug}
-                type="button"
-                onClick={() => goToCityFeed(city.slug)}
-                className="flex w-full items-center justify-between rounded-[28px] border border-white/10 bg-white/5 px-5 py-4 text-left shadow-[0_10px_30px_rgba(5,18,14,0.16)] transition active:scale-[0.99] md:hover:bg-white/[0.07]"
-              >
-                <div className="min-w-0">
-                  <div className="truncate text-[18px] font-extrabold text-white">
-                    {city.name}
-                  </div>
-                  <div className="mt-1 text-sm text-white/50">{city.spotCount} Spots</div>
-                </div>
-                <span className="ml-4 shrink-0 text-xl text-white/35" aria-hidden="true">
-                  ›
-                </span>
-              </button>
-            ))}
-          </div>
+          {emailOpen ? (
+            <div className="mt-4 border-t border-[#d8ccb7] pt-4">
+              <AuthForm mode="drawer" initialView="login" />
+            </div>
+          ) : null}
         </section>
-
-        {geoError ? <div className="mt-4 text-sm text-red-400">{geoError}</div> : null}
-        {errorMsg ? <div className="mt-4 text-sm text-red-400">{errorMsg}</div> : null}
       </div>
     </main>
   );

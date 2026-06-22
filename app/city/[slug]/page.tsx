@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { BookmarkSimple, ChatCircle, Heart, PaperPlaneTilt } from "@phosphor-icons/react";
@@ -20,6 +20,7 @@ import {
 } from "@/lib/cityMapCategories";
 import {
   buildCityViewHref,
+  type CityTabView,
   isCityTabView,
   LAST_CITY_SLUG_KEY,
   LAST_CITY_VIEW_KEY,
@@ -27,7 +28,10 @@ import {
 import { prioritizeSpots } from "@/lib/prioritySpot";
 import { getPriceLevelValue } from "@/lib/priceLevel";
 
-const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
+const CityMap = dynamic(() => import("@/components/CityMap"), {
+  ssr: false,
+  loading: () => <MapSkeleton />,
+});
 
 type Spot = {
   id: string;
@@ -64,6 +68,50 @@ type Spot = {
 
 type City = { id: string; name: string; slug: string };
 type ViewMode = "list" | "map" | "tasteDesMonats";
+const CITY_SCROLL_KEY_PREFIX = "jt:scroll:city";
+const CITY_MAP_VIEW_KEY_PREFIX = "jt:map-view:city";
+
+function ListSkeleton() {
+  return (
+    <div className="grid gap-3">
+      {Array.from({ length: 4 }, (_, index) => (
+        <div
+          key={index}
+          className="rounded-2xl border border-[#efe7da]/45 bg-[#fffaf2]/90 p-4 shadow-sm"
+        >
+          <div className="flex gap-3">
+            <div className="h-20 w-20 shrink-0 rounded-xl bg-[#eadfce]" />
+            <div className="min-w-0 flex-1 pt-1">
+              <div className="h-4 w-2/3 rounded-full bg-[#d8cdbd]" />
+              <div className="mt-3 h-3 w-1/2 rounded-full bg-[#e2d7c6]" />
+              <div className="mt-3 h-3 w-full rounded-full bg-[#e2d7c6]" />
+              <div className="mt-2 h-3 w-4/5 rounded-full bg-[#e2d7c6]" />
+            </div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <div className="h-9 w-24 rounded-xl bg-[#eadfce]" />
+            <div className="h-9 w-24 rounded-xl bg-[#eadfce]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MapSkeleton() {
+  return (
+    <div
+      className="relative overflow-hidden bg-[#124433] sm:rounded-[28px]"
+      style={{ height: "calc(100vh - 168px)", minHeight: 620, width: "100%" }}
+    >
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,250,242,0.14),rgba(255,124,144,0.08),rgba(255,225,164,0.12))]" />
+      <div className="absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:44px_44px]" />
+      <div className="absolute left-[18%] top-[28%] h-9 w-9 rounded-full border-2 border-white/70 bg-[#ff7c90]/70 shadow-lg" />
+      <div className="absolute right-[24%] top-[46%] h-8 w-8 rounded-full border-2 border-white/70 bg-[#ffe1a4]/80 shadow-lg" />
+      <div className="absolute bottom-[24%] left-[42%] h-7 w-7 rounded-full border-2 border-white/70 bg-[#ff7c90]/60 shadow-lg" />
+    </div>
+  );
+}
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371;
@@ -767,6 +815,16 @@ export default function CityPage() {
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
   const mapLocationRequestedRef = useRef(false);
 
+  const scrollStorageKey = useMemo(() => {
+    if (!citySlug) return null;
+    return `${CITY_SCROLL_KEY_PREFIX}:${citySlug}:${view}`;
+  }, [citySlug, view]);
+
+  const mapViewStorageKey = useMemo(() => {
+    if (!citySlug) return undefined;
+    return `${CITY_MAP_VIEW_KEY_PREFIX}:${citySlug}`;
+  }, [citySlug]);
+
   const chipButtonBase =
     "shrink-0 overflow-hidden rounded-full border border-white/10 bg-white/10 p-1 text-sm font-semibold shadow-sm transition-all duration-150 active:scale-[1.03]";
   const chipInnerBase =
@@ -781,6 +839,40 @@ export default function CityPage() {
     window.localStorage.setItem(LAST_CITY_SLUG_KEY, citySlug);
     window.localStorage.setItem(LAST_CITY_VIEW_KEY, view);
   }, [citySlug, view]);
+
+  useEffect(() => {
+    if (!scrollStorageKey || typeof window === "undefined") return;
+
+    const saveScroll = () => {
+      window.sessionStorage.setItem(scrollStorageKey, String(window.scrollY));
+    };
+
+    window.addEventListener("scroll", saveScroll, { passive: true });
+    window.addEventListener("pagehide", saveScroll);
+
+    return () => {
+      saveScroll();
+      window.removeEventListener("scroll", saveScroll);
+      window.removeEventListener("pagehide", saveScroll);
+    };
+  }, [scrollStorageKey]);
+
+  useLayoutEffect(() => {
+    if (loading || !scrollStorageKey || typeof window === "undefined") return;
+
+    const storedScrollY = Number(window.sessionStorage.getItem(scrollStorageKey) ?? "");
+    if (!Number.isFinite(storedScrollY) || storedScrollY <= 0) return;
+
+    window.scrollTo(0, storedScrollY);
+  }, [loading, scrollStorageKey]);
+
+  function handleViewChange(nextView: CityTabView) {
+    if (scrollStorageKey && typeof window !== "undefined") {
+      window.sessionStorage.setItem(scrollStorageKey, String(window.scrollY));
+    }
+
+    setView(nextView);
+  }
 
   useEffect(() => {
     if (!isFilterMenuOpen) return;
@@ -1362,9 +1454,9 @@ export default function CityPage() {
           {isTasteDesMonatsView ? (
             <button
               type="button"
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/for-you")}
               className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center"
-              aria-label="Zur Startseite"
+              aria-label="Zur For You Page"
             >
               <img
                 src="/logos/citypage-logo.png"
@@ -1376,9 +1468,9 @@ export default function CityPage() {
             <>
               <button
                 type="button"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/for-you")}
                 className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center justify-start"
-                aria-label="Zur Startseite"
+                aria-label="Zur For You Page"
               >
                 <img
                   src="/logos/citypage-logo.png"
@@ -1638,7 +1730,26 @@ export default function CityPage() {
 
       {/* ✅ Content */}
       {loading ? (
-        <p className="text-[#f6efe3]">Lade Spots…</p>
+        isMapView ? (
+          <div className="relative z-0 -mx-4 -mb-6 mt-2 sm:mx-0">
+            <div className="pointer-events-none absolute inset-x-4 top-4 z-[1200]">
+              <div className="pointer-events-auto mx-auto max-w-[500px]">
+                <div className="relative flex h-11 items-center rounded-full border border-white/10 bg-[#0f3b2e]/78 px-4 shadow-lg backdrop-blur-md">
+                  <span
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-white"
+                    aria-hidden="true"
+                  >
+                    🔍
+                  </span>
+                  <div className="ml-7 h-3 w-44 rounded-full bg-white/18" />
+                </div>
+              </div>
+            </div>
+            <MapSkeleton />
+          </div>
+        ) : (
+          <ListSkeleton />
+        )
       ) : errorMsg ? (
         <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-900">
           <b>Supabase-Fehler:</b> {errorMsg}
@@ -1678,6 +1789,7 @@ export default function CityPage() {
               onSpotClick={(id: string) => router.push(`/spot/${id}`)}
               selectedLegendSlug={selectedMapLegendSlug}
               onLegendSelect={setSelectedMapLegendSlug}
+              mapStateKey={mapViewStorageKey}
               immersiveSheet
             />
           </div>
@@ -2010,7 +2122,9 @@ export default function CityPage() {
         onRequireAuth={() => openAuthPrompt()}
       />
 
-      {!menuOpen ? <BottomTabs view={isMapView ? "map" : "list"} onChange={setView} /> : null}
+      {!menuOpen ? (
+        <BottomTabs view={isMapView ? "map" : "list"} onChange={handleViewChange} />
+      ) : null}
     </main>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getAuthRedirectUrl } from "@/lib/authRedirect";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -39,6 +40,7 @@ export default function AuthForm({
   initialView = "signup",
   onSuccess,
 }: Props) {
+  const router = useRouter();
   const [view, setView] = useState<AuthView>(initialView);
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
@@ -98,6 +100,7 @@ export default function AuthForm({
 
     const emailRedirectTo = getAuthRedirectUrl();
     let error: { message: string } | null = null;
+    let hasSession = false;
 
     if (view === "signup") {
       const result = await supabase.auth.signUp({
@@ -113,6 +116,7 @@ export default function AuthForm({
       });
 
       error = result.error;
+      hasSession = Boolean(result.data.session);
     } else if (view === "login") {
       const result = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
@@ -120,6 +124,7 @@ export default function AuthForm({
       });
 
       error = result.error;
+      hasSession = Boolean(result.data.session);
     } else {
       const result = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
         redirectTo: getAuthRedirectUrl("/reset-password"),
@@ -136,12 +141,24 @@ export default function AuthForm({
       return;
     }
 
+    if (view === "signup" && hasSession) {
+      setSuccessMsg("Du bist jetzt eingeloggt.");
+      setErrorMsg(null);
+      onSuccess?.();
+      router.replace("/for-you");
+      return;
+    }
+
     if (view === "signup") {
       setSuccessMsg(
         "Dein Konto wurde erstellt. Bitte bestaetige jetzt die E-Mail in deinem Postfach."
       );
     } else if (view === "login") {
       setSuccessMsg("Du bist jetzt eingeloggt.");
+      setErrorMsg(null);
+      onSuccess?.();
+      router.replace("/for-you");
+      return;
     } else {
       setSuccessMsg(
         "Wir haben dir eine E-Mail zum Zuruecksetzen deines Passworts geschickt."
