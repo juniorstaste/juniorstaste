@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/components/AuthProvider";
 import GlobalBottomTabs from "@/components/GlobalBottomTabs";
 import "./globals.css";
@@ -36,6 +36,13 @@ export const metadata: Metadata = {
 },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0f3b2e",
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
   <html lang="de">
@@ -43,7 +50,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <meta name="apple-mobile-web-app-capable" content="yes" />
       <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       <meta name="apple-mobile-web-app-title" content="JuniorsTaste" />
-      <meta name="theme-color" content="#0f3b2e" />
       <link rel="apple-touch-icon" href="/icon-512.png" />
       <link rel="preconnect" href="https://www.tiktok.com" />
       <link rel="preconnect" href="https://www.tiktokcdn.com" />

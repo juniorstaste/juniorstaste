@@ -6,15 +6,11 @@ import {
   buildCityViewHref,
   LAST_CITY_FALLBACK_SLUG,
   LAST_CITY_SLUG_KEY,
+  LAST_CITY_VIEW_KEY,
 } from "@/lib/lastCityNavigation";
+import type { CityTabView } from "@/lib/lastCityNavigation";
 
-type View = "list" | "map";
-type Tab = "for-you" | View | "saved";
-
-type Props = {
-  view: Tab;
-  onChange: (v: View) => void;
-};
+type Tab = "for-you" | CityTabView | "saved";
 
 const RECENT_TAB_STORAGE_KEY = "jt_recent_bottom_tab";
 const RECENT_TAB_MIN_VISIBLE_MS = 1500;
@@ -75,7 +71,7 @@ function ForYouIcon() {
   );
 }
 
-export default function BottomTabs({ view, onChange }: Props) {
+export default function ForYouBottomTabs() {
   const router = useRouter();
   const [isCompact, setIsCompact] = useState(false);
   const [recentlyTappedTab, setRecentlyTappedTab] = useState<Tab | null>(() => {
@@ -102,8 +98,7 @@ export default function BottomTabs({ view, onChange }: Props) {
       return null;
     }
   });
-  const SCROLL_DIRECTION_THRESHOLD = 6;
-  const SCROLL_TOP_EXPANDED_THRESHOLD = 10;
+
   const baseBtn =
     "flex items-center justify-center whitespace-nowrap rounded-[20px] font-semibold " +
     "transform-gpu transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97]";
@@ -123,21 +118,17 @@ export default function BottomTabs({ view, onChange }: Props) {
   useEffect(() => {
     if (!recentlyTappedTab) return;
 
-    if (typeof window !== "undefined") {
-      window.sessionStorage.setItem(
-        RECENT_TAB_STORAGE_KEY,
-        JSON.stringify({
-          tab: recentlyTappedTab,
-          expiresAt: Date.now() + RECENT_TAB_MIN_VISIBLE_MS,
-        })
-      );
-    }
+    window.sessionStorage.setItem(
+      RECENT_TAB_STORAGE_KEY,
+      JSON.stringify({
+        tab: recentlyTappedTab,
+        expiresAt: Date.now() + RECENT_TAB_MIN_VISIBLE_MS,
+      })
+    );
 
     const timeoutId = window.setTimeout(() => {
       setRecentlyTappedTab(null);
-      if (typeof window !== "undefined") {
-        window.sessionStorage.removeItem(RECENT_TAB_STORAGE_KEY);
-      }
+      window.sessionStorage.removeItem(RECENT_TAB_STORAGE_KEY);
     }, RECENT_TAB_MIN_VISIBLE_MS);
 
     return () => {
@@ -146,26 +137,6 @@ export default function BottomTabs({ view, onChange }: Props) {
   }, [recentlyTappedTab]);
 
   useEffect(() => {
-    let lastScrollY = typeof window !== "undefined" ? window.scrollY : 0;
-    setIsCompact(lastScrollY > SCROLL_TOP_EXPANDED_THRESHOLD);
-
-    const onScroll = () => {
-      const nextScrollY = window.scrollY;
-
-      if (nextScrollY <= SCROLL_TOP_EXPANDED_THRESHOLD) {
-        setIsCompact(false);
-        lastScrollY = nextScrollY;
-        return;
-      }
-
-      const delta = nextScrollY - lastScrollY;
-
-      if (Math.abs(delta) <= SCROLL_DIRECTION_THRESHOLD) return;
-
-      setIsCompact(delta > 0);
-      lastScrollY = nextScrollY;
-    };
-
     const onCompactEvent = (event: Event) => {
       const detail = (event as CustomEvent<{ compact?: boolean }>).detail;
       if (typeof detail?.compact === "boolean") {
@@ -173,11 +144,9 @@ export default function BottomTabs({ view, onChange }: Props) {
       }
     };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("jt-bottom-tabs-compact", onCompactEvent as EventListener);
 
     return () => {
-      window.removeEventListener("scroll", onScroll);
       window.removeEventListener("jt-bottom-tabs-compact", onCompactEvent as EventListener);
     };
   }, []);
@@ -185,6 +154,18 @@ export default function BottomTabs({ view, onChange }: Props) {
   function triggerTab(tab: Tab, action: () => void) {
     setRecentlyTappedTab(tab);
     action();
+  }
+
+  function navigateToCityView(nextView: CityTabView) {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(LAST_CITY_VIEW_KEY, nextView);
+      const citySlug =
+        window.localStorage.getItem(LAST_CITY_SLUG_KEY) || LAST_CITY_FALLBACK_SLUG;
+      router.push(buildCityViewHref(citySlug, nextView));
+      return;
+    }
+
+    router.push(buildCityViewHref(LAST_CITY_FALLBACK_SLUG, nextView));
   }
 
   function renderLabel(tab: Tab, label: string) {
@@ -205,7 +186,7 @@ export default function BottomTabs({ view, onChange }: Props) {
 
   return (
     <div
-      className="fixed left-0 right-0 z-[1100] transition-all duration-300 ease-out"
+      className="for-you-bottom-tabs fixed left-0 right-0 z-[1100] transition-all duration-300 ease-out"
       style={{ bottom: "max(env(safe-area-inset-bottom), 12px)" }}
     >
       <div
@@ -227,11 +208,7 @@ export default function BottomTabs({ view, onChange }: Props) {
               onClick={() => triggerTab("for-you", () => router.push("/for-you"))}
               className={`flex-1 ${baseBtn} ${
                 isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
-              } ${
-                view === "for-you"
-                  ? "jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]"
-                  : "text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5"
-              }`}
+              } jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]`}
             >
               <span className={`transition-transform duration-300 ease-out ${isCompact ? "scale-90" : "scale-100"} ${recentlyTappedTab === "for-you" ? "animate-[jt-tab-bounce_420ms_ease-out]" : ""}`}>
                 <ForYouIcon />
@@ -240,14 +217,10 @@ export default function BottomTabs({ view, onChange }: Props) {
             </button>
 
             <button
-              onClick={() => triggerTab("map", () => onChange("map"))}
+              onClick={() => triggerTab("map", () => navigateToCityView("map"))}
               className={`flex-1 ${baseBtn} ${
                 isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
-              } ${
-                view === "map"
-                  ? "jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]"
-                  : "text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5"
-              }`}
+              } text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5`}
             >
               <span className={`transition-transform duration-300 ease-out ${isCompact ? "scale-90" : "scale-100"} ${recentlyTappedTab === "map" ? "animate-[jt-tab-bounce_420ms_ease-out]" : ""}`}>
                 <MapIcon />
@@ -256,14 +229,10 @@ export default function BottomTabs({ view, onChange }: Props) {
             </button>
 
             <button
-              onClick={() => triggerTab("list", () => onChange("list"))}
+              onClick={() => triggerTab("list", () => navigateToCityView("list"))}
               className={`flex-1 ${baseBtn} ${
                 isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
-              } ${
-                view === "list"
-                  ? "jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]"
-                  : "text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5"
-              }`}
+              } text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5`}
             >
               <span className={`transition-transform duration-300 ease-out ${isCompact ? "scale-90" : "scale-100"} ${recentlyTappedTab === "list" ? "animate-[jt-tab-bounce_420ms_ease-out]" : ""}`}>
                 <ListIcon />
@@ -275,11 +244,7 @@ export default function BottomTabs({ view, onChange }: Props) {
               onClick={() => triggerTab("saved", () => router.push("/saved"))}
               className={`flex-1 ${baseBtn} ${
                 isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
-              } ${
-                view === "saved"
-                  ? "jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]"
-                  : "text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5"
-              }`}
+              } text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5`}
               title="Saved"
             >
               <span className={`transition-transform duration-300 ease-out ${isCompact ? "scale-90" : "scale-100"} ${recentlyTappedTab === "saved" ? "animate-[jt-tab-bounce_420ms_ease-out]" : ""}`}>

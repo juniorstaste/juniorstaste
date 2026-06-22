@@ -2,7 +2,7 @@
 
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import L from "leaflet";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 
 type Props = {
@@ -15,7 +15,18 @@ type Props = {
 };
 
 export default function SpotMiniMap({ lat, lng, name, spotId, googleMapsLink, userPos }: Props) {
+  const [isMounted, setIsMounted] = useState(false);
   const center: [number, number] = [lat, lng];
+  const hasValidCoordinates = Number.isFinite(lat) && Number.isFinite(lng);
+  const mapKey = `${spotId ?? name}-${lat}-${lng}`;
+
+  useEffect(() => {
+    setIsMounted(true);
+
+    return () => {
+      setIsMounted(false);
+    };
+  }, []);
 
   // ✅ Icons erst im Browser erzeugen (stabiler in Next.js)
   const markerIcon = useMemo(() => {
@@ -37,6 +48,10 @@ export default function SpotMiniMap({ lat, lng, name, spotId, googleMapsLink, us
     });
   }, []);
 
+  if (!hasValidCoordinates) {
+    return null;
+  }
+
   return (
     <div
       style={{
@@ -48,60 +63,63 @@ export default function SpotMiniMap({ lat, lng, name, spotId, googleMapsLink, us
         marginBottom: 12,
       }}
     >
-      <MapContainer
-        center={center}
-        zoom={15}
-        zoomControl={false}
-        style={{ height: "100%", width: "100%" }}
-        scrollWheelZoom={false}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+      {isMounted ? (
+        <MapContainer
+          key={mapKey}
+          center={center}
+          zoom={15}
+          zoomControl={false}
+          style={{ height: "100%", width: "100%" }}
+          scrollWheelZoom={false}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
 
-        {/* Spot Marker */}
-        <Marker position={[lat, lng]} icon={markerIcon}>
-          <Popup>
-            <b>{name}</b>
-            {googleMapsLink ? (
-              <div style={{ marginTop: 6 }}>
-                <a
-                  href={googleMapsLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={(e) => {
-                    if (!spotId) return;
-                    void trackAndOpenExternalLink({
-                      event: e,
-                      url: googleMapsLink,
-                      spotId,
-                      buttonType: "maps",
-                    });
-                  }}
-                >
-                  In Google Maps öffnen
-                </a>
-              </div>
-            ) : null}
-          </Popup>
-        </Marker>
+          {/* Spot Marker */}
+          <Marker position={[lat, lng]} icon={markerIcon}>
+            <Popup>
+              <b>{name}</b>
+              {googleMapsLink ? (
+                <div style={{ marginTop: 6 }}>
+                  <a
+                    href={googleMapsLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => {
+                      if (!spotId) return;
+                      void trackAndOpenExternalLink({
+                        event: e,
+                        url: googleMapsLink,
+                        spotId,
+                        buttonType: "maps",
+                      });
+                    }}
+                  >
+                    In Google Maps öffnen
+                  </a>
+                </div>
+              ) : null}
+            </Popup>
+          </Marker>
 
-        {/* Optional: User position */}
-        {userPos ? (
-          <>
-            <Marker position={[userPos.lat, userPos.lng]} icon={userIcon}>
-              <Popup>Du bist hier</Popup>
-            </Marker>
+          {/* Optional: User position */}
+          {userPos ? (
+            <>
+              <Marker position={[userPos.lat, userPos.lng]} icon={userIcon}>
+                <Popup>Du bist hier</Popup>
+              </Marker>
 
-            <Circle
-              center={[userPos.lat, userPos.lng]}
-              radius={60}
-              pathOptions={{ weight: 2, opacity: 0.6, fillOpacity: 0.15 }}
-            />
-          </>
-        ) : null}
-      </MapContainer>
+              <Circle
+                center={[userPos.lat, userPos.lng]}
+                radius={60}
+                pathOptions={{ weight: 2, opacity: 0.6, fillOpacity: 0.15 }}
+              />
+            </>
+          ) : null}
+        </MapContainer>
+      ) : null}
     </div>
   );
 }

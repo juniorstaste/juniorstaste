@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabaseClient";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { BookmarkSimple, ChatCircle, Heart, PaperPlaneTilt } from "@phosphor-icons/react";
@@ -12,14 +12,15 @@ import SaveSpotButton from "@/components/SaveSpotButton";
 import ShareSpotButton from "@/components/ShareSpotButton";
 import DeliveryButtons from "@/components/DeliveryButtons";
 import { useAuth } from "@/components/AuthProvider";
+import SpotCommentsSheet from "@/components/SpotCommentsSheet";
 import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 import {
   getColorForCategory,
   labelFromCategorySlug,
-  normalizeCategorySlug,
 } from "@/lib/cityMapCategories";
 import {
   buildCityViewHref,
+  type CityTabView,
   isCityTabView,
   LAST_CITY_SLUG_KEY,
   LAST_CITY_VIEW_KEY,
@@ -27,7 +28,10 @@ import {
 import { prioritizeSpots } from "@/lib/prioritySpot";
 import { getPriceLevelValue } from "@/lib/priceLevel";
 
-const CityMap = dynamic(() => import("@/components/CityMap"), { ssr: false });
+const CityMap = dynamic(() => import("@/components/CityMap"), {
+  ssr: false,
+  loading: () => <MapSkeleton />,
+});
 
 type Spot = {
   id: string;
@@ -64,6 +68,50 @@ type Spot = {
 
 type City = { id: string; name: string; slug: string };
 type ViewMode = "list" | "map" | "tasteDesMonats";
+const CITY_SCROLL_KEY_PREFIX = "jt:scroll:city";
+const CITY_MAP_VIEW_KEY_PREFIX = "jt:map-view:city";
+
+function ListSkeleton() {
+  return (
+    <div className="grid gap-3">
+      {Array.from({ length: 4 }, (_, index) => (
+        <div
+          key={index}
+          className="rounded-2xl border border-[#efe7da]/45 bg-[#fffaf2]/90 p-4 shadow-sm"
+        >
+          <div className="flex gap-3">
+            <div className="h-20 w-20 shrink-0 rounded-xl bg-[#eadfce]" />
+            <div className="min-w-0 flex-1 pt-1">
+              <div className="h-4 w-2/3 rounded-full bg-[#d8cdbd]" />
+              <div className="mt-3 h-3 w-1/2 rounded-full bg-[#e2d7c6]" />
+              <div className="mt-3 h-3 w-full rounded-full bg-[#e2d7c6]" />
+              <div className="mt-2 h-3 w-4/5 rounded-full bg-[#e2d7c6]" />
+            </div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <div className="h-9 w-24 rounded-xl bg-[#eadfce]" />
+            <div className="h-9 w-24 rounded-xl bg-[#eadfce]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MapSkeleton() {
+  return (
+    <div
+      className="relative overflow-hidden bg-[#124433] sm:rounded-[28px]"
+      style={{ height: "calc(100vh - 168px)", minHeight: 620, width: "100%" }}
+    >
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,250,242,0.14),rgba(255,124,144,0.08),rgba(255,225,164,0.12))]" />
+      <div className="absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:44px_44px]" />
+      <div className="absolute left-[18%] top-[28%] h-9 w-9 rounded-full border-2 border-white/70 bg-[#ff7c90]/70 shadow-lg" />
+      <div className="absolute right-[24%] top-[46%] h-8 w-8 rounded-full border-2 border-white/70 bg-[#ffe1a4]/80 shadow-lg" />
+      <div className="absolute bottom-[24%] left-[42%] h-7 w-7 rounded-full border-2 border-white/70 bg-[#ff7c90]/60 shadow-lg" />
+    </div>
+  );
+}
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371;
@@ -182,14 +230,14 @@ function VideoSpotCard({
   distanceKm,
   isLiked,
   onToggleLike,
-  onRequireCommentAuth,
+  onOpenComments,
   onOpenSpot,
 }: {
   spot: Spot;
   distanceKm?: number;
   isLiked: boolean;
   onToggleLike: (spotId: string) => Promise<boolean>;
-  onRequireCommentAuth: () => void;
+  onOpenComments: (spot: Spot) => void;
   onOpenSpot: (spotId: string) => void;
 }) {
   const { isSavedSpot, toggleSavedSpot } = useAuth();
@@ -220,16 +268,11 @@ function VideoSpotCard({
         if (!entry) return;
         setIsVisible(entry.isIntersecting && entry.intersectionRatio >= 0.6);
       },
-      {
-        threshold: [0.25, 0.6, 0.9],
-      }
+      { threshold: [0.25, 0.6, 0.9] }
     );
 
     observer.observe(node);
-
-    return () => {
-      observer.disconnect();
-    };
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -246,8 +289,10 @@ function VideoSpotCard({
       video.pause();
       video.currentTime = 0;
       video.playbackRate = 1;
-      setIsPaused(false);
-      setIsSpeedHolding(false);
+      queueMicrotask(() => {
+        setIsPaused(false);
+        setIsSpeedHolding(false);
+      });
       return;
     }
 
@@ -341,10 +386,7 @@ function VideoSpotCard({
     const nextMuted = !isMuted;
 
     setIsMuted(nextMuted);
-
-    if (video) {
-      video.muted = nextMuted;
-    }
+    if (video) video.muted = nextMuted;
   }
 
   async function handleLike(event: React.SyntheticEvent) {
@@ -413,7 +455,7 @@ function VideoSpotCard({
   return (
     <div
       ref={cardRef}
-      className="relative min-h-[34rem] cursor-pointer overflow-hidden rounded-[28px] border border-white/10 bg-[#0f3b2e] shadow-[0_20px_45px_rgba(0,0,0,0.22)] select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none]"
+      className="relative min-h-[30rem] cursor-pointer overflow-hidden rounded-[28px] border border-white/10 bg-[#0f3b2e] shadow-[0_20px_45px_rgba(0,0,0,0.22)] select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none] sm:min-h-[34rem]"
     >
       <svg className="absolute h-0 w-0" aria-hidden="true" focusable="false">
         <defs>
@@ -453,7 +495,7 @@ function VideoSpotCard({
       <div className="absolute inset-0 bg-gradient-to-t from-black/88 via-black/35 to-transparent" />
 
       {isSpeedHolding ? (
-        <div className="pointer-events-none absolute right-6 top-5 z-20">
+        <div className="pointer-events-none absolute right-4 top-4 z-20 sm:right-6 sm:top-5">
           <div className="flex h-9 w-11 items-center justify-center rounded-full border border-white/20 bg-[linear-gradient(135deg,rgba(255,124,144,0.42),rgba(255,225,164,0.32))] backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.24)]">
             <span className="flex h-full w-full items-center justify-center text-[11px] font-medium leading-none tracking-[-0.01em] text-white/88">
               1.75x
@@ -497,10 +539,10 @@ function VideoSpotCard({
             <img
               src={spot.image_url}
               alt={spot.name}
-              className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-1 ring-white/20"
+              className="h-14 w-14 shrink-0 rounded-2xl object-cover ring-1 ring-white/20 sm:h-16 sm:w-16"
             />
           ) : (
-            <div className="h-16 w-16 shrink-0 rounded-2xl bg-white/10 ring-1 ring-white/20" />
+            <div className="h-14 w-14 shrink-0 rounded-2xl bg-white/10 ring-1 ring-white/20 sm:h-16 sm:w-16" />
           )}
 
           <div className="min-w-0 pt-1 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)]">
@@ -546,7 +588,7 @@ function VideoSpotCard({
         </button>
       </div>
 
-      <div className="absolute right-3 top-[74%] z-20 flex -translate-y-1/2 flex-col items-center gap-4 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)]">
+      <div className="absolute right-2.5 top-[72%] z-20 flex -translate-y-1/2 flex-col items-center gap-4 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)] sm:right-3 sm:top-[74%]">
         <button
           type="button"
           aria-label={isLiked ? "Like entfernen" : "Like setzen"}
@@ -573,7 +615,7 @@ function VideoSpotCard({
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            onRequireCommentAuth();
+            onOpenComments(spot);
           }}
         >
           <ChatCircle size={26} weight="fill" aria-hidden="true" />
@@ -652,7 +694,7 @@ function VideoSpotCard({
       </div>
 
       <div className="absolute inset-x-0 bottom-0 z-10 px-4 pb-4">
-        <div className="max-w-[calc(100%-4.5rem)] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)]">
+        <div className="max-w-[calc(100%-4rem)] text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] sm:max-w-[calc(100%-4.5rem)]">
           <button
             type="button"
             onClick={(event) => {
@@ -727,14 +769,19 @@ function VideoSpotCard({
 export default function CityPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const params = useParams();
-  const { user, openAuthPrompt } = useAuth();
+  const params = useParams<{ slug?: string | string[] }>();
+  const { user, profile, openAuthPrompt } = useAuth();
 
   const citySlug = useMemo(() => {
-    const raw = (params as any)?.slug;
+    const raw = params?.slug;
     if (!raw) return null;
     return Array.isArray(raw) ? raw[0] : raw;
   }, [params]);
+
+  const initialView = useMemo<ViewMode>(() => {
+    const requestedView = searchParams.get("view");
+    return isCityTabView(requestedView) ? requestedView : "list";
+  }, [searchParams]);
 
   const [spots, setSpots] = useState<Spot[]>([]);
   const [tasteDesMonatsSpots, setTasteDesMonatsSpots] = useState<Spot[]>([]);
@@ -742,13 +789,13 @@ export default function CityPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [cities, setCities] = useState<City[]>([]);
-  const [citySelectValue, setCitySelectValue] = useState<string>("");
+  const [citySelectValue, setCitySelectValue] = useState<string>(() => citySlug ?? "");
 
   const [category, setCategory] = useState<string>("all");
   const [categories, setCategories] = useState<{ slug: string; name: string }[]>([]);
 
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<ViewMode>("list");
+  const [view, setView] = useState<ViewMode>(initialView);
   const [sort, setSort] = useState<"newest" | "rating" | "price" | "distance">("newest");
   const [deliveryFilter, setDeliveryFilter] = useState<"all" | "with">("all");
 
@@ -763,42 +810,69 @@ export default function CityPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const [commentSpot, setCommentSpot] = useState<Spot | null>(null);
   const legendListRef = useRef<HTMLDivElement | null>(null);
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
   const mapLocationRequestedRef = useRef(false);
 
-  const topText = "text-white";
+  const scrollStorageKey = useMemo(() => {
+    if (!citySlug) return null;
+    return `${CITY_SCROLL_KEY_PREFIX}:${citySlug}:${view}`;
+  }, [citySlug, view]);
 
-  const controlBase =
-    "w-full px-4 py-3 rounded-2xl border border-[#e7dfcf] bg-[#f6efe3] " +
-    "text-[#0f2a22] placeholder:text-[#0f2a22]/50 font-semibold shadow-sm transition-colors transition-transform duration-150 hover:bg-[#efe5d6] " +
-    "active:scale-[1.03] focus:outline-none";
+  const mapViewStorageKey = useMemo(() => {
+    if (!citySlug) return undefined;
+    return `${CITY_MAP_VIEW_KEY_PREFIX}:${citySlug}`;
+  }, [citySlug]);
+
   const chipButtonBase =
     "shrink-0 overflow-hidden rounded-full border border-white/10 bg-white/10 p-1 text-sm font-semibold shadow-sm transition-all duration-150 active:scale-[1.03]";
   const chipInnerBase =
     "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold transition-all duration-150";
-  const compactControlBase =
-    "w-full appearance-none rounded-full border border-white/10 bg-white/10 px-4 py-2 text-center text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-white/15 active:scale-[1.03] focus:outline-none";
   const insetFilterShellBase =
     "rounded-full border border-white/10 bg-white/10 p-1 shadow-sm transition-all duration-150";
   const insetFilterInnerBase =
     "w-full appearance-none rounded-full px-4 py-2 text-center text-sm font-semibold text-white transition-all duration-150 focus:outline-none";
 
   useEffect(() => {
-    if (citySlug) setCitySelectValue(citySlug);
-  }, [citySlug]);
-
-  useEffect(() => {
-    const requestedView = searchParams.get("view");
-    if (!isCityTabView(requestedView)) return;
-    setView(requestedView);
-  }, [searchParams]);
-
-  useEffect(() => {
     if (typeof window === "undefined" || !citySlug) return;
     window.localStorage.setItem(LAST_CITY_SLUG_KEY, citySlug);
     window.localStorage.setItem(LAST_CITY_VIEW_KEY, view);
   }, [citySlug, view]);
+
+  useEffect(() => {
+    if (!scrollStorageKey || typeof window === "undefined") return;
+
+    const saveScroll = () => {
+      window.sessionStorage.setItem(scrollStorageKey, String(window.scrollY));
+    };
+
+    window.addEventListener("scroll", saveScroll, { passive: true });
+    window.addEventListener("pagehide", saveScroll);
+
+    return () => {
+      saveScroll();
+      window.removeEventListener("scroll", saveScroll);
+      window.removeEventListener("pagehide", saveScroll);
+    };
+  }, [scrollStorageKey]);
+
+  useLayoutEffect(() => {
+    if (loading || !scrollStorageKey || typeof window === "undefined") return;
+
+    const storedScrollY = Number(window.sessionStorage.getItem(scrollStorageKey) ?? "");
+    if (!Number.isFinite(storedScrollY) || storedScrollY <= 0) return;
+
+    window.scrollTo(0, storedScrollY);
+  }, [loading, scrollStorageKey]);
+
+  function handleViewChange(nextView: CityTabView) {
+    if (scrollStorageKey && typeof window !== "undefined") {
+      window.sessionStorage.setItem(scrollStorageKey, String(window.scrollY));
+    }
+
+    setView(nextView);
+  }
 
   useEffect(() => {
     if (!isFilterMenuOpen) return;
@@ -952,7 +1026,6 @@ export default function CityPage() {
         setLoading(false);
         return;
       }
-
       const baseSpots = (data as Spot[]) ?? [];
       const categoryIds = Array.from(
         new Set(
@@ -1003,16 +1076,44 @@ export default function CityPage() {
     if (!citySlug) return;
 
     async function loadCategories() {
+      const { data: cityData, error: cityError } = await supabase
+        .from("cities")
+        .select("id")
+        .eq("slug", citySlug)
+        .maybeSingle();
+
+      if (cityError || !cityData) return;
+
+      const { data: citySpots, error: spotsError } = await supabase
+        .from("spots")
+        .select("category_id")
+        .eq("city_id", cityData.id);
+
+      if (spotsError) return;
+
+      const categoryIds = Array.from(
+        new Set(
+          ((citySpots as { category_id: string | null }[] | null) ?? [])
+            .map((row) => row.category_id)
+            .filter((value): value is string => typeof value === "string" && value.length > 0)
+        )
+      );
+
+      if (categoryIds.length === 0) {
+        setCategories([]);
+        return;
+      }
+
       const { data, error } = await supabase
-        .from("spots_with_city")
-        .select("category_slug, category_name")
-        .eq("city_slug", citySlug);
+        .from("categories")
+        .select("slug, name")
+        .in("id", categoryIds);
 
       if (error) return;
 
       const map = new Map<string, string>();
-      (data ?? []).forEach((row: any) => {
-        if (row.category_slug) map.set(row.category_slug, row.category_name ?? row.category_slug);
+      ((data as { slug: string | null; name: string | null }[] | null) ?? []).forEach((row) => {
+        if (row.slug) map.set(row.slug, row.name ?? row.slug);
       });
 
       const list = Array.from(map.entries()).map(([slug, name]) => ({ slug, name }));
@@ -1090,19 +1191,21 @@ export default function CityPage() {
   }, [spots, search, sort, userPos, radiusKm, deliveryFilter]);
 
   useEffect(() => {
-    const videoSpotIds = filteredSpots
-      .filter((spot) => Boolean(spot.video_url?.trim()))
-      .map((spot) => spot.id);
-
-    if (!user || videoSpotIds.length === 0) {
-      setLikedVideoSpotIds({});
-      return;
-    }
-
-    const activeUser = user;
     let cancelled = false;
 
     async function loadLikedVideoSpots() {
+      const videoSpotIds = filteredSpots
+        .filter((spot) => Boolean(spot.video_url?.trim()))
+        .map((spot) => spot.id);
+
+      if (!user || videoSpotIds.length === 0) {
+        if (!cancelled) {
+          setLikedVideoSpotIds({});
+        }
+        return;
+      }
+
+      const activeUser = user;
       const { data, error } = await supabase
         .from("spot_likes")
         .select("spot_id")
@@ -1185,10 +1288,13 @@ export default function CityPage() {
     return true;
   }
 
-  function requireAuthForVideoComment() {
+  function handleVideoCommentIntent(spot: Spot) {
     if (!user) {
       openAuthPrompt();
+      return;
     }
+
+    setCommentSpot(spot);
   }
 
   const distanceById = useMemo(() => {
@@ -1309,11 +1415,6 @@ export default function CityPage() {
 
   if (!citySlug) return <main className="p-4">Lade Stadt…</main>;
 
-  const selectedCategoryLabel =
-    category === "all"
-      ? "Kategorie: Alle"
-      : categories.find((c) => c.slug === category)?.name ?? "Kategorie";
-
   const currentCityName =
     cities.find((c) => c.slug === citySelectValue)?.name ??
     citySlug
@@ -1323,15 +1424,15 @@ export default function CityPage() {
     "Stadt";
 
   function getSelectWidth(label: string, min = 140) {
-    return `${Math.max(min, label.length * 9 + 48)}px`;
+    return `${Math.max(min, label.length * 8 + 44)}px`;
   }
 
   const isSearchExpanded = isSearchFocused || search.trim().length > 0;
   const isListView = view === "list";
   const isMapView = view === "map";
   const isTasteDesMonatsView = view === "tasteDesMonats";
-  const sharedContentWidthClass = "mx-auto w-full max-w-[528px]";
-  const searchWidthClass = isSearchExpanded ? sharedContentWidthClass : sharedContentWidthClass;
+  const sharedContentWidthClass = "mx-auto w-full max-w-[500px]";
+  const searchWidthClass = isSearchExpanded ? "w-full" : "w-full";
   const headerTitle = isTasteDesMonatsView ? "Taste des Monats" : "Entdecken";
   const headerSubtitle =
     isTasteDesMonatsView
@@ -1347,40 +1448,40 @@ export default function CityPage() {
   });
 
   return (
-    <main className="mx-auto max-w-[560px] p-4 pb-28">
+    <main className="mx-auto max-w-[560px] px-4 pb-28 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
       <div className="mb-5">
-        <div className="relative mb-10 mt-3 h-10">
+        <div className="relative mb-8 mt-3 h-10 sm:mb-10">
           {isTasteDesMonatsView ? (
             <button
               type="button"
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/for-you")}
               className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center"
-              aria-label="Zur Startseite"
+              aria-label="Zur For You Page"
             >
               <img
                 src="/logos/citypage-logo.png"
                 alt="Junior's Taste"
-                className="h-auto w-[148px]"
+                className="h-auto w-[132px] sm:w-[148px]"
               />
             </button>
           ) : (
             <>
               <button
                 type="button"
-                onClick={() => router.push("/")}
+                onClick={() => router.push("/for-you")}
                 className="absolute left-0 top-1/2 flex -translate-y-1/2 items-center justify-start"
-                aria-label="Zur Startseite"
+                aria-label="Zur For You Page"
               >
                 <img
                   src="/logos/citypage-logo.png"
                   alt="Junior's Taste"
-                  className="h-auto w-[148px]"
+                  className="h-auto w-[132px] sm:w-[148px]"
                 />
               </button>
 
               <div
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-                style={{ width: getSelectWidth(currentCityName, 84) }}
+                style={{ width: `min(${getSelectWidth(currentCityName, 84)}, calc(100vw - 11rem))` }}
               >
                 <select
                   value={citySelectValue}
@@ -1406,9 +1507,11 @@ export default function CityPage() {
         </div>
 
         {!isMapView ? (
-          <div className="mb-4 flex justify-center">
+          <div className="mb-4">
             <div className={sharedContentWidthClass}>
-              <h1 className="text-[30px] font-extrabold leading-none text-white">{headerTitle}</h1>
+              <h1 className="text-[28px] font-extrabold leading-none text-white sm:text-[30px]">
+                {headerTitle}
+              </h1>
               <p className="mt-2 text-sm font-medium text-white/70">
                 {headerSubtitle}
               </p>
@@ -1419,107 +1522,108 @@ export default function CityPage() {
         {isListView && (
           <div className="mb-4">
             <div className="flex flex-col gap-3">
-              <div className={`relative ${sharedContentWidthClass}`} ref={filterMenuRef}>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`min-w-0 flex-[3] transition-all duration-300 ease-out ${searchWidthClass}`}
-                    >
-                      <div className="relative flex h-10 items-center rounded-full border border-white/10 bg-white/10 px-3 shadow-sm transition-all duration-300 ease-out">
-                        <span
-                          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white transition-all duration-300 ease-out"
-                          aria-hidden="true"
-                        >
-                          🔍
-                        </span>
-                        <input
-                          value={search}
-                          onChange={(e) => setSearch(e.target.value)}
-                          onFocus={() => setIsSearchFocused(true)}
-                          onBlur={() => setIsSearchFocused(false)}
-                          placeholder="Foodspots, Burrito, Burger ..."
-                          className="h-full min-w-0 flex-1 border-0 bg-transparent pl-5 text-sm font-medium text-white placeholder:text-xs placeholder:font-normal placeholder:text-white/35 focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setIsFilterMenuOpen((current) => !current)}
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white shadow-sm transition-all duration-150 hover:bg-white/15 active:scale-[1.03] focus:outline-none"
-                      aria-label="Filter öffnen"
-                      aria-expanded={isFilterMenuOpen}
-                    >
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
+              <div className={`${sharedContentWidthClass} relative`} ref={filterMenuRef}>
+                <div className="relative w-full pr-[3.25rem]">
+                  <div
+                    className={`min-w-0 transition-all duration-300 ease-out ${searchWidthClass}`}
+                  >
+                    <div className="relative flex h-10 items-center rounded-full border border-white/10 bg-white/10 px-3 shadow-sm transition-all duration-300 ease-out">
+                      <span
+                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-white transition-all duration-300 ease-out"
                         aria-hidden="true"
-                        className="text-white"
                       >
-                        <path
-                          d="M4 7h16M7 12h10M10 17h4"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </button>
+                        🔍
+                      </span>
+                      <input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        onFocus={() => setIsSearchFocused(true)}
+                        onBlur={() => setIsSearchFocused(false)}
+                        placeholder="Foodspots, Burrito, Burger ..."
+                        className="h-full min-w-0 flex-1 border-0 bg-transparent pl-5 text-sm font-medium text-white placeholder:text-xs placeholder:font-normal placeholder:text-white/35 focus:outline-none"
+                      />
+                    </div>
                   </div>
 
-                  {isFilterMenuOpen ? (
-                    <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[220px] rounded-[22px] border border-white/10 bg-[#124433]/92 p-3 shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-                      <div className="flex flex-col gap-2.5">
-                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
-                          Filter
-                        </div>
+                </div>
 
-                        <div className={insetFilterShellBase}>
-                          <select
-                            value={sort}
-                            onChange={(e) => {
-                              const nextSort = e.target.value as "newest" | "rating" | "price" | "distance";
-                              if (nextSort === "distance") {
-                                requestNearbySpots();
-                                setIsFilterMenuOpen(false);
-                                return;
-                              }
+                <button
+                  type="button"
+                  onClick={() => setIsFilterMenuOpen((current) => !current)}
+                  className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white shadow-sm transition-all duration-150 hover:bg-white/15 active:scale-[1.03] focus:outline-none"
+                  aria-label="Filter öffnen"
+                  aria-expanded={isFilterMenuOpen}
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                    className="text-white"
+                  >
+                    <path
+                      d="M4 7h16M7 12h10M10 17h4"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
 
-                              setSort(nextSort);
+                {isFilterMenuOpen ? (
+                  <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[min(220px,calc(100vw-2rem))] rounded-[22px] border border-white/10 bg-[#124433]/92 p-3 shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+                    <div className="flex flex-col gap-2.5">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                        Filter
+                      </div>
+
+                      <div className={insetFilterShellBase}>
+                        <select
+                          value={sort}
+                          onChange={(e) => {
+                            const nextSort = e.target.value as "newest" | "rating" | "price" | "distance";
+                            if (nextSort === "distance") {
+                              requestNearbySpots();
                               setIsFilterMenuOpen(false);
-                            }}
-                            className={`${insetFilterInnerBase} jt-active-gradient-soft`}
-                            style={{ textAlignLast: "center" }}
-                          >
-                            <option value="newest">Sortierung: Neueste</option>
-                            <option value="rating">Best bewertet</option>
-                            <option value="price">Preis</option>
-                            <option value="distance">Nähe (GPS)</option>
-                          </select>
-                        </div>
+                              return;
+                            }
 
-                        <div className={insetFilterShellBase}>
-                          <select
-                            value={deliveryFilter}
-                            onChange={(e) => {
-                              setDeliveryFilter(e.target.value as "all" | "with");
-                              setIsFilterMenuOpen(false);
-                            }}
-                            className={`${insetFilterInnerBase} ${
-                              deliveryFilter === "all"
-                                ? "bg-transparent hover:bg-white/10"
-                                : "jt-active-gradient-soft"
-                            }`}
-                            style={{ textAlignLast: "center" }}
-                          >
-                            <option value="all">Alle</option>
-                            <option value="with">Mit Lieferung</option>
-                          </select>
-                        </div>
+                            setSort(nextSort);
+                            setIsFilterMenuOpen(false);
+                          }}
+                          className={`${insetFilterInnerBase} jt-active-gradient-soft`}
+                          style={{ textAlignLast: "center" }}
+                        >
+                          <option value="newest">Sortierung: Neueste</option>
+                          <option value="rating">Best bewertet</option>
+                          <option value="price">Preis</option>
+                          <option value="distance">Nähe (GPS)</option>
+                        </select>
+                      </div>
+
+                      <div className={insetFilterShellBase}>
+                        <select
+                          value={deliveryFilter}
+                          onChange={(e) => {
+                            setDeliveryFilter(e.target.value as "all" | "with");
+                            setIsFilterMenuOpen(false);
+                          }}
+                          className={`${insetFilterInnerBase} ${
+                            deliveryFilter === "all"
+                              ? "bg-transparent hover:bg-white/10"
+                              : "jt-active-gradient-soft"
+                          }`}
+                          style={{ textAlignLast: "center" }}
+                        >
+                          <option value="all">Alle</option>
+                          <option value="with">Mit Lieferung</option>
+                        </select>
                       </div>
                     </div>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
+              </div>
 
               <div className={sharedContentWidthClass}>
                 <div className="w-full max-w-full overflow-x-auto no-scrollbar">
@@ -1626,7 +1730,26 @@ export default function CityPage() {
 
       {/* ✅ Content */}
       {loading ? (
-        <p className="text-[#f6efe3]">Lade Spots…</p>
+        isMapView ? (
+          <div className="relative z-0 -mx-4 -mb-6 mt-2 sm:mx-0">
+            <div className="pointer-events-none absolute inset-x-4 top-4 z-[1200]">
+              <div className="pointer-events-auto mx-auto max-w-[500px]">
+                <div className="relative flex h-11 items-center rounded-full border border-white/10 bg-[#0f3b2e]/78 px-4 shadow-lg backdrop-blur-md">
+                  <span
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-white"
+                    aria-hidden="true"
+                  >
+                    🔍
+                  </span>
+                  <div className="ml-7 h-3 w-44 rounded-full bg-white/18" />
+                </div>
+              </div>
+            </div>
+            <MapSkeleton />
+          </div>
+        ) : (
+          <ListSkeleton />
+        )
       ) : errorMsg ? (
         <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-red-900">
           <b>Supabase-Fehler:</b> {errorMsg}
@@ -1666,6 +1789,7 @@ export default function CityPage() {
               onSpotClick={(id: string) => router.push(`/spot/${id}`)}
               selectedLegendSlug={selectedMapLegendSlug}
               onLegendSelect={setSelectedMapLegendSlug}
+              mapStateKey={mapViewStorageKey}
               immersiveSheet
             />
           </div>
@@ -1857,11 +1981,6 @@ export default function CityPage() {
             const lieferando = s.lieferando_url ?? null;
             const uberEats = s.uber_eats_url ?? null;
             const hasNativeVideo = Boolean(s.video_url?.trim());
-            const tiktokOpenUrl = s.tiktok_url?.trim()
-              ? s.tiktok_url.trim()
-              : s.tiktok_embed_id?.trim()
-                ? `https://www.tiktok.com/@juniorstaste/video/${s.tiktok_embed_id.trim()}`
-                : null;
 
             if (hasNativeVideo) {
               return (
@@ -1871,7 +1990,7 @@ export default function CityPage() {
                   distanceKm={distanceById.get(s.id)}
                   isLiked={likedVideoSpotIds[s.id] === true}
                   onToggleLike={toggleVideoSpotLike}
-                  onRequireCommentAuth={requireAuthForVideoComment}
+                  onOpenComments={handleVideoCommentIntent}
                   onOpenSpot={(spotId) => router.push(`/spot/${spotId}`)}
                 />
               );
@@ -1985,54 +2104,27 @@ export default function CityPage() {
 
     
     </div>
-
-    <div className="mt-6" onClick={(e) => e.stopPropagation()}>
-      <div className="mx-auto min-w-0 w-full max-w-[420px]">
-        <div className="w-full overflow-hidden rounded-2xl shadow-lg">
-          <div className="w-full rounded-2xl bg-[#f6efe3] p-2">
-            {hasNativeVideo ? (
-              <div className="overflow-hidden rounded-xl bg-black">
-                <video
-                  src={s.video_url!.trim()}
-                  controls
-                  muted
-                  playsInline
-                  preload="auto"
-                  onLoadedMetadata={(event) => {
-                    event.currentTarget.currentTime = 0;
-                  }}
-                  className="block h-auto w-full"
-                />
-              </div>
-            ) : (
-              <div className="flex min-h-[420px] items-center justify-center rounded-xl bg-[#f3ecdf] px-6 text-center">
-                <p className="text-sm font-semibold text-[#6b6256]">Video folgt</p>
-              </div>
-            )}
-
-            {tiktokOpenUrl ? (
-              <div className="mt-2 rounded-xl bg-[#0f3b2e] px-3 py-2 text-center">
-                <a
-                  href={tiktokOpenUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[13px] font-semibold text-white no-underline"
-                >
-                  Auf TikTok öffnen
-                </a>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 );
           })}
         </div>
       )}
 
-      {!menuOpen ? <BottomTabs view={isMapView ? "map" : "list"} onChange={setView} /> : null}
+      <SpotCommentsSheet
+        key={commentSpot?.id ?? "city-comments-closed"}
+        open={commentSpot !== null}
+        onClose={() => setCommentSpot(null)}
+        spotId={commentSpot?.id ?? null}
+        spotName={commentSpot?.name ?? null}
+        spotImageUrl={commentSpot?.image_url ?? null}
+        user={user}
+        profile={profile}
+        onRequireAuth={() => openAuthPrompt()}
+      />
+
+      {!menuOpen ? (
+        <BottomTabs view={isMapView ? "map" : "list"} onChange={handleViewChange} />
+      ) : null}
     </main>
   );
 }

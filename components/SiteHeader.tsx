@@ -14,13 +14,13 @@ export default function SiteHeader({ subtitle, compact = false }: Props) {
 
   return (
     <div className={`text-center ${compact ? "mb-3" : "mb-6"}`}>
-      {/* ✅ Logo klickbar -> Startseite */}
+      {/* ✅ Logo klickbar -> For You */}
       <button
         type="button"
-        onClick={() => router.push("/")}
+        onClick={() => router.push("/for-you")}
         className="mx-auto block cursor-pointer"
         style={{ background: "transparent", border: "none", padding: 0 }}
-        aria-label="Zur Startseite"
+        aria-label="Zur For You Page"
       >
         {/* ⬇️ hier bleibt dein Logo so wie du es schon eingebaut hast */}
         <img

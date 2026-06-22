@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { Heart } from "@phosphor-icons/react";
 import StarRating from "@/components/StarRating";
 import DistanceLabel from "@/components/DistanceLabel";
 import TopRightMenu from "@/components/TopRightMenu";
@@ -41,6 +42,14 @@ type Spot = {
   uber_eats_url?: string | null;
 };
 
+type SpotComment = {
+  id: string;
+  username: string;
+  content: string;
+  created_at: string;
+  featured_order?: number | null;
+};
+
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
@@ -58,6 +67,28 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
   return R * c;
 }
 
+function formatCommentTime(value: string) {
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "";
+
+  const diffMs = Date.now() - timestamp;
+  const diffMinutes = Math.max(1, Math.round(diffMs / 60000));
+
+  if (diffMinutes < 60) return `vor ${diffMinutes} Min.`;
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `vor ${diffHours} Std.`;
+
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 7) return `vor ${diffDays} Tagen`;
+
+  return new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(new Date(timestamp));
+}
+
 export default function SpotDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -70,6 +101,8 @@ export default function SpotDetailPage() {
 
   const [spot, setSpot] = useState<Spot | null>(null);
   const [recommendations, setRecommendations] = useState<Spot[]>([]);
+  const [communityComments, setCommunityComments] = useState<SpotComment[]>([]);
+  const [commentLikeCounts, setCommentLikeCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -193,6 +226,75 @@ export default function SpotDetailPage() {
     void loadRecommendations(currentSpot);
   }, [spot]);
 
+  useEffect(() => {
+    const currentSpotId = spot?.id;
+
+    if (!currentSpotId) {
+      setCommunityComments([]);
+      setCommentLikeCounts({});
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadCommunityComments() {
+      const { data, error } = await supabase
+        .from("spot_comments")
+        .select("id, username, content, created_at, featured_order")
+        .eq("spot_id", currentSpotId)
+        .is("parent_id", null)
+        .eq("featured_on_spot_page", true)
+        .order("featured_order", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true })
+        .limit(3);
+
+      if (cancelled || error) {
+        if (!cancelled) {
+          setCommunityComments([]);
+          setCommentLikeCounts({});
+        }
+        return;
+      }
+
+      const nextComments = ((data as SpotComment[] | null) ?? []).filter((comment) =>
+        comment.content?.trim()
+      );
+
+      setCommunityComments(nextComments);
+
+      if (nextComments.length === 0) {
+        setCommentLikeCounts({});
+        return;
+      }
+
+      const commentIds = nextComments.map((comment) => comment.id);
+      const { data: likesData, error: likesError } = await supabase
+        .from("comment_likes")
+        .select("comment_id")
+        .in("comment_id", commentIds);
+
+      if (cancelled || likesError) {
+        if (!cancelled) {
+          setCommentLikeCounts({});
+        }
+        return;
+      }
+
+      const nextCounts: Record<string, number> = {};
+      for (const like of ((likesData as Array<{ comment_id: string }> | null) ?? [])) {
+        nextCounts[like.comment_id] = (nextCounts[like.comment_id] ?? 0) + 1;
+      }
+
+      setCommentLikeCounts(nextCounts);
+    }
+
+    void loadCommunityComments();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [spot?.id]);
+
   // ✅ Standort AUTOMATISCH abfragen
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -255,7 +357,7 @@ export default function SpotDetailPage() {
       ? `https://www.tiktok.com/@juniorstaste/video/${spot.tiktok_embed_id.trim()}`
       : null;
   return (
-    <main className="mx-auto min-h-screen max-w-xl bg-[#0f3b2e] px-6 py-8 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white">
+    <main className="mx-auto min-h-screen max-w-xl bg-[#0f3b2e] px-4 py-7 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-8">
 
       <div className="flex items-center justify-between mb-6">
 
@@ -266,15 +368,15 @@ export default function SpotDetailPage() {
       return;
     }
 
-    router.push("/");
+    router.push("/for-you");
   }}
-className="flex items-center justify-start active:scale-[1.03] transition"
-  aria-label="Zur Startseite"
+className="flex items-center justify-start transition active:scale-[1.03]"
+  aria-label="Zur For You Page"
 >
   <img
     src="/logos/citypage-logo.png"
     alt="Junior's Taste"
-    className="h-auto w-[148px]"
+    className="h-auto w-[132px] sm:w-[148px]"
   />
 </button>
 
@@ -317,17 +419,17 @@ className="flex items-center justify-start active:scale-[1.03] transition"
           )}
 
           {/* Titelzeile mit Spot-Bild */}
-          <div className="mb-3 flex items-center gap-4">
+          <div className="mb-3 flex items-center gap-3 sm:gap-4">
             {spot.image_url ? (
               <img
                 src={spot.image_url}
                 alt={spot.name}
-                className="h-32 w-32 shrink-0 rounded-2xl object-cover ring-1 ring-black/5"
+                className="h-24 w-24 shrink-0 rounded-2xl object-cover ring-1 ring-black/5 sm:h-32 sm:w-32"
               />
             ) : null}
 
             <div className="min-w-0 flex-1">
-              <h1 className="text-3xl font-extrabold">{spot.name}</h1>
+              <h1 className="text-[2rem] font-extrabold leading-tight sm:text-3xl">{spot.name}</h1>
             </div>
           </div>
 
@@ -432,7 +534,7 @@ className="flex items-center justify-start active:scale-[1.03] transition"
                     />
                   </div>
                 ) : (
-                  <div className="flex min-h-[420px] items-center justify-center rounded-xl bg-[#f3ecdf] px-6 text-center">
+                  <div className="flex min-h-[360px] items-center justify-center rounded-xl bg-[#f3ecdf] px-6 text-center sm:min-h-[420px]">
                     <p className="text-sm font-semibold text-[#6b6256]">Video folgt</p>
                   </div>
                 )}
@@ -468,7 +570,7 @@ className="flex items-center justify-start active:scale-[1.03] transition"
                       key={item.id}
                       type="button"
                       onClick={() => router.push(`/spot/${item.id}`)}
-                      className="w-[188px] shrink-0 rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 text-left shadow-sm transition-all duration-300 hover:shadow-lg"
+                      className="w-[min(188px,calc(100vw-6rem))] shrink-0 rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 text-left shadow-sm transition-all duration-300 hover:shadow-lg"
                     >
                       {item.image_url ? (
                         <img
@@ -516,6 +618,65 @@ className="flex items-center justify-start active:scale-[1.03] transition"
                         ) : null}
                       </div>
                     </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          {communityComments.length > 0 ? (
+            <section className="mt-8">
+              <h2 className="mb-4 text-xl font-extrabold text-white">
+                Was die Community sagt
+              </h2>
+
+              <svg width="0" height="0" className="absolute">
+                <defs>
+                  <linearGradient id="spot-testimonial-like-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="rgb(255, 124, 144)" />
+                    <stop offset="100%" stopColor="rgb(255, 225, 164)" />
+                  </linearGradient>
+                </defs>
+              </svg>
+
+              <div className="no-scrollbar -mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+                {communityComments.map((comment) => {
+                  const likeCount = commentLikeCounts[comment.id] ?? 0;
+
+                  return (
+                    <article
+                      key={comment.id}
+                      className="w-[min(250px,calc(100vw-5rem))] shrink-0 rounded-2xl border border-white/10 bg-white/6 p-4 shadow-[0_10px_28px_rgba(0,0,0,0.16)] backdrop-blur-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-extrabold text-white">
+                            {comment.username}
+                          </p>
+                          <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.14em] text-white/45">
+                            Community
+                          </p>
+                        </div>
+
+                        <div className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/8 px-2 py-1 text-xs font-semibold text-white/80">
+                          <Heart
+                            size={18}
+                            weight="fill"
+                            aria-hidden="true"
+                            style={{ fill: "url(#spot-testimonial-like-gradient)" }}
+                          />
+                          {likeCount > 0 ? <span>{likeCount}</span> : null}
+                        </div>
+                      </div>
+
+                      <p className="mt-3 line-clamp-5 text-sm leading-relaxed text-white/88">
+                        {comment.content}
+                      </p>
+
+                      <p className="mt-4 text-xs font-medium text-white/50">
+                        {formatCommentTime(comment.created_at)}
+                      </p>
+                    </article>
                   );
                 })}
               </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getAuthRedirectUrl } from "@/lib/authRedirect";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -39,9 +40,10 @@ export default function AuthForm({
   initialView = "signup",
   onSuccess,
 }: Props) {
+  const router = useRouter();
   const [view, setView] = useState<AuthView>(initialView);
   const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -58,12 +60,12 @@ export default function AuthForm({
     event.preventDefault();
 
     const trimmedEmail = email.trim();
-    const trimmedName = name.trim();
+    const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
     const trimmedPasswordConfirm = passwordConfirm.trim();
 
-    if (view === "signup" && !trimmedName) {
-      setErrorMsg("Bitte gib deinen Namen ein.");
+    if (view === "signup" && !trimmedUsername) {
+      setErrorMsg("Bitte gib deinen Username ein.");
       setSuccessMsg(null);
       return;
     }
@@ -98,6 +100,7 @@ export default function AuthForm({
 
     const emailRedirectTo = getAuthRedirectUrl();
     let error: { message: string } | null = null;
+    let hasSession = false;
 
     if (view === "signup") {
       const result = await supabase.auth.signUp({
@@ -106,12 +109,14 @@ export default function AuthForm({
         options: {
           emailRedirectTo,
           data: {
-            display_name: trimmedName,
+            username: trimmedUsername,
+            display_name: trimmedUsername,
           },
         },
       });
 
       error = result.error;
+      hasSession = Boolean(result.data.session);
     } else if (view === "login") {
       const result = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
@@ -119,6 +124,7 @@ export default function AuthForm({
       });
 
       error = result.error;
+      hasSession = Boolean(result.data.session);
     } else {
       const result = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
         redirectTo: getAuthRedirectUrl("/reset-password"),
@@ -135,12 +141,24 @@ export default function AuthForm({
       return;
     }
 
+    if (view === "signup" && hasSession) {
+      setSuccessMsg("Du bist jetzt eingeloggt.");
+      setErrorMsg(null);
+      onSuccess?.();
+      router.replace("/for-you");
+      return;
+    }
+
     if (view === "signup") {
       setSuccessMsg(
         "Dein Konto wurde erstellt. Bitte bestaetige jetzt die E-Mail in deinem Postfach."
       );
     } else if (view === "login") {
       setSuccessMsg("Du bist jetzt eingeloggt.");
+      setErrorMsg(null);
+      onSuccess?.();
+      router.replace("/for-you");
+      return;
     } else {
       setSuccessMsg(
         "Wir haben dir eine E-Mail zum Zuruecksetzen deines Passworts geschickt."
@@ -189,7 +207,7 @@ export default function AuthForm({
 
       <div className="text-sm text-[#0f3b2e]/80">
         {view === "signup"
-          ? "Erstelle dein Konto mit Name und E-Mail. Danach bestaetigst du den Link in deinem Postfach."
+          ? "Erstelle dein Konto mit Username und E-Mail. Danach bestaetigst du den Link in deinem Postfach."
           : view === "login"
           ? "Logge dich mit deiner E-Mail-Adresse und deinem Passwort ein."
           : "Gib deine E-Mail-Adresse ein. Wir schicken dir einen Link zum Zuruecksetzen deines Passworts."}
@@ -197,14 +215,14 @@ export default function AuthForm({
 
       {view === "signup" ? (
         <input
-          id="signup-name"
-          name="name"
+          id="signup-username"
+          name="username"
           type="text"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
+          value={username}
+          onChange={(event) => setUsername(event.target.value)}
           className={inputClass}
-          placeholder="Name"
-          autoComplete="name"
+          placeholder="Username"
+          autoComplete="username"
         />
       ) : null}
 

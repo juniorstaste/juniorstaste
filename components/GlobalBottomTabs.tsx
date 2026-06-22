@@ -18,11 +18,6 @@ export default function GlobalBottomTabs() {
   const [view, setView] = useState<CityTabView | "saved" | "for-you">("list");
 
   useEffect(() => {
-    if (pathname === "/for-you") {
-      setView("for-you");
-      return;
-    }
-
     if (pathname === "/saved") {
       setView("saved");
       return;
@@ -59,7 +54,7 @@ export default function GlobalBottomTabs() {
     router.push(buildCityViewHref(LAST_CITY_FALLBACK_SLUG, nextView));
   }
 
-  if (!pathname || pathname === "/") return null;
+  if (!pathname || pathname === "/" || pathname === "/for-you") return null;
 
   if (
     pathname.startsWith("/city/") ||

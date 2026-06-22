@@ -2,7 +2,7 @@
 
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import StarRating from "@/components/StarRating";
 import PriceLevel from "@/components/PriceLevel";
 import DeliveryButtons from "@/components/DeliveryButtons";
@@ -42,6 +42,7 @@ type Props = {
   onActiveChange?: (id: string) => void;
   selectedLegendSlug?: string | null;
   onLegendSelect?: (slug: string | null) => void;
+  mapStateKey?: string;
   immersiveSheet?: boolean;
 };
 
@@ -206,6 +207,76 @@ function FitToSpots({
   return null;
 }
 
+function MapViewPersistence({ storageKey }: { storageKey?: string }) {
+  const map = useMap();
+  const restoredRef = useRef(false);
+  const storedViewRef = useRef<{ lat: number; lng: number; zoom: number } | null>(null);
+
+  if (typeof window !== "undefined" && storageKey && storedViewRef.current === null) {
+    try {
+      const parsed = JSON.parse(window.sessionStorage.getItem(storageKey) ?? "null") as {
+        lat?: number;
+        lng?: number;
+        zoom?: number;
+      } | null;
+
+      if (
+        typeof parsed?.lat === "number" &&
+        typeof parsed.lng === "number" &&
+        typeof parsed.zoom === "number"
+      ) {
+        storedViewRef.current = { lat: parsed.lat, lng: parsed.lng, zoom: parsed.zoom };
+      }
+    } catch {
+      storedViewRef.current = null;
+    }
+  }
+
+  const saveView = useCallback(() => {
+    if (!storageKey || typeof window === "undefined" || !restoredRef.current) return;
+
+    const center = map.getCenter();
+    window.sessionStorage.setItem(
+      storageKey,
+      JSON.stringify({ lat: center.lat, lng: center.lng, zoom: map.getZoom() })
+    );
+  }, [map, storageKey]);
+
+  useEffect(() => {
+    map.on("moveend", saveView);
+    map.on("zoomend", saveView);
+
+    return () => {
+      map.off("moveend", saveView);
+      map.off("zoomend", saveView);
+    };
+  }, [map, saveView]);
+
+  useEffect(() => {
+    if (!storageKey) return;
+
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        const storedView = storedViewRef.current;
+        if (storedView) {
+          map.setView([storedView.lat, storedView.lng], storedView.zoom, { animate: false });
+        }
+
+        restoredRef.current = true;
+        saveView();
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [map, saveView, storageKey]);
+
+  return null;
+}
+
 export default function CityMap({
   center,
   spots,
@@ -217,6 +288,7 @@ export default function CityMap({
   onActiveChange,
   selectedLegendSlug,
   onLegendSelect,
+  mapStateKey,
   immersiveSheet = false,
 }: Props) {
   const legendItems = useMemo(() => {
@@ -282,6 +354,8 @@ export default function CityMap({
             userRadiusKm={userRadiusKm}
             immersiveSheet={immersiveSheet}
           />
+
+          <MapViewPersistence storageKey={mapStateKey} />
 
           {/* ✅ User Standort Marker (genau 1x) */}
           {userPos ? (
