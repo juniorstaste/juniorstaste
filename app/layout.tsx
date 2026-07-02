@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/components/AuthProvider";
 import GlobalBottomTabs from "@/components/GlobalBottomTabs";
+import PersistentForYouShell from "@/components/PersistentForYouShell";
 import "./globals.css";
 import localFont from "next/font/local";
 
@@ -61,6 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <body className={montserrat.className}>
       <AuthProvider>
         {children}
+        <PersistentForYouShell />
         <GlobalBottomTabs />
       </AuthProvider>
     </body>

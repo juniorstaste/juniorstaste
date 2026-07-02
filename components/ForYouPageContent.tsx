@@ -739,7 +739,11 @@ function formatTime(seconds: number) {
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
-export default function ForYouPageContent() {
+type ForYouPageContentProps = {
+  isVisible?: boolean;
+};
+
+export default function ForYouPageContent({ isVisible = true }: ForYouPageContentProps) {
   const router = useRouter();
   const { user, profile, openAuthPrompt, isSavedSpot, toggleSavedSpot } = useAuth();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -847,6 +851,8 @@ export default function ForYouPageContent() {
   );
 
   useEffect(() => {
+    if (!isVisible) return;
+
     const html = document.documentElement;
     const body = document.body;
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
@@ -866,7 +872,7 @@ export default function ForYouPageContent() {
         themeColorMeta?.setAttribute("content", "#0f3b2e");
       }
     };
-  }, []);
+  }, [isVisible]);
 
   useEffect(() => {
     async function loadFeedSpots() {
@@ -1078,6 +1084,15 @@ export default function ForYouPageContent() {
   }, [isSoundEnabled, videoRegistryVersion]);
 
   useEffect(() => {
+    if (!isVisible) {
+      Object.entries(videoRefs.current).forEach(([spotId, video]) => {
+        if (!video) return;
+        saveCurrentVideoTime(spotId, video, true);
+        video.pause();
+      });
+      return;
+    }
+
     if (!spots.length || !activeSpotId) return;
 
     const activeVideo = videoRefs.current[activeSpotId] ?? null;
@@ -1108,7 +1123,7 @@ export default function ForYouPageContent() {
         });
       }
     });
-  }, [activeSpotId, isSoundEnabled, restoreVideoTime, saveCurrentVideoTime, spots, videoRegistryVersion]);
+  }, [activeSpotId, isSoundEnabled, isVisible, restoreVideoTime, saveCurrentVideoTime, spots, videoRegistryVersion]);
 
   const setVideoRef = useCallback((spotId: string, node: HTMLVideoElement | null) => {
     if (videoRefs.current[spotId] === node) return;
