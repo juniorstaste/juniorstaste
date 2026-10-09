@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookmarkSimple, ChatCircle, Heart, PaperPlaneTilt } from "@phosphor-icons/react";
 import { useAuth } from "@/components/AuthProvider";
@@ -9,7 +9,7 @@ import ForYouBottomTabs from "@/components/ForYouBottomTabs";
 import SpotCommentsSheet from "@/components/SpotCommentsSheet";
 import { supabase } from "@/lib/supabaseClient";
 import { logSupabaseError } from "@/lib/logSupabaseError";
-import { prioritizeSpots } from "@/lib/prioritySpot";
+import { rankForYouSpots } from "@/lib/forYouRanking";
 
 type FeedSpot = {
   id: string;
@@ -24,6 +24,21 @@ type FeedSpot = {
   created_at?: string | null;
   video_url: string | null;
   tiktok_like_count?: number | null;
+  category_id?: string | null;
+  city_id?: string | null;
+};
+
+type RankingSignals = {
+  likedSpotIds: string[];
+  savedSpotIds: string[];
+  globalLikeCounts: Record<string, number>;
+  globalSaveCounts: Record<string, number>;
+};
+
+type PopularityRow = {
+  spot_id: string;
+  like_count: number | string | null;
+  save_count: number | string | null;
 };
 
 type LikeTrigger = "button" | "double-tap";
@@ -35,6 +50,29 @@ const FOR_YOU_CAPTION_BOTTOM = "8.35rem";
 const FOR_YOU_ACTIVE_SPOT_KEY = "jt:for-you:active-spot-id";
 const FOR_YOU_SCROLL_TOP_KEY = "jt:for-you:scroll-top";
 const FOR_YOU_VIDEO_TIMES_KEY = "jt:for-you:video-times";
+const FOR_YOU_VIDEO_RESUME_MIN_SECONDS = 5;
+const FOR_YOU_ANON_RANKING_SEED_KEY = "jt:for-you:ranking-seed";
+
+function getForYouRankingSeed(userId?: string) {
+  if (userId) {
+    return `user:${userId}:${new Date().toISOString().slice(0, 10)}`;
+  }
+
+  const storedSeed = window.sessionStorage.getItem(FOR_YOU_ANON_RANKING_SEED_KEY);
+  if (storedSeed) return storedSeed;
+
+  const sessionSeed =
+    typeof window.crypto?.randomUUID === "function"
+      ? window.crypto.randomUUID()
+      : `${Date.now()}:${window.performance.now()}`;
+  window.sessionStorage.setItem(FOR_YOU_ANON_RANKING_SEED_KEY, sessionSeed);
+  return sessionSeed;
+}
+
+function toSafeCount(value: number | string | null) {
+  const count = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(count) && count > 0 ? count : 0;
+}
 
 function FeedVideoSlide({
   spot,
@@ -745,7 +783,15 @@ type ForYouPageContentProps = {
 
 export default function ForYouPageContent({ isVisible = true }: ForYouPageContentProps) {
   const router = useRouter();
-  const { user, profile, openAuthPrompt, isSavedSpot, toggleSavedSpot } = useAuth();
+  const {
+    authLoading,
+    user,
+    profile,
+    savedSpotIds,
+    openAuthPrompt,
+    isSavedSpot,
+    toggleSavedSpot,
+  } = useAuth();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const videoTimeCleanupRefs = useRef<Record<string, (() => void) | undefined>>({});
@@ -753,15 +799,33 @@ export default function ForYouPageContent({ isVisible = true }: ForYouPageConten
   const videoTimeSaveTimestampsRef = useRef<Record<string, number>>({});
   const restoredVideoTimesRef = useRef<Record<string, true | "pending" | undefined>>({});
   const activeSpotIdRef = useRef<string | null>(null);
-  const [spots, setSpots] = useState<FeedSpot[]>([]);
+  const savedSpotIdsRef = useRef(savedSpotIds);
+  const [sourceSpots, setSourceSpots] = useState<FeedSpot[]>([]);
+  const [rankingSeed, setRankingSeed] = useState<string | null>(null);
+  const [rankingSignals, setRankingSignals] = useState<RankingSignals | null>(null);
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
-  const [isSoundEnabled, setIsSoundEnabled] = useState(false);
-  const isSoundEnabledRef = useRef(false);
+  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
+  const isSoundEnabledRef = useRef(true);
   const [likedSpotIds, setLikedSpotIds] = useState<Record<string, boolean>>({});
   const [appLikeCounts, setAppLikeCounts] = useState<Record<string, number>>({});
   const [videoRegistryVersion, setVideoRegistryVersion] = useState(0);
   const [commentSpot, setCommentSpot] = useState<FeedSpot | null>(null);
   const restoredForYouPositionRef = useRef(false);
+
+  savedSpotIdsRef.current = savedSpotIds;
+
+  const spots = useMemo(() => {
+    if (!rankingSeed || !rankingSignals) return [];
+
+    return rankForYouSpots({
+      spots: sourceSpots,
+      likedSpotIds: rankingSignals.likedSpotIds,
+      savedSpotIds: rankingSignals.savedSpotIds,
+      globalLikeCounts: rankingSignals.globalLikeCounts,
+      globalSaveCounts: rankingSignals.globalSaveCounts,
+      seed: rankingSeed,
+    });
+  }, [rankingSeed, rankingSignals, sourceSpots]);
 
   const getStoredVideoTimes = useCallback(() => {
     if (typeof window === "undefined") return {};
@@ -802,9 +866,25 @@ export default function ForYouPageContent({ isVisible = true }: ForYouPageConten
       if (!force && now - (videoTimeSaveTimestampsRef.current[spotId] ?? 0) < 1000) return;
 
       const storedTimes = getStoredVideoTimes();
-      if (currentTime <= 0.25 && video.paused && (storedTimes[spotId] ?? 0) > 0.25) return;
+      if (
+        currentTime <= 0.25 &&
+        video.paused &&
+        (storedTimes[spotId] ?? 0) >= FOR_YOU_VIDEO_RESUME_MIN_SECONDS
+      ) {
+        return;
+      }
 
       videoTimeSaveTimestampsRef.current[spotId] = now;
+
+      if (currentTime < FOR_YOU_VIDEO_RESUME_MIN_SECONDS) {
+        if (storedTimes[spotId] === undefined) return;
+
+        const nextTimes = { ...storedTimes };
+        delete nextTimes[spotId];
+        saveVideoTimes(nextTimes);
+        return;
+      }
+
       saveVideoTimes({
         ...storedTimes,
         [spotId]: currentTime,
@@ -818,7 +898,10 @@ export default function ForYouPageContent({ isVisible = true }: ForYouPageConten
       if (!video || restoredVideoTimesRef.current[spotId]) return;
 
       const savedTime = getStoredVideoTimes()[spotId];
-      if (!Number.isFinite(savedTime) || savedTime <= 0) {
+      if (
+        !Number.isFinite(savedTime) ||
+        savedTime < FOR_YOU_VIDEO_RESUME_MIN_SECONDS
+      ) {
         restoredVideoTimesRef.current[spotId] = true;
         return;
       }
@@ -875,6 +958,10 @@ export default function ForYouPageContent({ isVisible = true }: ForYouPageConten
   }, [isVisible]);
 
   useEffect(() => {
+    if (authLoading) return;
+
+    let cancelled = false;
+
     async function loadFeedSpots() {
       let data: FeedSpot[] | null = null;
       let error: { message?: string } | null = null;
@@ -882,7 +969,7 @@ export default function ForYouPageContent({ isVisible = true }: ForYouPageConten
       const withTikTokLikes = await supabase
         .from("spots")
         .select(
-          "id, name, image_url, description, address, google_maps_link, wolt_url, lieferando_url, uber_eats_url, video_url, created_at, tiktok_like_count"
+          "id, name, image_url, description, address, google_maps_link, wolt_url, lieferando_url, uber_eats_url, video_url, created_at, tiktok_like_count, category_id, city_id"
         )
         .not("video_url", "is", null)
         .order("created_at", { ascending: false });
@@ -891,7 +978,7 @@ export default function ForYouPageContent({ isVisible = true }: ForYouPageConten
         const fallback = await supabase
           .from("spots")
           .select(
-            "id, name, image_url, description, address, google_maps_link, wolt_url, lieferando_url, uber_eats_url, video_url, created_at"
+            "id, name, image_url, description, address, google_maps_link, wolt_url, lieferando_url, uber_eats_url, video_url, created_at, category_id, city_id"
           )
           .not("video_url", "is", null)
           .order("created_at", { ascending: false });
@@ -906,7 +993,16 @@ export default function ForYouPageContent({ isVisible = true }: ForYouPageConten
         if (process.env.NODE_ENV !== "production") {
           console.error("[for-you] failed to load feed videos", error);
         }
-        setSpots([]);
+        if (!cancelled) {
+          setSourceSpots([]);
+          setRankingSeed(getForYouRankingSeed(user?.id));
+          setRankingSignals({
+            likedSpotIds: [],
+            savedSpotIds: savedSpotIdsRef.current,
+            globalLikeCounts: {},
+            globalSaveCounts: {},
+          });
+        }
         return;
       }
 
@@ -922,57 +1018,96 @@ export default function ForYouPageContent({ isVisible = true }: ForYouPageConten
         );
       }
 
-      const prioritized = prioritizeSpots<FeedSpot>(normalized);
-      const storedActiveSpotId =
-        typeof window !== "undefined"
-          ? window.sessionStorage.getItem(FOR_YOU_ACTIVE_SPOT_KEY)
-          : null;
-      const restoredActiveSpot = prioritized.find((spot) => spot.id === storedActiveSpotId);
-
-      setSpots(prioritized);
-      setActiveSpotId((current) => current ?? restoredActiveSpot?.id ?? prioritized[0]?.id ?? null);
-    }
-
-    loadFeedSpots();
-  }, []);
-
-  useEffect(() => {
-    async function loadLikes() {
-      if (spots.length === 0) {
-        setLikedSpotIds({});
-        setAppLikeCounts({});
-        return;
-      }
-
-      const spotIds = spots.map((spot) => spot.id);
-      const { data, error } = await supabase
-        .from("spot_likes")
-        .select("spot_id, user_id")
-        .in("spot_id", spotIds);
-
-      if (error) {
-        logSupabaseError("Konnte Like-Daten fuer /for-you nicht laden:", error);
-        setLikedSpotIds({});
-        setAppLikeCounts({});
-        return;
-      }
-
-      const nextCounts: Record<string, number> = {};
-      const nextLiked: Record<string, boolean> = {};
-
-      (data ?? []).forEach((row: { spot_id: string; user_id: string | null }) => {
-        nextCounts[row.spot_id] = (nextCounts[row.spot_id] ?? 0) + 1;
-        if (user?.id && row.user_id === user.id) {
-          nextLiked[row.spot_id] = true;
+      if (normalized.length === 0) {
+        if (!cancelled) {
+          setSourceSpots([]);
+          setRankingSeed(getForYouRankingSeed(user?.id));
+          setRankingSignals({
+            likedSpotIds: [],
+            savedSpotIds: [...savedSpotIdsRef.current],
+            globalLikeCounts: {},
+            globalSaveCounts: {},
+          });
+          setAppLikeCounts({});
+          setLikedSpotIds({});
         }
-      });
+        return;
+      }
 
-      setAppLikeCounts(nextCounts);
+      const spotIds = normalized.map((spot) => spot.id);
+      const popularityPromise = supabase.rpc("get_for_you_spot_popularity");
+      const ownLikesPromise = user?.id
+        ? supabase.from("spot_likes").select("spot_id").eq("user_id", user.id).in("spot_id", spotIds)
+        : Promise.resolve({ data: [], error: null });
+      const [popularityResult, ownLikesResult] = await Promise.all([
+        popularityPromise,
+        ownLikesPromise,
+      ]);
+
+      const globalLikeCounts: Record<string, number> = {};
+      const globalSaveCounts: Record<string, number> = {};
+
+      if (popularityResult.error) {
+        const fallbackLikes = await supabase
+          .from("spot_likes")
+          .select("spot_id")
+          .in("spot_id", spotIds);
+
+        if (fallbackLikes.error) {
+          logSupabaseError("Konnte globale Like-Daten fuer /for-you nicht laden:", fallbackLikes.error);
+        } else {
+          (fallbackLikes.data ?? []).forEach((row: { spot_id: string }) => {
+            globalLikeCounts[row.spot_id] = (globalLikeCounts[row.spot_id] ?? 0) + 1;
+          });
+        }
+      } else {
+        ((popularityResult.data ?? []) as PopularityRow[]).forEach((row) => {
+          globalLikeCounts[row.spot_id] = toSafeCount(row.like_count);
+          globalSaveCounts[row.spot_id] = toSafeCount(row.save_count);
+        });
+      }
+
+      if (ownLikesResult.error) {
+        logSupabaseError("Konnte persoenliche Like-Daten fuer /for-you nicht laden:", ownLikesResult.error);
+      }
+
+      const initialLikedSpotIds = ((ownLikesResult.data ?? []) as { spot_id: string }[]).map(
+        ({ spot_id }) => spot_id
+      );
+      const nextLiked = Object.fromEntries(initialLikedSpotIds.map((spotId) => [spotId, true]));
+
+      if (cancelled) return;
+
+      setSourceSpots(normalized);
+      setRankingSeed(getForYouRankingSeed(user?.id));
+      setRankingSignals({
+        likedSpotIds: initialLikedSpotIds,
+        savedSpotIds: [...savedSpotIdsRef.current],
+        globalLikeCounts,
+        globalSaveCounts,
+      });
+      setAppLikeCounts(globalLikeCounts);
       setLikedSpotIds(nextLiked);
     }
 
-    void loadLikes();
-  }, [spots, user?.id]);
+    void loadFeedSpots();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.id]);
+
+  useEffect(() => {
+    if (spots.length === 0) return;
+
+    const storedActiveSpotId = window.sessionStorage.getItem(FOR_YOU_ACTIVE_SPOT_KEY);
+    const restoredActiveSpot = spots.find((spot) => spot.id === storedActiveSpotId);
+
+    setActiveSpotId((current) => {
+      if (current && spots.some((spot) => spot.id === current)) return current;
+      return restoredActiveSpot?.id ?? spots[0]?.id ?? null;
+    });
+  }, [spots]);
 
   useEffect(() => {
     const node = scrollRef.current;
@@ -1115,7 +1250,24 @@ export default function ForYouPageContent({ isVisible = true }: ForYouPageConten
     activeVideo.muted = nextMuted;
     restoreVideoTime(activeSpotId, activeVideo);
 
-    void activeVideo.play().catch((error) => {
+    void activeVideo.play().catch(async (error) => {
+      if (isSoundEnabled) {
+        activeVideo.muted = true;
+        setIsSoundEnabled(false);
+
+        try {
+          await activeVideo.play();
+          return;
+        } catch (fallbackError) {
+          if (process.env.NODE_ENV !== "production") {
+            console.debug("[for-you] muted autoplay fallback failed", {
+              id: activeSpotId,
+              error: fallbackError,
+            });
+          }
+        }
+      }
+
       if (process.env.NODE_ENV !== "production") {
         console.debug("[for-you] active video play failed", {
           id: activeSpotId,

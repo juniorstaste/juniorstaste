@@ -2,11 +2,9 @@
 
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import StarRating from "@/components/StarRating";
 import PriceLevel from "@/components/PriceLevel";
-import DeliveryButtons from "@/components/DeliveryButtons";
-import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 import {
   getColorForCategory,
   labelFromCategorySlug,
@@ -33,6 +31,7 @@ type MapSpot = {
 type Props = {
   center: [number, number];
   spots: MapSpot[];
+  expandedSpots?: MapSpot[];
   categories?: { slug: string; name: string }[];
   onSpotClick?: (id: string) => void;
   userPos?: { lat: number; lng: number } | null;
@@ -277,9 +276,31 @@ function MapViewPersistence({ storageKey }: { storageKey?: string }) {
   return null;
 }
 
+function MapBoundsTracker({ onBoundsChange }: { onBoundsChange: (bounds: L.LatLngBounds) => void }) {
+  const map = useMap();
+
+  const syncBounds = useCallback(() => {
+    onBoundsChange(map.getBounds());
+  }, [map, onBoundsChange]);
+
+  useEffect(() => {
+    syncBounds();
+    map.on("moveend", syncBounds);
+    map.on("zoomend", syncBounds);
+
+    return () => {
+      map.off("moveend", syncBounds);
+      map.off("zoomend", syncBounds);
+    };
+  }, [map, syncBounds]);
+
+  return null;
+}
+
 export default function CityMap({
   center,
   spots,
+  expandedSpots,
   categories = [],
   onSpotClick,
   userPos,
@@ -291,6 +312,7 @@ export default function CityMap({
   mapStateKey,
   immersiveSheet = false,
 }: Props) {
+  const [visibleBounds, setVisibleBounds] = useState<L.LatLngBounds | null>(null);
   const legendItems = useMemo(() => {
     return [
       { slug: "all", label: "Alle" },
@@ -299,6 +321,10 @@ export default function CityMap({
         label: category.name,
       })),
     ];
+  }, [categories]);
+
+  const categoryLabelBySlug = useMemo(() => {
+    return new Map(categories.map((category) => [category.slug, category.name]));
   }, [categories]);
 
   const nearbySpots = useMemo(() => {
@@ -319,6 +345,23 @@ export default function CityMap({
       })
       .slice(0, 12);
   }, [immersiveSheet, spots, userPos]);
+
+  const visibleMapSpots = useMemo(() => {
+    if (!expandedSpots?.length || !visibleBounds) return spots;
+
+    const byId = new Map<string, MapSpot>();
+
+    expandedSpots.forEach((spot) => {
+      if (!visibleBounds.contains(L.latLng(spot.lat, spot.lng))) return;
+      byId.set(spot.id, spot);
+    });
+
+    spots.forEach((spot) => {
+      byId.set(spot.id, spot);
+    });
+
+    return Array.from(byId.values());
+  }, [expandedSpots, spots, visibleBounds]);
 
   return (
     <div
@@ -356,6 +399,7 @@ export default function CityMap({
           />
 
           <MapViewPersistence storageKey={mapStateKey} />
+          <MapBoundsTracker onBoundsChange={setVisibleBounds} />
 
           {/* ✅ User Standort Marker (genau 1x) */}
           {userPos ? (
@@ -365,14 +409,10 @@ export default function CityMap({
           ) : null}
 
           {/* ✅ Spot Marker */}
-          {spots.map((s) => {
+          {visibleMapSpots.map((s) => {
             const slug = normalizeCategorySlug(s.category_slug);
             const color = getColorForCategory(slug);
-
-            const wolt = s.wolt_url ?? null;
-            const lieferando = s.lieferando_url ?? null;
-            const uberEats = s.uber_eats_url ?? null;
-            const googleMapsLink = s.google_maps_link ?? null;
+            const categoryLabel = categoryLabelBySlug.get(slug) ?? labelFromCategorySlug(slug);
 
             const isActive = activeSpotId === s.id;
             const icon = makeSpotIcon(color, s.image_url, isActive);
@@ -389,18 +429,32 @@ export default function CityMap({
                   },
                 }}
               >
-                <Popup closeButton={true} autoPan={true}>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center", width: 260, maxWidth: 260 }}>
-                    {/* Bild */}
+                <Popup closeButton={false} autoPan={true} className="jt-map-spot-popup">
+                  <button
+                    type="button"
+                    onClick={() => onSpotClick?.(s.id)}
+                    style={{
+                      width: 108,
+                      maxWidth: 108,
+                      border: 0,
+                      background: "transparent",
+                      padding: 0,
+                      textAlign: "left",
+                      cursor: "pointer",
+                      font: "inherit",
+                      color: "inherit",
+                      display: "block",
+                    }}
+                  >
                     <div
                       style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 12,
+                        width: "100%",
+                        height: 60,
+                        borderRadius: 9,
                         overflow: "hidden",
-                        flexShrink: 0,
-                        border: `3px solid ${color}`,
-                        background: "#eee",
+                        border: `1.5px solid ${color}`,
+                        background: "#f3ecdf",
+                        marginBottom: 5,
                       }}
                     >
                       {s.image_url ? (
@@ -412,125 +466,39 @@ export default function CityMap({
                       ) : null}
                     </div>
 
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      {/* Name */}
+                    <div style={{ minWidth: 0 }}>
                       <div
                         style={{
                           fontWeight: 800,
-                          fontSize: 14,
-                          lineHeight: 1.2,
-                          marginBottom: 4,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
+                          fontSize: 11,
+                          lineHeight: 1.15,
+                          marginBottom: 2,
+                          color: "#1f1f1f",
                         }}
                         title={s.name}
                       >
                         {s.name}
                       </div>
 
-                      {/* Meta */}
+                      <div style={{ fontSize: 9, fontWeight: 600, color: "#5a5348", marginBottom: 4 }}>
+                        {categoryLabel}
+                      </div>
+
                       <div
                         style={{
                           display: "flex",
-                          gap: 8,
+                          gap: 5,
                           flexWrap: "wrap",
-                          fontSize: 12,
-                          color: "#555",
+                          fontSize: 9,
                           lineHeight: 1.2,
-                          marginBottom: 10,
                           alignItems: "center",
                         }}
                       >
-                        {s.rating != null ? <StarRating value={s.rating} size={13} showNumber={false} /> : null}
+                        {s.rating != null ? <StarRating value={s.rating} size={9} showNumber={false} /> : null}
                         <PriceLevel value={s.price_level} />
                       </div>
-
-                      {/* ✅ Zeile 1: Zum Spot */}
-                      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                        <button
-                          onClick={() => onSpotClick?.(s.id)}
-                          style={{
-                            padding: "8px 10px",
-                            borderRadius: 10,
-                            border: "1px solid #ddd",
-                            background: "white",
-                            cursor: "pointer",
-                            fontWeight: 800,
-                            fontSize: 12,
-                            flex: 1,
-                          }}
-                        >
-                          Zum Spot →
-                        </button>
-
-                        {googleMapsLink ? (
-                          <a
-                            href={googleMapsLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) =>
-                              void trackAndOpenExternalLink({
-                                event: e,
-                                url: googleMapsLink,
-                                spotId: s.id,
-                                buttonType: "maps",
-                              })
-                            }
-                            style={{
-                              padding: "8px 10px",
-                              borderRadius: 10,
-                              border: "1px solid #ddd",
-                              background: "white",
-                              cursor: "pointer",
-                              fontWeight: 800,
-                              fontSize: 12,
-                              textDecoration: "none",
-                              color: "#111827",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              whiteSpace: "nowrap",
-                            }}
-                            aria-label="Google Maps öffnen"
-                            title="Google Maps öffnen"
-                          >
-                            <img
-                              src="/icons/google-maps.svg"
-                              alt="Google Maps"
-                              width="20"
-                              height="20"
-                              style={{ display: "block" }}
-                            />
-                          </a>
-                        ) : null}
-                      </div>
-
-                      {/* ✅ Zeile 2: Lieferdienste */}
-                      {wolt || lieferando || uberEats ? (
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                          <DeliveryButtons
-                            spotId={s.id}
-                            woltUrl={wolt}
-                            lieferandoUrl={lieferando}
-                            uberEatsUrl={uberEats}
-                            buttonStyle={{
-                              padding: "7px 10px",
-                              borderRadius: 10,
-                              border: "1px solid #ddd",
-                              background: "white",
-                              textDecoration: "none",
-                              fontWeight: 800,
-                              fontSize: 12,
-                              lineHeight: 1,
-                              display: "inline-flex",
-                              alignItems: "center",
-                            }}
-                          />
-                        </div>
-                      ) : null}
                     </div>
-                  </div>
+                  </button>
                 </Popup>
               </Marker>
             );

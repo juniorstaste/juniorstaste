@@ -357,7 +357,7 @@ export default function SpotDetailPage() {
       ? `https://www.tiktok.com/@juniorstaste/video/${spot.tiktok_embed_id.trim()}`
       : null;
   return (
-    <main className="mx-auto min-h-screen max-w-xl bg-[#0f3b2e] px-4 py-7 pb-[calc(7rem+env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-8">
+    <main className="mx-auto min-h-screen max-w-xl bg-[#0f3b2e] px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(env(safe-area-inset-top,0px)+1.75rem)] text-white sm:px-6 sm:pt-[calc(env(safe-area-inset-top,0px)+2rem)]">
 
       <div className="flex items-center justify-between mb-6">
 

@@ -47,6 +47,35 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const POST_AUTH_KEY = "post_auth_action";
 const SAVED_SPOT_IDS_KEY = "saved_spot_ids";
 
+function AppSplashScreen() {
+  return (
+    <div
+      className="fixed inset-0 z-[5000] flex items-center justify-center bg-[#0f3b2e]"
+      aria-hidden="true"
+    >
+      <div
+        className="relative overflow-hidden"
+        style={{
+          width: "min(74.22vw, 281.48px)",
+          aspectRatio: "1462 / 578",
+        }}
+      >
+        <img
+          src="/logos/citypage-logo.png"
+          alt=""
+          className="absolute max-w-none select-none"
+          style={{
+            left: "-8.82%",
+            top: "-42.73%",
+            width: "131.33%",
+          }}
+          draggable={false}
+        />
+      </div>
+    </div>
+  );
+}
+
 function isUuidLike(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value
@@ -82,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>([]);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
+  const [minSplashElapsed, setMinSplashElapsed] = useState(false);
 
   const savedSpotIdsSet = useMemo(() => new Set(savedSpotIds), [savedSpotIds]);
 
@@ -381,6 +411,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    const minSplashTimer = window.setTimeout(() => {
+      setMinSplashElapsed(true);
+    }, 1200);
+
+    return () => {
+      window.clearTimeout(minSplashTimer);
+    };
+  }, []);
+
   const openAuthPrompt = useCallback((action?: PostAuthAction) => {
     if (typeof window !== "undefined" && action) {
       window.localStorage.setItem(POST_AUTH_KEY, JSON.stringify(action));
@@ -501,9 +541,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ]
   );
 
+  const appSplashVisible = !minSplashElapsed || authLoading || (pathname === "/" && Boolean(user));
+
   return (
     <AuthContext.Provider value={value}>
       {children}
+      {appSplashVisible ? <AppSplashScreen /> : null}
 
       {!user && authPromptOpen && portalReady
         ? createPortal(

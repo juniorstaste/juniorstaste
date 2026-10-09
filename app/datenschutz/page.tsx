@@ -14,7 +14,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function DatenschutzPage() {
   return (
     <main className="min-h-screen bg-[#0f3b2e]">
-      <div className="mx-auto max-w-[560px] p-4 pb-16">
+      <div className="mx-auto max-w-[560px] px-4 pb-16 pt-[calc(env(safe-area-inset-top,0px)+16px)]">
         <div className="mb-3 flex justify-end">
           <TopRightMenu />
         </div>
