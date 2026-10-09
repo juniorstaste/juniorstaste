@@ -178,6 +178,11 @@ const legalItems: MenuItem[] = [
     href: "/datenschutz",
     icon: <LegalIcon />,
   },
+  {
+    label: "FAQ",
+    href: "/faq",
+    icon: <LegalIcon />,
+  },
 ];
 
 type Props = {

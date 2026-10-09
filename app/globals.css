@@ -35,6 +35,20 @@ body {
 .leaflet-popup-content-wrapper {
   border-radius: 14px !important;
 }
+
+.jt-map-spot-popup .leaflet-popup-content-wrapper {
+  background: #fff6ea !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 28px rgba(6, 24, 19, 0.22) !important;
+}
+
+.jt-map-spot-popup .leaflet-popup-content {
+  margin: 6px !important;
+}
+
+.jt-map-spot-popup .leaflet-popup-tip {
+  background: #fff6ea !important;
+}
 html,
 body {
   background-color: #0f3b2e !important;
