@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import type { CSSProperties, SyntheticEvent } from "react";
 import type { ExternalButtonType } from "@/lib/externalClickTracking";
 import { trackAndOpenExternalLink } from "@/lib/externalClickTracking";
 
@@ -11,6 +11,7 @@ type Props = {
   lieferandoUrl?: string | null;
   buttonClassName?: string;
   buttonStyle?: CSSProperties;
+  variant?: "default" | "saved" | "for-you";
 };
 
 const defaultButtonClassName =
@@ -27,32 +28,81 @@ export default function DeliveryButtons({
   lieferandoUrl,
   buttonClassName,
   buttonStyle,
+  variant = "default",
 }: Props) {
-  const services: Array<{
+  type DeliveryService = {
     buttonType: ExternalButtonType;
     label: string;
     logoSrc: string;
+    fallbackLogoSrc: string;
     url?: string | null;
-  }> = [
+  };
+
+  const defaultServices: DeliveryService[] = [
     {
       buttonType: "wolt",
       label: "Wolt",
       logoSrc: "/logos/wolt.png",
+      fallbackLogoSrc: "/logos/wolt.png",
       url: woltUrl,
     },
     {
       buttonType: "lieferando",
       label: "Lieferando",
       logoSrc: "/logos/lieferando.png",
+      fallbackLogoSrc: "/logos/lieferando.png",
       url: lieferandoUrl,
     },
     {
       buttonType: "ubereats",
       label: "Uber Eats",
       logoSrc: "/logos/ubereats.png",
+      fallbackLogoSrc: "/logos/ubereats.png",
       url: uberEatsUrl,
     },
   ];
+
+  const savedServices: DeliveryService[] = [
+    {
+      buttonType: "ubereats",
+      label: "Uber Eats",
+      logoSrc: "/logos/delivery/uber-eats.svg",
+      fallbackLogoSrc: "/logos/ubereats.png",
+      url: uberEatsUrl,
+    },
+    {
+      buttonType: "wolt",
+      label: "Wolt",
+      logoSrc: "/logos/delivery/wolt.png",
+      fallbackLogoSrc: "/logos/wolt.png",
+      url: woltUrl,
+    },
+    {
+      buttonType: "lieferando",
+      label: "Lieferando",
+      logoSrc: "/logos/delivery/lieferando.png",
+      fallbackLogoSrc: "/logos/lieferando.png",
+      url: lieferandoUrl,
+    },
+  ];
+
+  const isSavedVariant = variant === "saved";
+  const services = isSavedVariant
+    ? savedServices
+    : variant === "for-you"
+      ? [defaultServices[2], defaultServices[1], defaultServices[0]]
+      : defaultServices;
+
+  function handleLogoError(
+    event: SyntheticEvent<HTMLImageElement>,
+    fallbackLogoSrc: string
+  ) {
+    const image = event.currentTarget;
+    if (image.dataset.fallbackApplied === "true") return;
+
+    image.dataset.fallbackApplied = "true";
+    image.src = fallbackLogoSrc;
+  }
 
   return (
     <>
@@ -73,7 +123,12 @@ export default function DeliveryButtons({
                 buttonType: service.buttonType,
               })
             }
-            className={buttonClassName ?? defaultButtonClassName}
+            className={
+              buttonClassName ??
+              (isSavedVariant
+                ? "inline-flex h-5 shrink-0 items-center justify-center"
+                : defaultButtonClassName)
+            }
             style={buttonStyle}
             aria-label={service.label}
             title={service.label}
@@ -81,7 +136,12 @@ export default function DeliveryButtons({
             <img
               src={service.logoSrc}
               alt={service.label}
-              className="h-full w-full object-contain max-h-5"
+              className={
+                isSavedVariant
+                  ? "h-5 w-auto max-w-full object-contain"
+                  : "h-full max-h-5 w-full object-contain"
+              }
+              onError={(event) => handleLogoError(event, service.fallbackLogoSrc)}
             />
           </a>
         );

@@ -665,6 +665,7 @@ function FeedVideoSlide({
                 woltUrl={spot.wolt_url}
                 lieferandoUrl={spot.lieferando_url}
                 uberEatsUrl={spot.uber_eats_url}
+                variant="for-you"
                 buttonClassName="flex h-9 min-w-[92px] items-center justify-center rounded-2xl bg-[#e8decc] px-3 py-2 text-[#0f3b2e] shadow-sm transition active:scale-95"
               />
             </div>
