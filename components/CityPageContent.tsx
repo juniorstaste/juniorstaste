@@ -243,6 +243,8 @@ function VideoSpotCard({
   spot,
   distanceKm,
   isLiked,
+  soundEnabled,
+  onSoundEnabledChange,
   onToggleLike,
   onOpenComments,
   onOpenSpot,
@@ -250,6 +252,8 @@ function VideoSpotCard({
   spot: Spot;
   distanceKm?: number;
   isLiked: boolean;
+  soundEnabled: boolean;
+  onSoundEnabledChange: (enabled: boolean) => void;
   onToggleLike: (spotId: string) => Promise<boolean>;
   onOpenComments: (spot: Spot) => void;
   onOpenSpot: (spotId: string) => void;
@@ -260,7 +264,6 @@ function VideoSpotCard({
   const [isVisible, setIsVisible] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isSpeedHolding, setIsSpeedHolding] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
   const [likePopping, setLikePopping] = useState(false);
   const [savePopping, setSavePopping] = useState(false);
   const holdTimeoutRef = useRef<number | null>(null);
@@ -292,8 +295,8 @@ function VideoSpotCard({
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    video.muted = isMuted;
-  }, [isMuted]);
+    video.muted = !soundEnabled;
+  }, [soundEnabled]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -310,11 +313,17 @@ function VideoSpotCard({
       return;
     }
 
-    video.muted = isMuted;
+    video.muted = !soundEnabled;
     void video.play().catch(() => {
-      // Mobile autoplay can still be blocked in some edge cases.
+      if (!soundEnabled) return;
+
+      video.muted = true;
+      onSoundEnabledChange(false);
+      void video.play().catch(() => {
+        // Mobile autoplay can still be blocked even after falling back to muted.
+      });
     });
-  }, [isMuted, isVisible]);
+  }, [isVisible, onSoundEnabledChange, soundEnabled]);
 
   function clearHoldTimeout() {
     if (holdTimeoutRef.current == null) return;
@@ -392,15 +401,17 @@ function VideoSpotCard({
     resetPlaybackRate();
   }
 
-  function handleToggleMuted(event: React.SyntheticEvent) {
+  function handleToggleSound(event: React.SyntheticEvent) {
     event.preventDefault();
     event.stopPropagation();
 
     const video = videoRef.current;
-    const nextMuted = !isMuted;
+    const nextSoundEnabled = !soundEnabled;
 
-    setIsMuted(nextMuted);
-    if (video) video.muted = nextMuted;
+    onSoundEnabledChange(nextSoundEnabled);
+    if (!video) return;
+
+    video.muted = !nextSoundEnabled;
   }
 
   async function handleLike(event: React.SyntheticEvent) {
@@ -469,7 +480,7 @@ function VideoSpotCard({
   return (
     <div
       ref={cardRef}
-      className="relative min-h-[30rem] cursor-pointer overflow-hidden rounded-[28px] border border-white/10 bg-[#0f3b2e] shadow-[0_20px_45px_rgba(0,0,0,0.22)] select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none] sm:min-h-[34rem]"
+      className="relative min-h-[var(--mobile-spot-card-height)] snap-start snap-always cursor-pointer overflow-hidden rounded-[28px] border border-white/10 bg-[#0f3b2e] shadow-[0_20px_45px_rgba(0,0,0,0.22)] select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-user-select:none] md:min-h-[34rem]"
     >
       <svg className="absolute h-0 w-0" aria-hidden="true" focusable="false">
         <defs>
@@ -483,7 +494,7 @@ function VideoSpotCard({
       <video
         ref={videoRef}
         src={videoUrl}
-        muted
+        muted={!soundEnabled}
         loop
         playsInline
         preload="metadata"
@@ -667,11 +678,11 @@ function VideoSpotCard({
 
         <button
           type="button"
-          aria-label={isMuted ? "Ton einschalten" : "Ton ausschalten"}
+          aria-label={soundEnabled ? "Ton ausschalten" : "Ton einschalten"}
           className="inline-flex h-10 w-10 items-center justify-center text-white"
-          onClick={handleToggleMuted}
+          onClick={handleToggleSound}
         >
-          {isMuted ? (
+          {!soundEnabled ? (
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path
                 d="M5 10h4l5-4v12l-5-4H5v-4Z"
@@ -827,6 +838,7 @@ export default function CityPageContent() {
 
   const [activeSpotId, setActiveSpotId] = useState<string | null>(null);
   const [likedVideoSpotIds, setLikedVideoSpotIds] = useState<Record<string, boolean>>({});
+  const [listSoundEnabled, setListSoundEnabled] = useState(false);
   const [selectedMapLegendSlug, setSelectedMapLegendSlug] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -834,6 +846,7 @@ export default function CityPageContent() {
   const [commentSpot, setCommentSpot] = useState<Spot | null>(null);
   const legendListRef = useRef<HTMLDivElement | null>(null);
   const filterMenuRef = useRef<HTMLDivElement | null>(null);
+  const spotFeedRef = useRef<HTMLDivElement | null>(null);
   const mapLocationRequestedRef = useRef(false);
 
   const scrollStorageKey = useMemo(() => {
@@ -886,6 +899,52 @@ export default function CityPageContent() {
 
     window.scrollTo(0, storedScrollY);
   }, [loading, scrollStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || view !== "list") return;
+
+    const mobileQuery = window.matchMedia("(max-width: 767px)");
+    if (!mobileQuery.matches) return;
+
+    const pageScroller = document.documentElement;
+    const previousScrollSnapType = pageScroller.style.scrollSnapType;
+    const previousScrollPaddingTop = pageScroller.style.scrollPaddingTop;
+    let animationFrame = 0;
+
+    const updateDocumentSnap = () => {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        const feed = spotFeedRef.current;
+        const activeSnapOffset = Number.parseFloat(
+          window.getComputedStyle(pageScroller).scrollPaddingTop
+        );
+        const feedHasReachedViewportTop = Boolean(
+          feed &&
+            feed.getBoundingClientRect().top <=
+              (Number.isFinite(activeSnapOffset) ? activeSnapOffset : 0) + 1
+        );
+
+        pageScroller.style.scrollSnapType = feedHasReachedViewportTop
+          ? "y mandatory"
+          : previousScrollSnapType;
+        pageScroller.style.scrollPaddingTop = feedHasReachedViewportTop
+          ? "calc(env(safe-area-inset-top, 0px) + 0.5rem)"
+          : previousScrollPaddingTop;
+      });
+    };
+
+    updateDocumentSnap();
+    window.addEventListener("scroll", updateDocumentSnap, { passive: true });
+    window.addEventListener("resize", updateDocumentSnap);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("scroll", updateDocumentSnap);
+      window.removeEventListener("resize", updateDocumentSnap);
+      pageScroller.style.scrollSnapType = previousScrollSnapType;
+      pageScroller.style.scrollPaddingTop = previousScrollPaddingTop;
+    };
+  }, [category, deliveryFilter, errorMsg, loading, search, sort, spots.length, view]);
 
   function handleViewChange(nextView: CityTabView) {
     if (scrollStorageKey && typeof window !== "undefined") {
@@ -1577,7 +1636,7 @@ export default function CityPageContent() {
   });
 
   return (
-    <main className="mx-auto max-w-[560px] px-4 pb-28 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
+    <main className="mx-auto max-w-[560px] px-4 pb-28 pt-[calc(env(safe-area-inset-top)+0.5rem)] max-md:[--mobile-spot-card-height:calc(100dvh_-_5rem_-_env(safe-area-inset-top)_-_env(safe-area-inset-bottom))]">
       <div className="mb-5">
         <div className="relative mb-8 mt-3 h-10 sm:mb-10">
           {isTasteDesMonatsView ? (
@@ -2105,7 +2164,7 @@ export default function CityPageContent() {
       ) : filteredSpots.length === 0 ? (
         <p className="text-[#f6efe3]">Keine Spots gefunden für diese Stadt.</p>
       ) : (
-        <div className="grid gap-3">
+        <div ref={spotFeedRef} className="grid gap-3 bg-transparent">
           {filteredSpots.map((s) => {
             const wolt = s.wolt_url ?? null;
             const lieferando = s.lieferando_url ?? null;
@@ -2119,6 +2178,8 @@ export default function CityPageContent() {
                   spot={s}
                   distanceKm={distanceById.get(s.id)}
                   isLiked={likedVideoSpotIds[s.id] === true}
+                  soundEnabled={listSoundEnabled}
+                  onSoundEnabledChange={setListSoundEnabled}
                   onToggleLike={toggleVideoSpotLike}
                   onOpenComments={handleVideoCommentIntent}
                   onOpenSpot={(spotId) => router.push(`/spot/${spotId}`)}
@@ -2130,7 +2191,7 @@ export default function CityPageContent() {
   <div
     key={s.id}
     onClick={() => router.push(`/spot/${s.id}`)}
-    className="relative min-w-0 cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg"
+    className="relative min-h-[var(--mobile-spot-card-height)] min-w-0 snap-start snap-always cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-4 shadow-sm transition-all duration-300 hover:shadow-lg md:min-h-0"
   >
     <div className="absolute right-3 top-3 z-10 flex flex-col items-end gap-2">
       <div className="flex items-center gap-2">

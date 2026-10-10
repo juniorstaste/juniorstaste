@@ -70,66 +70,64 @@ function SpotCard({ spot, onOpenSpot }: { spot: Spot; onOpenSpot: (spotId: strin
           onOpenSpot(spot.id);
         }
       }}
-      className="w-full min-w-0 max-w-full cursor-pointer rounded-2xl border border-[#efe7da] bg-gradient-to-b from-[#fffaf2] to-[#fff6ea] p-3 text-left shadow-sm transition-all duration-300 hover:shadow-lg active:scale-[0.98]"
+      className="relative aspect-[3/4] w-full min-w-0 max-w-full cursor-pointer overflow-hidden rounded-2xl border border-[#efe7da] bg-[#d8cdbd] text-left shadow-sm transition-all duration-300 hover:shadow-lg active:scale-[0.98]"
     >
       {spot.image_url ? (
-        <div className="mb-3 flex aspect-[4/3] w-full items-center justify-center rounded-xl bg-[#f3ecdf] ring-1 ring-black/5">
-          <img
-            src={spot.image_url}
-            alt={spot.name}
-            className="max-h-full max-w-full rounded-xl object-contain"
-          />
-        </div>
+        <img
+          src={spot.image_url}
+          alt={spot.name}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
       ) : (
-        <div className="mb-3 aspect-[4/3] w-full rounded-xl bg-[#f3ecdf] ring-1 ring-black/5" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#d8cdbd] to-[#9e907d]" />
       )}
 
-      <h2 className="line-clamp-2 min-h-[2.5rem] text-sm font-extrabold leading-tight text-[#1f1f1f]">
-        {spot.name}
-      </h2>
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/80" />
 
-      <div className="mt-1 min-h-[1rem] text-xs text-[#5a5348]">
-        {spot.category_name ? <span>{spot.category_name}</span> : null}
-      </div>
+      <div className="absolute inset-x-0 bottom-0 z-10 p-3 text-white">
+        <h2 className="line-clamp-2 text-sm font-extrabold leading-tight drop-shadow-sm">
+          {spot.name}
+        </h2>
 
-      <div
-        className="mt-1 flex h-5 min-w-0 flex-nowrap gap-1 overflow-hidden"
-        onClick={(event) => event.stopPropagation()}
-      >
         {hasDeliveryButtons ? (
-          <DeliveryButtons
-            spotId={spot.id}
-            woltUrl={spot.wolt_url}
-            lieferandoUrl={spot.lieferando_url}
-            uberEatsUrl={spot.uber_eats_url}
-            buttonClassName="flex h-5 min-w-0 flex-1 items-center justify-center rounded-lg border border-[#e7dfcf] bg-[#fffaf2] px-1 py-0.5 shadow-sm transition hover:bg-[#f6efe3]"
-          />
-        ) : null}
-      </div>
-
-      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-        {typeof spot.rating === "number" ? (
-          <span className="jt-text-gradient inline-flex items-center gap-1">
-            <span>★</span>
-            <span className="font-semibold">{spot.rating.toFixed(1)}</span>
-          </span>
-        ) : null}
-
-        {activePriceLevel > 0 ? (
-          <span
-            className="inline-flex items-center gap-0.5 font-semibold text-[#3b342b]"
-            aria-label={`Preisniveau ${activePriceLevel} von 4`}
+          <div
+            className="mt-2 flex h-5 min-w-0 flex-nowrap items-center gap-2 overflow-hidden"
+            onClick={(event) => event.stopPropagation()}
           >
-            {Array.from({ length: 4 }, (_, index) => (
-              <span
-                key={index}
-                className={index < activePriceLevel ? "text-[#3b342b]" : "text-[#3b342b]/30"}
-              >
-                €
-              </span>
-            ))}
-          </span>
+            <DeliveryButtons
+              spotId={spot.id}
+              woltUrl={spot.wolt_url}
+              lieferandoUrl={spot.lieferando_url}
+              uberEatsUrl={spot.uber_eats_url}
+              variant="saved"
+            />
+          </div>
         ) : null}
+
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs drop-shadow-sm">
+          {typeof spot.rating === "number" ? (
+            <span className="inline-flex items-center gap-1 text-[#f3d87a]">
+              <span>★</span>
+              <span className="font-semibold">{spot.rating.toFixed(1)}</span>
+            </span>
+          ) : null}
+
+          {activePriceLevel > 0 ? (
+            <span
+              className="inline-flex items-center gap-0.5 font-semibold"
+              aria-label={`Preisniveau ${activePriceLevel} von 4`}
+            >
+              {Array.from({ length: 4 }, (_, index) => (
+                <span
+                  key={index}
+                  className={index < activePriceLevel ? "text-white" : "text-white/35"}
+                >
+                  €
+                </span>
+              ))}
+            </span>
+          ) : null}
+        </div>
       </div>
     </div>
   );
