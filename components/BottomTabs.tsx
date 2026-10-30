@@ -1,15 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   buildCityViewHref,
   LAST_CITY_FALLBACK_SLUG,
   LAST_CITY_SLUG_KEY,
 } from "@/lib/lastCityNavigation";
+import {
+  PRIMARY_TAB_ORDER,
+  ROOT_TAB_SWIPE_EVENT,
+  type PrimaryTab,
+  type SwipeDirection,
+} from "@/lib/swipeNavigation";
 
 type View = "list" | "map";
-type Tab = "for-you" | View | "saved";
+type Tab = PrimaryTab;
 
 type Props = {
   view: Tab;
@@ -107,6 +113,10 @@ export default function BottomTabs({ view, onChange }: Props) {
   const baseBtn =
     "flex items-center justify-center whitespace-nowrap rounded-[20px] font-semibold " +
     "transform-gpu transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97]";
+  const triggerTab = useCallback((tab: Tab, action: () => void) => {
+    setRecentlyTappedTab(tab);
+    action();
+  }, []);
 
   useEffect(() => {
     const citySlug =
@@ -119,6 +129,32 @@ export default function BottomTabs({ view, onChange }: Props) {
     router.prefetch(buildCityViewHref(citySlug, "list"));
     router.prefetch(buildCityViewHref(citySlug, "map"));
   }, [router]);
+
+  useEffect(() => {
+    function handleRootTabSwipe(event: Event) {
+      const direction = (event as CustomEvent<{ direction?: SwipeDirection }>).detail
+        ?.direction;
+      if (direction !== "left" && direction !== "right") return;
+
+      const currentIndex = PRIMARY_TAB_ORDER.indexOf(view);
+      const nextIndex = currentIndex + (direction === "left" ? 1 : -1);
+      const nextTab = PRIMARY_TAB_ORDER[nextIndex];
+      if (!nextTab) return;
+
+      triggerTab(nextTab, () => {
+        if (nextTab === "for-you") {
+          router.replace("/for-you");
+        } else if (nextTab === "saved") {
+          router.replace("/saved");
+        } else {
+          onChange(nextTab);
+        }
+      });
+    }
+
+    window.addEventListener(ROOT_TAB_SWIPE_EVENT, handleRootTabSwipe);
+    return () => window.removeEventListener(ROOT_TAB_SWIPE_EVENT, handleRootTabSwipe);
+  }, [onChange, router, triggerTab, view]);
 
   useEffect(() => {
     if (!recentlyTappedTab) return;
@@ -182,11 +218,6 @@ export default function BottomTabs({ view, onChange }: Props) {
     };
   }, []);
 
-  function triggerTab(tab: Tab, action: () => void) {
-    setRecentlyTappedTab(tab);
-    action();
-  }
-
   function renderLabel(tab: Tab, label: string) {
     const isVisible = recentlyTappedTab === tab;
 
@@ -205,6 +236,7 @@ export default function BottomTabs({ view, onChange }: Props) {
 
   return (
     <div
+      data-no-tab-swipe=""
       className="fixed left-0 right-0 z-[1100] transition-all duration-300 ease-out"
       style={{ bottom: "max(env(safe-area-inset-bottom), 12px)" }}
     >

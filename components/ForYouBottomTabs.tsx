@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   buildCityViewHref,
   LAST_CITY_FALLBACK_SLUG,
@@ -9,6 +9,10 @@ import {
   LAST_CITY_VIEW_KEY,
 } from "@/lib/lastCityNavigation";
 import type { CityTabView } from "@/lib/lastCityNavigation";
+import {
+  ROOT_TAB_SWIPE_EVENT,
+  type SwipeDirection,
+} from "@/lib/swipeNavigation";
 
 type Tab = "for-you" | CityTabView | "saved";
 
@@ -73,6 +77,7 @@ function ForYouIcon() {
 
 export default function ForYouBottomTabs() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isCompact, setIsCompact] = useState(false);
   const [recentlyTappedTab, setRecentlyTappedTab] = useState<Tab | null>(() => {
     if (typeof window === "undefined") return null;
@@ -102,6 +107,23 @@ export default function ForYouBottomTabs() {
   const baseBtn =
     "flex items-center justify-center whitespace-nowrap rounded-[20px] font-semibold " +
     "transform-gpu transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97]";
+
+  const triggerTab = useCallback((tab: Tab, action: () => void) => {
+    setRecentlyTappedTab(tab);
+    action();
+  }, []);
+
+  const navigateToCityView = useCallback((nextView: CityTabView) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(LAST_CITY_VIEW_KEY, nextView);
+      const citySlug =
+        window.localStorage.getItem(LAST_CITY_SLUG_KEY) || LAST_CITY_FALLBACK_SLUG;
+      router.replace(buildCityViewHref(citySlug, nextView));
+      return;
+    }
+
+    router.replace(buildCityViewHref(LAST_CITY_FALLBACK_SLUG, nextView));
+  }, [router]);
 
   useEffect(() => {
     const citySlug =
@@ -151,22 +173,18 @@ export default function ForYouBottomTabs() {
     };
   }, []);
 
-  function triggerTab(tab: Tab, action: () => void) {
-    setRecentlyTappedTab(tab);
-    action();
-  }
+  useEffect(() => {
+    function handleRootTabSwipe(event: Event) {
+      const direction = (event as CustomEvent<{ direction?: SwipeDirection }>).detail
+        ?.direction;
+      if (pathname !== "/for-you" || direction !== "left") return;
 
-  function navigateToCityView(nextView: CityTabView) {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(LAST_CITY_VIEW_KEY, nextView);
-      const citySlug =
-        window.localStorage.getItem(LAST_CITY_SLUG_KEY) || LAST_CITY_FALLBACK_SLUG;
-      router.replace(buildCityViewHref(citySlug, nextView));
-      return;
+      triggerTab("map", () => navigateToCityView("map"));
     }
 
-    router.replace(buildCityViewHref(LAST_CITY_FALLBACK_SLUG, nextView));
-  }
+    window.addEventListener(ROOT_TAB_SWIPE_EVENT, handleRootTabSwipe);
+    return () => window.removeEventListener(ROOT_TAB_SWIPE_EVENT, handleRootTabSwipe);
+  }, [navigateToCityView, pathname, triggerTab]);
 
   function renderLabel(tab: Tab, label: string) {
     const isVisible = recentlyTappedTab === tab;
@@ -186,6 +204,7 @@ export default function ForYouBottomTabs() {
 
   return (
     <div
+      data-no-tab-swipe=""
       className="for-you-bottom-tabs fixed left-0 right-0 z-[1100] transition-all duration-300 ease-out"
       style={{ bottom: "max(env(safe-area-inset-bottom), 12px)" }}
     >
