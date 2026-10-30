@@ -224,7 +224,7 @@ export default function BottomTabs({ view, onChange }: Props) {
         >
           <div className={`flex items-center transition-all duration-300 ease-out ${isCompact ? "gap-1" : "gap-1.5"}`}>
             <button
-              onClick={() => triggerTab("for-you", () => router.push("/for-you"))}
+              onClick={() => triggerTab("for-you", () => router.replace("/for-you"))}
               className={`flex-1 ${baseBtn} ${
                 isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
               } ${
@@ -272,7 +272,7 @@ export default function BottomTabs({ view, onChange }: Props) {
             </button>
 
             <button
-              onClick={() => triggerTab("saved", () => router.push("/saved"))}
+              onClick={() => triggerTab("saved", () => router.replace("/saved"))}
               className={`flex-1 ${baseBtn} ${
                 isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
               } ${

@@ -541,7 +541,11 @@ function FeedVideoSlide({
               <Heart size={30} weight="fill" aria-hidden="true" />
             </span>
           </button>
-          <span className="mt-1 text-xs font-semibold text-white/92">{formatCompactLikeCount(likeCount)}</span>
+          {likeCount > 0 ? (
+            <span className="mt-1 text-xs font-semibold text-white/92">
+              {formatCompactLikeCount(likeCount)}
+            </span>
+          ) : null}
         </div>
 
         <button

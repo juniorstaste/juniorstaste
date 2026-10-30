@@ -161,11 +161,11 @@ export default function ForYouBottomTabs() {
       window.localStorage.setItem(LAST_CITY_VIEW_KEY, nextView);
       const citySlug =
         window.localStorage.getItem(LAST_CITY_SLUG_KEY) || LAST_CITY_FALLBACK_SLUG;
-      router.push(buildCityViewHref(citySlug, nextView));
+      router.replace(buildCityViewHref(citySlug, nextView));
       return;
     }
 
-    router.push(buildCityViewHref(LAST_CITY_FALLBACK_SLUG, nextView));
+    router.replace(buildCityViewHref(LAST_CITY_FALLBACK_SLUG, nextView));
   }
 
   function renderLabel(tab: Tab, label: string) {
@@ -205,7 +205,7 @@ export default function ForYouBottomTabs() {
         >
           <div className={`flex items-center transition-all duration-300 ease-out ${isCompact ? "gap-1" : "gap-1.5"}`}>
             <button
-              onClick={() => triggerTab("for-you", () => router.push("/for-you"))}
+              onClick={() => triggerTab("for-you", () => router.replace("/for-you"))}
               className={`flex-1 ${baseBtn} ${
                 isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
               } jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]`}
@@ -241,7 +241,7 @@ export default function ForYouBottomTabs() {
             </button>
 
             <button
-              onClick={() => triggerTab("saved", () => router.push("/saved"))}
+              onClick={() => triggerTab("saved", () => router.replace("/saved"))}
               className={`flex-1 ${baseBtn} ${
                 isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
               } text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5`}
