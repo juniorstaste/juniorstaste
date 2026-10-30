@@ -10,7 +10,6 @@ import SpotCommentsSheet from "@/components/SpotCommentsSheet";
 import { supabase } from "@/lib/supabaseClient";
 import { logSupabaseError } from "@/lib/logSupabaseError";
 import { rankForYouSpots } from "@/lib/forYouRanking";
-import { TAB_SWIPE_COMPLETE_EVENT } from "@/lib/swipeNavigation";
 
 type FeedSpot = {
   id: string;
@@ -233,33 +232,6 @@ function FeedVideoSlide({
     }
     resetPlaybackRate();
   }
-
-  useEffect(() => {
-    function handleTabSwipeComplete(event: Event) {
-      const target = (event as CustomEvent<{ target?: EventTarget }>).detail?.target;
-      const section = sectionRef.current;
-      if (!section || !(target instanceof Node) || !section.contains(target)) return;
-
-      if (holdTimeoutRef.current !== null) {
-        window.clearTimeout(holdTimeoutRef.current);
-        holdTimeoutRef.current = null;
-      }
-      if (singleTapTimeoutRef.current !== null) {
-        window.clearTimeout(singleTapTimeoutRef.current);
-        singleTapTimeoutRef.current = null;
-      }
-
-      const video = videoRef.current;
-      if (video) video.playbackRate = 1;
-      setIsSpeedHolding(false);
-      suppressTapRef.current = true;
-      lastTapAtRef.current = 0;
-    }
-
-    window.addEventListener(TAB_SWIPE_COMPLETE_EVENT, handleTabSwipeComplete);
-    return () =>
-      window.removeEventListener(TAB_SWIPE_COMPLETE_EVENT, handleTabSwipeComplete);
-  }, []);
 
   const finishScrubbing = useCallback(() => {
     const video = videoRef.current;

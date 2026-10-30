@@ -10,10 +10,7 @@ import { logSupabaseError } from "@/lib/logSupabaseError";
 import { prioritizeSpots } from "@/lib/prioritySpot";
 import { LAST_CITY_FALLBACK_SLUG, LAST_CITY_SLUG_KEY } from "@/lib/lastCityNavigation";
 import { getPriceLevelValue } from "@/lib/priceLevel";
-import {
-  SAVED_SUBTAB_SWIPE_EVENT,
-  type SwipeDirection,
-} from "@/lib/swipeNavigation";
+import { useTabBarDrag } from "@/lib/useTabBarDrag";
 
 const TASTE_DES_MONATS_IDS = [
   "0f63bbc8-7050-4406-b512-3e133965a1e4",
@@ -214,24 +211,18 @@ export default function SavedPageContent({ isVisible = true }: SavedPageContentP
 
     setViewMode(nextViewMode);
   }, [scrollStorageKey]);
-
-  useEffect(() => {
-    if (!isVisible) return;
-
-    function handleSavedSubtabSwipe(event: Event) {
-      const direction = (event as CustomEvent<{ direction?: SwipeDirection }>).detail
-        ?.direction;
-      if (direction === "left" && viewMode === "saved") {
-        handleViewModeChange("likes");
-      } else if (direction === "right" && viewMode === "likes") {
-        handleViewModeChange("saved");
-      }
-    }
-
-    window.addEventListener(SAVED_SUBTAB_SWIPE_EVENT, handleSavedSubtabSwipe);
-    return () =>
-      window.removeEventListener(SAVED_SUBTAB_SWIPE_EVENT, handleSavedSubtabSwipe);
-  }, [handleViewModeChange, isVisible, viewMode]);
+  const selectSavedTab = useCallback(
+    (tab: SavedViewMode) => handleViewModeChange(tab),
+    [handleViewModeChange]
+  );
+  const previewSavedTab = useCallback(
+    (tab: SavedViewMode) => handleViewModeChange(tab),
+    [handleViewModeChange]
+  );
+  const { tabBarRef, onPointerDown, shouldSuppressClick } = useTabBarDrag(
+    ["saved", "likes"] as const,
+    previewSavedTab
+  );
 
   useEffect(() => {
     async function loadTasteDesMonatsSpots() {
@@ -632,10 +623,17 @@ export default function SavedPageContent({ isVisible = true }: SavedPageContentP
           </div>
 
           <div className="mt-4 flex justify-center">
-            <div className="inline-flex rounded-full border border-white/10 bg-white/10 p-1 shadow-sm backdrop-blur-sm">
+            <div
+              ref={tabBarRef}
+              onPointerDown={onPointerDown}
+              className="inline-flex rounded-full border border-white/10 bg-white/10 p-1 shadow-sm backdrop-blur-sm"
+            >
               <button
                 type="button"
-                onClick={() => handleViewModeChange("saved")}
+                data-tab-id="saved"
+                onClick={() => {
+                  if (!shouldSuppressClick()) selectSavedTab("saved");
+                }}
                 className={`min-w-[120px] rounded-full px-4 py-2 text-sm font-semibold transition sm:min-w-[136px] sm:px-5 ${
                   viewMode === "saved" ? "jt-active-gradient" : "text-white/80"
                 }`}
@@ -644,7 +642,10 @@ export default function SavedPageContent({ isVisible = true }: SavedPageContentP
               </button>
               <button
                 type="button"
-                onClick={() => handleViewModeChange("likes")}
+                data-tab-id="likes"
+                onClick={() => {
+                  if (!shouldSuppressClick()) selectSavedTab("likes");
+                }}
                 className={`min-w-[120px] rounded-full px-4 py-2 text-sm font-semibold transition sm:min-w-[136px] sm:px-5 ${
                   viewMode === "likes" ? "jt-active-gradient" : "text-white/80"
                 }`}
@@ -655,58 +656,56 @@ export default function SavedPageContent({ isVisible = true }: SavedPageContentP
           </div>
         </div>
 
-        <div data-saved-subtab-swipe-area="">
-          {authLoading ? (
-            <SavedSkeleton />
-          ) : !user ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
-              <div className="mb-2 font-semibold">Bitte melde dich an</div>
-              <p className="text-sm text-white/80">
-                Melde dich an oder erstelle ein Konto, um deine gespeicherten Spots und Likes zu
-                sehen.
-              </p>
+        {authLoading ? (
+          <SavedSkeleton />
+        ) : !user ? (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
+            <div className="mb-2 font-semibold">Bitte melde dich an</div>
+            <p className="text-sm text-white/80">
+              Melde dich an oder erstelle ein Konto, um deine gespeicherten Spots und Likes zu
+              sehen.
+            </p>
 
-              <button
-                type="button"
-                onClick={() => openAuthPrompt({ type: "open-saved" })}
-                className="mt-4 rounded-2xl bg-[#e8decc] px-4 py-3 font-semibold text-[#0f3b2e]"
-              >
-                Einloggen / Konto erstellen
-              </button>
-            </div>
-          ) : isCurrentViewLoading ? (
-            <SavedSkeleton />
-          ) : viewMode === "saved" && savedSpots.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
-              <div className="mb-2 font-semibold">Noch nichts gespeichert</div>
-              <p className="text-sm text-white/80">
-                Speichere Spots über das Bookmark auf der Detailseite oder in der Listenansicht,
-                dann erscheinen sie hier.
-              </p>
-            </div>
-          ) : viewMode === "likes" && likedSpots.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
-              <div className="mb-2 font-semibold">Noch keine gelikten Spots.</div>
-              <p className="text-sm text-white/80">
-                Like Spots im For-You-Feed, dann erscheinen sie hier.
-              </p>
-            </div>
-          ) : visibleSpots.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
-              <div className="mb-2 font-semibold">Keine Spots in dieser Stadt</div>
-              <p className="text-sm text-white/80">
-                Für {selectedCity?.name ?? "diese Stadt"} gibt es in dieser Ansicht aktuell keine
-                Spots.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 sm:gap-4">
-              {visibleSpots.map((spot) => (
-                <SpotCard key={spot.id} spot={spot} onOpenSpot={(spotId) => router.push(`/spot/${spotId}`)} />
-              ))}
-            </div>
-          )}
-        </div>
+            <button
+              type="button"
+              onClick={() => openAuthPrompt({ type: "open-saved" })}
+              className="mt-4 rounded-2xl bg-[#e8decc] px-4 py-3 font-semibold text-[#0f3b2e]"
+            >
+              Einloggen / Konto erstellen
+            </button>
+          </div>
+        ) : isCurrentViewLoading ? (
+          <SavedSkeleton />
+        ) : viewMode === "saved" && savedSpots.length === 0 ? (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
+            <div className="mb-2 font-semibold">Noch nichts gespeichert</div>
+            <p className="text-sm text-white/80">
+              Speichere Spots über das Bookmark auf der Detailseite oder in der Listenansicht,
+              dann erscheinen sie hier.
+            </p>
+          </div>
+        ) : viewMode === "likes" && likedSpots.length === 0 ? (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
+            <div className="mb-2 font-semibold">Noch keine gelikten Spots.</div>
+            <p className="text-sm text-white/80">
+              Like Spots im For-You-Feed, dann erscheinen sie hier.
+            </p>
+          </div>
+        ) : visibleSpots.length === 0 ? (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
+            <div className="mb-2 font-semibold">Keine Spots in dieser Stadt</div>
+            <p className="text-sm text-white/80">
+              Für {selectedCity?.name ?? "diese Stadt"} gibt es in dieser Ansicht aktuell keine
+              Spots.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 sm:gap-4">
+            {visibleSpots.map((spot) => (
+              <SpotCard key={spot.id} spot={spot} onOpenSpot={(spotId) => router.push(`/spot/${spotId}`)} />
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );

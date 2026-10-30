@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   buildCityViewHref,
   LAST_CITY_FALLBACK_SLUG,
@@ -9,10 +9,7 @@ import {
   LAST_CITY_VIEW_KEY,
 } from "@/lib/lastCityNavigation";
 import type { CityTabView } from "@/lib/lastCityNavigation";
-import {
-  ROOT_TAB_SWIPE_EVENT,
-  type SwipeDirection,
-} from "@/lib/swipeNavigation";
+import { useTabBarDrag } from "@/lib/useTabBarDrag";
 
 type Tab = "for-you" | CityTabView | "saved";
 
@@ -77,8 +74,8 @@ function ForYouIcon() {
 
 export default function ForYouBottomTabs() {
   const router = useRouter();
-  const pathname = usePathname();
   const [isCompact, setIsCompact] = useState(false);
+  const [dragPreviewTab, setDragPreviewTab] = useState<Tab | null>(null);
   const [recentlyTappedTab, setRecentlyTappedTab] = useState<Tab | null>(() => {
     if (typeof window === "undefined") return null;
 
@@ -124,6 +121,27 @@ export default function ForYouBottomTabs() {
 
     router.replace(buildCityViewHref(LAST_CITY_FALLBACK_SLUG, nextView));
   }, [router]);
+  const selectTab = useCallback((tab: Tab) => {
+    setDragPreviewTab(null);
+    triggerTab(tab, () => {
+      if (tab === "for-you") {
+        router.replace("/for-you");
+      } else if (tab === "saved") {
+        router.replace("/saved");
+      } else {
+        navigateToCityView(tab);
+      }
+    });
+  }, [navigateToCityView, router, triggerTab]);
+  const previewTab = useCallback((tab: Tab) => {
+    triggerTab(tab, () => setDragPreviewTab(tab));
+  }, [triggerTab]);
+  const { tabBarRef, onPointerDown, shouldSuppressClick } = useTabBarDrag(
+    ["for-you", "map", "list", "saved"] as const,
+    previewTab,
+    selectTab
+  );
+  const activeTab = dragPreviewTab ?? "for-you";
 
   useEffect(() => {
     const citySlug =
@@ -173,21 +191,8 @@ export default function ForYouBottomTabs() {
     };
   }, []);
 
-  useEffect(() => {
-    function handleRootTabSwipe(event: Event) {
-      const direction = (event as CustomEvent<{ direction?: SwipeDirection }>).detail
-        ?.direction;
-      if (pathname !== "/for-you" || direction !== "left") return;
-
-      triggerTab("map", () => navigateToCityView("map"));
-    }
-
-    window.addEventListener(ROOT_TAB_SWIPE_EVENT, handleRootTabSwipe);
-    return () => window.removeEventListener(ROOT_TAB_SWIPE_EVENT, handleRootTabSwipe);
-  }, [navigateToCityView, pathname, triggerTab]);
-
   function renderLabel(tab: Tab, label: string) {
-    const isVisible = recentlyTappedTab === tab;
+    const isVisible = dragPreviewTab ? dragPreviewTab === tab : recentlyTappedTab === tab;
 
     return (
       <span
@@ -204,7 +209,6 @@ export default function ForYouBottomTabs() {
 
   return (
     <div
-      data-no-tab-swipe=""
       className="for-you-bottom-tabs fixed left-0 right-0 z-[1100] transition-all duration-300 ease-out"
       style={{ bottom: "max(env(safe-area-inset-bottom), 12px)" }}
     >
@@ -222,12 +226,23 @@ export default function ForYouBottomTabs() {
               "linear-gradient(90deg, rgba(255, 124, 144, 0.35) 0%, rgba(255, 225, 164, 0.35) 100%)",
           }}
         >
-          <div className={`flex items-center transition-all duration-300 ease-out ${isCompact ? "gap-1" : "gap-1.5"}`}>
+          <div
+            ref={tabBarRef}
+            onPointerDown={onPointerDown}
+            className={`flex items-center transition-all duration-300 ease-out ${isCompact ? "gap-1" : "gap-1.5"}`}
+          >
             <button
-              onClick={() => triggerTab("for-you", () => router.replace("/for-you"))}
+              data-tab-id="for-you"
+              onClick={() => {
+                if (!shouldSuppressClick()) selectTab("for-you");
+              }}
               className={`flex-1 ${baseBtn} ${
                 isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
-              } jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]`}
+              } ${
+                activeTab === "for-you"
+                  ? "jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]"
+                  : "text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5"
+              }`}
             >
               <span className={`transition-transform duration-300 ease-out ${isCompact ? "scale-90" : "scale-100"} ${recentlyTappedTab === "for-you" ? "animate-[jt-tab-bounce_420ms_ease-out]" : ""}`}>
                 <ForYouIcon />
@@ -236,10 +251,17 @@ export default function ForYouBottomTabs() {
             </button>
 
             <button
-              onClick={() => triggerTab("map", () => navigateToCityView("map"))}
+              data-tab-id="map"
+              onClick={() => {
+                if (!shouldSuppressClick()) selectTab("map");
+              }}
               className={`flex-1 ${baseBtn} ${
                 isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
-              } text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5`}
+              } ${
+                activeTab === "map"
+                  ? "jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]"
+                  : "text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5"
+              }`}
             >
               <span className={`transition-transform duration-300 ease-out ${isCompact ? "scale-90" : "scale-100"} ${recentlyTappedTab === "map" ? "animate-[jt-tab-bounce_420ms_ease-out]" : ""}`}>
                 <MapIcon />
@@ -248,10 +270,17 @@ export default function ForYouBottomTabs() {
             </button>
 
             <button
-              onClick={() => triggerTab("list", () => navigateToCityView("list"))}
+              data-tab-id="list"
+              onClick={() => {
+                if (!shouldSuppressClick()) selectTab("list");
+              }}
               className={`flex-1 ${baseBtn} ${
                 isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
-              } text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5`}
+              } ${
+                activeTab === "list"
+                  ? "jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]"
+                  : "text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5"
+              }`}
             >
               <span className={`transition-transform duration-300 ease-out ${isCompact ? "scale-90" : "scale-100"} ${recentlyTappedTab === "list" ? "animate-[jt-tab-bounce_420ms_ease-out]" : ""}`}>
                 <ListIcon />
@@ -260,10 +289,17 @@ export default function ForYouBottomTabs() {
             </button>
 
             <button
-              onClick={() => triggerTab("saved", () => router.replace("/saved"))}
+              data-tab-id="saved"
+              onClick={() => {
+                if (!shouldSuppressClick()) selectTab("saved");
+              }}
               className={`flex-1 ${baseBtn} ${
                 isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
-              } text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5`}
+              } ${
+                activeTab === "saved"
+                  ? "jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]"
+                  : "text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5"
+              }`}
               title="Saved"
             >
               <span className={`transition-transform duration-300 ease-out ${isCompact ? "scale-90" : "scale-100"} ${recentlyTappedTab === "saved" ? "animate-[jt-tab-bounce_420ms_ease-out]" : ""}`}>
