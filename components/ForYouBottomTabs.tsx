@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   buildCityViewHref,
@@ -9,6 +9,7 @@ import {
   LAST_CITY_VIEW_KEY,
 } from "@/lib/lastCityNavigation";
 import type { CityTabView } from "@/lib/lastCityNavigation";
+import { useTabBarScrub } from "@/lib/useTabBarScrub";
 
 type Tab = "for-you" | CityTabView | "saved";
 
@@ -74,7 +75,7 @@ function ForYouIcon() {
 export default function ForYouBottomTabs() {
   const router = useRouter();
   const [isCompact, setIsCompact] = useState(false);
-  const [recentlyTappedTab, setRecentlyTappedTab] = useState<Tab | null>(() => {
+  const [recentlySelectedTab, setRecentlySelectedTab] = useState<Tab | null>(() => {
     if (typeof window === "undefined") return null;
 
     const raw = window.sessionStorage.getItem(RECENT_TAB_STORAGE_KEY);
@@ -103,6 +104,46 @@ export default function ForYouBottomTabs() {
     "flex items-center justify-center whitespace-nowrap rounded-[20px] font-semibold " +
     "transform-gpu transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.97]";
 
+  const triggerTab = useCallback((tab: Tab, action: () => void) => {
+    setRecentlySelectedTab(tab);
+    action();
+  }, []);
+
+  const navigateToCityView = useCallback((nextView: CityTabView) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(LAST_CITY_VIEW_KEY, nextView);
+      const citySlug =
+        window.localStorage.getItem(LAST_CITY_SLUG_KEY) || LAST_CITY_FALLBACK_SLUG;
+      router.replace(buildCityViewHref(citySlug, nextView));
+      return;
+    }
+
+    router.replace(buildCityViewHref(LAST_CITY_FALLBACK_SLUG, nextView));
+  }, [router]);
+  const selectTab = useCallback((tab: Tab) => {
+    triggerTab(tab, () => {
+      if (tab === "for-you") {
+        router.replace("/for-you");
+      } else if (tab === "saved") {
+        router.replace("/saved");
+      } else {
+        navigateToCityView(tab);
+      }
+    });
+  }, [navigateToCityView, router, triggerTab]);
+  const {
+    tabBarRef,
+    onPointerDown,
+    shouldSuppressClick,
+    previewTab,
+    bubblePosition,
+    isDragging,
+  } = useTabBarScrub(
+    ["for-you", "map", "list", "saved"] as const,
+    "for-you",
+    selectTab
+  );
+
   useEffect(() => {
     const citySlug =
       typeof window !== "undefined"
@@ -116,25 +157,25 @@ export default function ForYouBottomTabs() {
   }, [router]);
 
   useEffect(() => {
-    if (!recentlyTappedTab) return;
+    if (!recentlySelectedTab) return;
 
     window.sessionStorage.setItem(
       RECENT_TAB_STORAGE_KEY,
       JSON.stringify({
-        tab: recentlyTappedTab,
+        tab: recentlySelectedTab,
         expiresAt: Date.now() + RECENT_TAB_MIN_VISIBLE_MS,
       })
     );
 
     const timeoutId = window.setTimeout(() => {
-      setRecentlyTappedTab(null);
+      setRecentlySelectedTab(null);
       window.sessionStorage.removeItem(RECENT_TAB_STORAGE_KEY);
     }, RECENT_TAB_MIN_VISIBLE_MS);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [recentlyTappedTab]);
+  }, [recentlySelectedTab]);
 
   useEffect(() => {
     const onCompactEvent = (event: Event) => {
@@ -151,25 +192,8 @@ export default function ForYouBottomTabs() {
     };
   }, []);
 
-  function triggerTab(tab: Tab, action: () => void) {
-    setRecentlyTappedTab(tab);
-    action();
-  }
-
-  function navigateToCityView(nextView: CityTabView) {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(LAST_CITY_VIEW_KEY, nextView);
-      const citySlug =
-        window.localStorage.getItem(LAST_CITY_SLUG_KEY) || LAST_CITY_FALLBACK_SLUG;
-      router.push(buildCityViewHref(citySlug, nextView));
-      return;
-    }
-
-    router.push(buildCityViewHref(LAST_CITY_FALLBACK_SLUG, nextView));
-  }
-
   function renderLabel(tab: Tab, label: string) {
-    const isVisible = recentlyTappedTab === tab;
+    const isVisible = (previewTab ?? recentlySelectedTab) === tab;
 
     return (
       <span
@@ -179,9 +203,53 @@ export default function ForYouBottomTabs() {
             : "ml-0 max-w-0 -translate-x-1 scale-95 opacity-0"
         }`}
       >
-        <span className="block">{label}</span>
+        <span className={`block ${isDragging && previewTab === tab ? "text-white" : ""}`}>
+          {label}
+        </span>
       </span>
     );
+  }
+
+  function renderTabContent(tab: Tab) {
+    const iconClass = `transition-transform duration-300 ease-out ${
+      isCompact ? "scale-90" : "scale-100"
+    } ${recentlySelectedTab === tab ? "animate-[jt-tab-bounce_420ms_ease-out]" : ""}`;
+    const icon =
+      tab === "for-you" ? (
+        <ForYouIcon />
+      ) : tab === "map" ? (
+        <MapIcon />
+      ) : tab === "list" ? (
+        <ListIcon />
+      ) : (
+        <SavedIcon />
+      );
+    const label =
+      tab === "for-you" ? "For You" : tab === "map" ? "Karte" : tab === "list" ? "Liste" : "Saved";
+
+    return (
+      <>
+        <span className={iconClass}>{icon}</span>
+        {renderLabel(tab, label)}
+      </>
+    );
+  }
+
+  function isActiveTab(tab: Tab) {
+    return (previewTab ?? "for-you") === tab;
+  }
+
+  function activeTabClass(tab: Tab) {
+    if (!isActiveTab(tab)) return "text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5";
+    return isDragging
+      ? "text-[#0f3b2e]"
+      : "jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]";
+  }
+
+  function tabButtonStyle(tab: Tab) {
+    return `relative z-10 flex-1 ${baseBtn} ${
+      isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
+    } ${activeTabClass(tab)}`;
   }
 
   return (
@@ -203,54 +271,64 @@ export default function ForYouBottomTabs() {
               "linear-gradient(90deg, rgba(255, 124, 144, 0.35) 0%, rgba(255, 225, 164, 0.35) 100%)",
           }}
         >
-          <div className={`flex items-center transition-all duration-300 ease-out ${isCompact ? "gap-1" : "gap-1.5"}`}>
+          <div
+            ref={tabBarRef}
+            onPointerDown={onPointerDown}
+            className={`tab-bar-gesture relative flex items-center transition-all duration-300 ease-out ${isCompact ? "gap-1" : "gap-1.5"} ${isDragging ? "tab-bar-scrubbing" : ""}`}
+          >
+            {bubblePosition ? (
+              <span
+                aria-hidden="true"
+                className={`tab-scrub-bubble jt-active-gradient absolute ${
+                  isDragging ? "is-dragging" : ""
+                }`}
+                style={{
+                  left: bubblePosition.left,
+                  top: bubblePosition.top,
+                  width: bubblePosition.width,
+                  height: bubblePosition.height,
+                }}
+              />
+            ) : null}
             <button
-              onClick={() => triggerTab("for-you", () => router.push("/for-you"))}
-              className={`flex-1 ${baseBtn} ${
-                isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
-              } jt-active-gradient scale-[1.02] shadow-[0_10px_28px_rgba(255,124,144,0.24)]`}
+              data-tab-id="for-you"
+              onClick={() => {
+                if (!shouldSuppressClick()) selectTab("for-you");
+              }}
+              className={tabButtonStyle("for-you")}
             >
-              <span className={`transition-transform duration-300 ease-out ${isCompact ? "scale-90" : "scale-100"} ${recentlyTappedTab === "for-you" ? "animate-[jt-tab-bounce_420ms_ease-out]" : ""}`}>
-                <ForYouIcon />
-              </span>
-              {renderLabel("for-you", "For You")}
+              {renderTabContent("for-you")}
             </button>
 
             <button
-              onClick={() => triggerTab("map", () => navigateToCityView("map"))}
-              className={`flex-1 ${baseBtn} ${
-                isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
-              } text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5`}
+              data-tab-id="map"
+              onClick={() => {
+                if (!shouldSuppressClick()) selectTab("map");
+              }}
+              className={tabButtonStyle("map")}
             >
-              <span className={`transition-transform duration-300 ease-out ${isCompact ? "scale-90" : "scale-100"} ${recentlyTappedTab === "map" ? "animate-[jt-tab-bounce_420ms_ease-out]" : ""}`}>
-                <MapIcon />
-              </span>
-              {renderLabel("map", "Karte")}
+              {renderTabContent("map")}
             </button>
 
             <button
-              onClick={() => triggerTab("list", () => navigateToCityView("list"))}
-              className={`flex-1 ${baseBtn} ${
-                isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
-              } text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5`}
+              data-tab-id="list"
+              onClick={() => {
+                if (!shouldSuppressClick()) selectTab("list");
+              }}
+              className={tabButtonStyle("list")}
             >
-              <span className={`transition-transform duration-300 ease-out ${isCompact ? "scale-90" : "scale-100"} ${recentlyTappedTab === "list" ? "animate-[jt-tab-bounce_420ms_ease-out]" : ""}`}>
-                <ListIcon />
-              </span>
-              {renderLabel("list", "Liste")}
+              {renderTabContent("list")}
             </button>
 
             <button
-              onClick={() => triggerTab("saved", () => router.push("/saved"))}
-              className={`flex-1 ${baseBtn} ${
-                isCompact ? "h-[42px] px-1.5 text-[11px]" : "h-[50px] px-3 text-[14px]"
-              } text-[#17392f]/88 md:hover:text-[#0f3b2e] md:hover:bg-black/5`}
+              data-tab-id="saved"
+              onClick={() => {
+                if (!shouldSuppressClick()) selectTab("saved");
+              }}
+              className={tabButtonStyle("saved")}
               title="Saved"
             >
-              <span className={`transition-transform duration-300 ease-out ${isCompact ? "scale-90" : "scale-100"} ${recentlyTappedTab === "saved" ? "animate-[jt-tab-bounce_420ms_ease-out]" : ""}`}>
-                <SavedIcon />
-              </span>
-              {renderLabel("saved", "Saved")}
+              {renderTabContent("saved")}
             </button>
           </div>
         </div>

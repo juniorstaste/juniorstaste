@@ -952,6 +952,9 @@ export default function CityPageContent() {
     }
 
     setView(nextView);
+    if (citySlug) {
+      router.replace(buildCityViewHref(citySlug, nextView));
+    }
   }
 
   useEffect(() => {

@@ -47,11 +47,11 @@ export default function GlobalBottomTabs() {
       window.localStorage.setItem(LAST_CITY_VIEW_KEY, nextView);
       const citySlug =
         window.localStorage.getItem(LAST_CITY_SLUG_KEY) || LAST_CITY_FALLBACK_SLUG;
-      router.push(buildCityViewHref(citySlug, nextView));
+      router.replace(buildCityViewHref(citySlug, nextView));
       return;
     }
 
-    router.push(buildCityViewHref(LAST_CITY_FALLBACK_SLUG, nextView));
+    router.replace(buildCityViewHref(LAST_CITY_FALLBACK_SLUG, nextView));
   }
 
   if (!pathname || pathname === "/" || pathname === "/for-you") return null;

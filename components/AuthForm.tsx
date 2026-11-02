@@ -234,7 +234,7 @@ export default function AuthForm({
         onChange={(event) => setEmail(event.target.value)}
         className={inputClass}
         placeholder="E-Mail-Adresse"
-        autoComplete={view === "login" ? "username" : "email"}
+        autoComplete="username"
       />
 
       {view !== "forgotPassword" ? (
