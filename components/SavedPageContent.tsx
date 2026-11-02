@@ -10,13 +10,15 @@ import { logSupabaseError } from "@/lib/logSupabaseError";
 import { prioritizeSpots } from "@/lib/prioritySpot";
 import { LAST_CITY_FALLBACK_SLUG, LAST_CITY_SLUG_KEY } from "@/lib/lastCityNavigation";
 import { getPriceLevelValue } from "@/lib/priceLevel";
-import { useTabBarDrag } from "@/lib/useTabBarDrag";
+import { useTabBarScrub } from "@/lib/useTabBarScrub";
+import { BookmarkSimple, Heart } from "@phosphor-icons/react";
 
 const TASTE_DES_MONATS_IDS = [
   "0f63bbc8-7050-4406-b512-3e133965a1e4",
   "4eb57f03-101e-4d80-98cc-42d3f148b57a",
 ];
 const SAVED_SCROLL_KEY_PREFIX = "jt:scroll:saved";
+const SAVED_TAB_LABEL_VISIBLE_MS = 1500;
 
 type Spot = {
   id: string;
@@ -171,6 +173,7 @@ export default function SavedPageContent({ isVisible = true }: SavedPageContentP
   const [selectedCitySlug, setSelectedCitySlug] = useState<string>(LAST_CITY_FALLBACK_SLUG);
   const [cityMenuOpen, setCityMenuOpen] = useState(false);
   const [viewMode, setViewMode] = useState<SavedViewMode>("saved");
+  const [recentlySelectedTab, setRecentlySelectedTab] = useState<SavedViewMode | null>(null);
   const router = useRouter();
   const { authLoading, user, savedSpotIds, openAuthPrompt } = useAuth();
   const isCurrentViewLoading = viewMode === "saved" ? loadingSaved : loadingLikes;
@@ -212,17 +215,34 @@ export default function SavedPageContent({ isVisible = true }: SavedPageContentP
     setViewMode(nextViewMode);
   }, [scrollStorageKey]);
   const selectSavedTab = useCallback(
-    (tab: SavedViewMode) => handleViewModeChange(tab),
+    (tab: SavedViewMode) => {
+      setRecentlySelectedTab(tab);
+      handleViewModeChange(tab);
+    },
     [handleViewModeChange]
   );
-  const previewSavedTab = useCallback(
-    (tab: SavedViewMode) => handleViewModeChange(tab),
-    [handleViewModeChange]
-  );
-  const { tabBarRef, onPointerDown, shouldSuppressClick } = useTabBarDrag(
+  const {
+    tabBarRef,
+    onPointerDown,
+    shouldSuppressClick,
+    previewTab,
+    bubblePosition,
+    isDragging,
+  } = useTabBarScrub(
     ["saved", "likes"] as const,
-    previewSavedTab
+    viewMode,
+    selectSavedTab
   );
+
+  useEffect(() => {
+    if (!recentlySelectedTab) return;
+
+    const timeoutId = window.setTimeout(
+      () => setRecentlySelectedTab(null),
+      SAVED_TAB_LABEL_VISIBLE_MS
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [recentlySelectedTab]);
 
   useEffect(() => {
     async function loadTasteDesMonatsSpots() {
@@ -626,32 +646,63 @@ export default function SavedPageContent({ isVisible = true }: SavedPageContentP
             <div
               ref={tabBarRef}
               onPointerDown={onPointerDown}
-              className="inline-flex rounded-full border border-white/10 bg-white/10 p-1 shadow-sm backdrop-blur-sm"
+              className={`tab-bar-gesture relative inline-flex rounded-full border border-white/10 bg-white/10 p-1 shadow-sm backdrop-blur-sm ${
+                isDragging ? "tab-bar-scrubbing" : ""
+              }`}
             >
-              <button
-                type="button"
-                data-tab-id="saved"
-                onClick={() => {
-                  if (!shouldSuppressClick()) selectSavedTab("saved");
-                }}
-                className={`min-w-[120px] rounded-full px-4 py-2 text-sm font-semibold transition sm:min-w-[136px] sm:px-5 ${
-                  viewMode === "saved" ? "jt-active-gradient" : "text-white/80"
-                }`}
-              >
-                Gespeichert
-              </button>
-              <button
-                type="button"
-                data-tab-id="likes"
-                onClick={() => {
-                  if (!shouldSuppressClick()) selectSavedTab("likes");
-                }}
-                className={`min-w-[120px] rounded-full px-4 py-2 text-sm font-semibold transition sm:min-w-[136px] sm:px-5 ${
-                  viewMode === "likes" ? "jt-active-gradient" : "text-white/80"
-                }`}
-              >
-                Likes
-              </button>
+              {bubblePosition ? (
+                <span
+                  aria-hidden="true"
+                  className={`tab-scrub-bubble jt-active-gradient absolute ${
+                    isDragging ? "is-dragging" : ""
+                  }`}
+                  style={{
+                    left: bubblePosition.left,
+                    top: bubblePosition.top,
+                    width: bubblePosition.width,
+                    height: bubblePosition.height,
+                  }}
+                />
+              ) : null}
+              {(["saved", "likes"] as const).map((tab) => {
+                const isSelected = (previewTab ?? viewMode) === tab;
+                const showLabel = (previewTab ?? recentlySelectedTab) === tab;
+
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    data-tab-id={tab}
+                    onClick={() => {
+                      if (!shouldSuppressClick()) selectSavedTab(tab);
+                    }}
+                    className={`relative z-10 inline-flex min-w-[120px] items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition sm:min-w-[136px] sm:px-5 ${
+                      isSelected
+                        ? isDragging
+                          ? "text-[#0f3b2e]"
+                          : "jt-active-gradient"
+                        : "text-white/80"
+                    }`}
+                  >
+                    {tab === "saved" ? (
+                      <BookmarkSimple size={18} weight="fill" aria-hidden="true" />
+                    ) : (
+                      <Heart size={18} aria-hidden="true" />
+                    )}
+                    <span
+                      className={`overflow-hidden whitespace-nowrap text-left transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                        showLabel
+                          ? "ml-1.5 max-w-[100px] translate-x-0 scale-100 opacity-100"
+                          : "ml-0 max-w-0 -translate-x-1 scale-95 opacity-0"
+                      }`}
+                    >
+                      <span className={isDragging && previewTab === tab ? "text-white" : ""}>
+                        {tab === "saved" ? "Gespeichert" : "Likes"}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
