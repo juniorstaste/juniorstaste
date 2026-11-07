@@ -11,6 +11,7 @@ export type ChatMessage = {
   spot_id: string | null;
   created_at: string;
   spots: { id: string; name: string; image_url: string | null } | null;
+  direct_message_reactions: { user_id: string; is_active: boolean }[];
 };
 
 export function getSpotVideoThumbnailUrl(spotId: string) {

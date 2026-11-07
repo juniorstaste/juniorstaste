@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
 import { sendSpotMessage, startConversation } from "@/lib/messaging";
+import { queueConversationAfterInbox, rememberMessagesOrigin } from "@/lib/messageNavigation";
 
 type Props = {
   spotId: string;
@@ -138,7 +139,9 @@ export default function ShareSpotButton({
       const conversationId = await startConversation(profileId);
       await sendSpotMessage(conversationId, user.id, spotId);
       setOpen(false);
-      router.push(`/messages/${conversationId}`);
+      rememberMessagesOrigin();
+      queueConversationAfterInbox(conversationId);
+      router.push("/messages");
     } catch (error) {
       console.error("Spot konnte nicht gesendet werden:", error);
       setFeedback("Senden fehlgeschlagen");
