@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import MessagesHeader from "@/components/MessagesHeader";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
+import { takeMessagesReturnPath, takePendingConversationId } from "@/lib/messageNavigation";
 
 type InboxRow = {
   conversation_id: string;
@@ -24,6 +26,7 @@ function preview(row: InboxRow) {
 }
 
 export default function MessagesPage() {
+  const router = useRouter();
   const { user, authLoading, openAuthPrompt } = useAuth();
   const [rows, setRows] = useState<InboxRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,10 +54,19 @@ export default function MessagesPage() {
     return () => { void supabase.removeChannel(channel); };
   }, [loadInbox, user]);
 
+  useEffect(() => {
+    const pendingConversationId = takePendingConversationId();
+    if (pendingConversationId) router.push(`/messages/${pendingConversationId}`);
+  }, [router]);
+
+  function handleBack() {
+    router.replace(takeMessagesReturnPath());
+  }
+
   if (!authLoading && !user) {
     return (
       <main className="min-h-screen bg-[#f6efe3]">
-        <MessagesHeader title="Nachrichten" />
+        <MessagesHeader title="Nachrichten" onBack={handleBack} />
         <div className="mx-auto max-w-md px-5 py-16 text-center">
           <h2 className="text-xl font-extrabold text-[#0f3b2e]">Deine Chats warten auf dich</h2>
           <p className="mt-3 text-sm text-[#0f3b2e]/70">Melde dich an, um Spots und Nachrichten zu senden.</p>
@@ -66,7 +78,7 @@ export default function MessagesPage() {
 
   return (
     <main className="min-h-screen bg-[#f6efe3] pb-28">
-      <MessagesHeader title="Nachrichten" />
+      <MessagesHeader title="Nachrichten" onBack={handleBack} />
       <section className="mx-auto max-w-2xl px-4 py-4">
         {loading ? <p className="py-12 text-center text-[#0f3b2e]/60">Chats werden geladen…</p> : null}
         {!loading && rows.length === 0 ? (

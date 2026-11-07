@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import AuthForm from "@/components/AuthForm";
 import { useAuth } from "@/components/AuthProvider";
 import { usePathname, useRouter } from "next/navigation";
+import { rememberMessagesOrigin } from "@/lib/messageNavigation";
 
 type MenuItem = {
   label: string;
@@ -237,6 +238,15 @@ export default function TopRightMenu({ onOpenChange }: Props) {
 
   function handleNavigate(href: string) {
     setOpen(false);
+    if (href === "/messages") {
+      if (pathname.startsWith("/messages/")) {
+        router.replace(href);
+      } else if (pathname !== href) {
+        rememberMessagesOrigin();
+        router.push(href);
+      }
+      return;
+    }
     if (href === "/#cities") {
       if (pathname === "/") {
         window.history.replaceState(null, "", "/#cities");
