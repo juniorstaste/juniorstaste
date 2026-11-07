@@ -54,7 +54,12 @@ export default function GlobalBottomTabs() {
     router.replace(buildCityViewHref(LAST_CITY_FALLBACK_SLUG, nextView));
   }
 
-  if (!pathname || pathname === "/" || pathname === "/for-you") return null;
+  if (
+    !pathname ||
+    pathname === "/" ||
+    pathname === "/for-you" ||
+    pathname.startsWith("/messages")
+  ) return null;
 
   if (
     pathname.startsWith("/city/") ||

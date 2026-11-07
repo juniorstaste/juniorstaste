@@ -45,15 +45,19 @@ function MailIcon() {
 }
 
 export default function Home() {
-  const [emailOpen, setEmailOpen] = useState(false);
-  const { authLoading, user } = useAuth();
+  const [emailOpen, setEmailOpen] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("auth") === "login"
+  );
+  const { authLoading, user, isPasswordRecovery } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading && user && !isPasswordRecovery) {
       router.replace("/for-you");
     }
-  }, [authLoading, router, user]);
+  }, [authLoading, isPasswordRecovery, router, user]);
 
   const socialButtonClass =
     "flex h-[54px] w-full items-center rounded-2xl border border-[#dacdb9] bg-[#fffaf2] px-4 text-[15px] font-semibold text-[#0f2a22] shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-55";

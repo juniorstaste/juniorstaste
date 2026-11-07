@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getAuthRedirectUrl } from "@/lib/authRedirect";
+import { logSupabaseError } from "@/lib/logSupabaseError";
 import { supabase } from "@/lib/supabaseClient";
 
 type Props = {
@@ -33,6 +34,17 @@ function normalizeAuthError(message: string) {
   return message;
 }
 
+function isExistingEmailError(error: { message: string; code?: string }) {
+  const normalized = `${error.code ?? ""} ${error.message}`.toLowerCase();
+  return (
+    error.code === "user_already_exists" ||
+    normalized.includes("user already registered") ||
+    normalized.includes("email already registered") ||
+    normalized.includes("email address already registered") ||
+    normalized.includes("email_exists")
+  );
+}
+
 type AuthView = "signup" | "login" | "forgotPassword";
 
 export default function AuthForm({
@@ -49,6 +61,9 @@ export default function AuthForm({
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   const inputClass = useMemo(() => {
     return mode === "modal"
@@ -61,18 +76,33 @@ export default function AuthForm({
 
     const trimmedEmail = email.trim();
     const trimmedUsername = username.trim();
-    const trimmedPassword = password.trim();
-    const trimmedPasswordConfirm = passwordConfirm.trim();
+    const trimmedPassword = password;
+    const trimmedPasswordConfirm = passwordConfirm;
 
     if (view === "signup" && !trimmedUsername) {
-      setErrorMsg("Bitte gib deinen Username ein.");
+      setUsernameError("Bitte gib deinen Username ein.");
+      setEmailError(null);
+      setErrorMsg(null);
       setSuccessMsg(null);
+      setInfoMsg(null);
+      return;
+    }
+
+    if (view === "signup" && (trimmedUsername.length > 100 || trimmedUsername.includes("@"))) {
+      setUsernameError("Der Username darf höchstens 100 Zeichen enthalten und kein @-Zeichen haben.");
+      setEmailError(null);
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      setInfoMsg(null);
       return;
     }
 
     if (!trimmedEmail) {
-      setErrorMsg("Bitte gib deine E-Mail-Adresse ein.");
+      setUsernameError(null);
+      setEmailError(view === "signup" ? "Bitte gib deine E-Mail-Adresse ein." : null);
+      setErrorMsg(view === "login" ? "Bitte gib deine E-Mail-Adresse oder deinen Username ein." : null);
       setSuccessMsg(null);
+      setInfoMsg(null);
       return;
     }
 
@@ -97,12 +127,33 @@ export default function AuthForm({
     setSubmitting(true);
     setErrorMsg(null);
     setSuccessMsg(null);
+    setInfoMsg(null);
+    setUsernameError(null);
+    setEmailError(null);
 
     const emailRedirectTo = getAuthRedirectUrl();
-    let error: { message: string } | null = null;
+    let error: { message: string; code?: string } | null = null;
     let hasSession = false;
 
     if (view === "signup") {
+      const { data: usernameAvailable, error: availabilityError } = await supabase.rpc(
+        "is_username_available",
+        { candidate_username: trimmedUsername }
+      );
+
+      if (availabilityError) {
+        logSupabaseError("Konnte Username-Verfügbarkeit nicht prüfen:", availabilityError);
+        setSubmitting(false);
+        setErrorMsg("Der Username kann gerade nicht geprüft werden. Bitte versuche es erneut.");
+        return;
+      }
+
+      if (usernameAvailable !== true) {
+        setSubmitting(false);
+        setUsernameError("Dieser Benutzername ist bereits vergeben.");
+        return;
+      }
+
       const result = await supabase.auth.signUp({
         email: trimmedEmail,
         password: trimmedPassword,
@@ -118,13 +169,33 @@ export default function AuthForm({
       error = result.error;
       hasSession = Boolean(result.data.session);
     } else if (view === "login") {
-      const result = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password: trimmedPassword,
-      });
-
-      error = result.error;
-      hasSession = Boolean(result.data.session);
+      if (trimmedEmail.includes("@")) {
+        const result = await supabase.auth.signInWithPassword({
+          email: trimmedEmail,
+          password: trimmedPassword,
+        });
+        error = result.error;
+        hasSession = Boolean(result.data.session);
+      } else {
+        try {
+          const response = await fetch("/api/auth/username-login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: trimmedEmail, password: trimmedPassword }),
+            cache: "no-store",
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            error = { message: result.error ?? "Anmeldung fehlgeschlagen." };
+          } else {
+            const sessionResult = await supabase.auth.setSession(result);
+            error = sessionResult.error;
+            hasSession = Boolean(sessionResult.data.session);
+          }
+        } catch {
+          error = { message: "Anmeldung fehlgeschlagen. Bitte versuche es erneut." };
+        }
+      }
     } else {
       const result = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
         redirectTo: getAuthRedirectUrl("/reset-password"),
@@ -133,13 +204,41 @@ export default function AuthForm({
       error = result.error;
     }
 
-    setSubmitting(false);
-
     if (error) {
-      setErrorMsg(normalizeAuthError(error.message));
+      if (view === "signup" && isExistingEmailError(error)) {
+        setSubmitting(false);
+        setEmailError("Unter dieser E-Mail-Adresse existiert bereits ein Konto.");
+        setErrorMsg(null);
+        return;
+      }
+
+      if (view === "signup") {
+        const { data: usernameStillAvailable, error: availabilityError } = await supabase.rpc(
+          "is_username_available",
+          { candidate_username: trimmedUsername }
+        );
+
+        if (availabilityError) {
+          logSupabaseError("Konnte Username nach Signup-Fehler nicht erneut prüfen:", availabilityError);
+        } else if (usernameStillAvailable === false) {
+          setSubmitting(false);
+          setUsernameError("Dieser Benutzername ist bereits vergeben.");
+          return;
+        }
+      }
+
+      setSubmitting(false);
+      setErrorMsg(
+        view === "signup" && /database error saving new user/i.test(error.message)
+          ? "Konto konnte nicht erstellt werden. Bitte versuche es erneut."
+          : normalizeAuthError(error.message)
+      );
       setSuccessMsg(null);
+      setInfoMsg(null);
       return;
     }
+
+    setSubmitting(false);
 
     if (view === "signup" && hasSession) {
       setSuccessMsg("Du bist jetzt eingeloggt.");
@@ -150,8 +249,8 @@ export default function AuthForm({
     }
 
     if (view === "signup") {
-      setSuccessMsg(
-        "Dein Konto wurde erstellt. Bitte bestaetige jetzt die E-Mail in deinem Postfach."
+      setInfoMsg(
+        "Falls unter dieser E-Mail-Adresse bereits ein Konto existiert, melde dich bitte an oder setze dein Passwort zurück. Wenn du dich neu registriert hast, prüfe dein Postfach auf den Bestätigungslink."
       );
     } else if (view === "login") {
       setSuccessMsg("Du bist jetzt eingeloggt.");
@@ -178,6 +277,9 @@ export default function AuthForm({
             setView("login");
             setErrorMsg(null);
             setSuccessMsg(null);
+            setInfoMsg(null);
+            setUsernameError(null);
+            setEmailError(null);
           }}
           className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
             view === "login"
@@ -194,6 +296,9 @@ export default function AuthForm({
             setView("signup");
             setErrorMsg(null);
             setSuccessMsg(null);
+            setInfoMsg(null);
+            setUsernameError(null);
+            setEmailError(null);
           }}
           className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
             view === "signup"
@@ -209,33 +314,62 @@ export default function AuthForm({
         {view === "signup"
           ? "Erstelle dein Konto mit Username und E-Mail. Danach bestaetigst du den Link in deinem Postfach."
           : view === "login"
-          ? "Logge dich mit deiner E-Mail-Adresse und deinem Passwort ein."
+          ? "Logge dich mit deiner E-Mail-Adresse oder deinem Username und deinem Passwort ein."
           : "Gib deine E-Mail-Adresse ein. Wir schicken dir einen Link zum Zuruecksetzen deines Passworts."}
       </div>
 
       {view === "signup" ? (
-        <input
-          id="signup-username"
-          name="username"
-          type="text"
-          value={username}
-          onChange={(event) => setUsername(event.target.value)}
-          className={inputClass}
-          placeholder="Username"
-          autoComplete="username"
-        />
+        <div className="space-y-1">
+          <input
+            id="signup-username"
+            name="username"
+            type="text"
+            value={username}
+            onChange={(event) => {
+              setUsername(event.target.value);
+              setUsernameError(null);
+              setErrorMsg(null);
+              setInfoMsg(null);
+            }}
+            maxLength={100}
+            className={inputClass}
+            placeholder="Username"
+            autoComplete="username"
+            aria-invalid={Boolean(usernameError)}
+            aria-describedby={usernameError ? "signup-username-error" : undefined}
+          />
+          {usernameError ? (
+            <p id="signup-username-error" className="text-sm text-red-700">
+              {usernameError}
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
-      <input
-        id={view === "login" ? "login-email" : "signup-email"}
-        name="email"
-        type="email"
-        value={email}
-        onChange={(event) => setEmail(event.target.value)}
-        className={inputClass}
-        placeholder="E-Mail-Adresse"
-        autoComplete="username"
-      />
+      <div className="space-y-1">
+        <input
+          id={view === "login" ? "login-identifier" : "signup-email"}
+          name={view === "login" ? "username" : "email"}
+          type={view === "login" ? "text" : "email"}
+          value={email}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            setEmailError(null);
+            setErrorMsg(null);
+            setInfoMsg(null);
+          }}
+          className={inputClass}
+          placeholder={view === "login" ? "E-Mail oder Username" : "E-Mail-Adresse"}
+          autoComplete="username"
+          aria-invalid={Boolean(emailError)}
+          aria-describedby={emailError ? "signup-email-error" : undefined}
+        />
+        {emailError ? (
+          <p id="signup-email-error" className="text-sm text-red-700">
+            {emailError}
+          </p>
+        ) : null}
+      </div>
 
       {view !== "forgotPassword" ? (
         <input
@@ -284,6 +418,9 @@ export default function AuthForm({
             setView("forgotPassword");
             setErrorMsg(null);
             setSuccessMsg(null);
+            setInfoMsg(null);
+            setUsernameError(null);
+            setEmailError(null);
           }}
           className="w-full text-sm font-semibold text-[#0f3b2e] transition hover:opacity-75"
         >
@@ -298,6 +435,9 @@ export default function AuthForm({
             setView("login");
             setErrorMsg(null);
             setSuccessMsg(null);
+            setInfoMsg(null);
+            setUsernameError(null);
+            setEmailError(null);
           }}
           className="w-full text-sm font-semibold text-[#0f3b2e] transition hover:opacity-75"
         >
@@ -307,6 +447,7 @@ export default function AuthForm({
 
       {errorMsg ? <p className="text-sm text-red-700">{errorMsg}</p> : null}
       {successMsg ? <p className="text-sm text-[#0f3b2e]">{successMsg}</p> : null}
+      {infoMsg ? <p className="text-sm text-[#0f3b2e]/80">{infoMsg}</p> : null}
     </form>
   );
 }

@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { BookmarkSimple, ChatCircle, Heart, PaperPlaneTilt } from "@phosphor-icons/react";
+import { BookmarkSimple, ChatCircle, Heart } from "@phosphor-icons/react";
 import DistanceLabel from "@/components/DistanceLabel";
 import BottomTabs from "@/components/BottomTabs";
 import TopRightMenu from "@/components/TopRightMenu";
@@ -444,39 +444,6 @@ function VideoSpotCard({
     });
   }
 
-  async function handleShare(event: React.SyntheticEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    if (typeof window === "undefined") return;
-
-    const url = `${window.location.origin}/spot/${spot.id}`;
-    const shareData = {
-      title: spot.name,
-      text: `Schau dir ${spot.name} bei Junior's Taste an.`,
-      url,
-    };
-
-    try {
-      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-        if (typeof navigator.canShare !== "function" || navigator.canShare(shareData)) {
-          await navigator.share(shareData);
-          return;
-        }
-      }
-
-      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url);
-        return;
-      }
-
-      window.prompt("Link kopieren:", url);
-    } catch (error) {
-      if ((error as Error)?.name === "AbortError") return;
-      console.error("Teilen fehlgeschlagen:", error);
-    }
-  }
-
   return (
     <div
       ref={cardRef}
@@ -665,16 +632,7 @@ function VideoSpotCard({
           />
         </button>
 
-        <button
-          type="button"
-          aria-label="Teilen"
-          className="inline-flex h-10 w-10 items-center justify-center text-white"
-          onClick={(event) => {
-            void handleShare(event);
-          }}
-        >
-          <PaperPlaneTilt size={26} weight="fill" aria-hidden="true" />
-        </button>
+        <ShareSpotButton spotId={spot.id} spotName={spot.name} variant="video" />
 
         <button
           type="button"
@@ -2314,6 +2272,7 @@ export default function CityPageContent() {
         user={user}
         profile={profile}
         onRequireAuth={() => openAuthPrompt()}
+        variant="for-you"
       />
 
       {!menuOpen ? (
