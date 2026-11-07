@@ -31,6 +31,7 @@ type AuthContextValue = {
   authLoading: boolean;
   user: User | null;
   session: Session | null;
+  isPasswordRecovery: boolean;
   profile: Profile | null;
   savedSpotIds: string[];
   savedSpotIdsSet: Set<string>;
@@ -107,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authLoading, setAuthLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>([]);
   const [authPromptOpen, setAuthPromptOpen] = useState(false);
@@ -229,8 +231,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .single();
 
     if (error) {
-      if (mountedRef.current) setProfile(payload);
-      return payload;
+      logSupabaseError("Konnte Profil des angemeldeten Users nicht speichern:", error);
+      if (mountedRef.current) setProfile(null);
+      return null;
     }
 
     const nextProfile = data as Profile;
@@ -363,7 +366,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(nextSession?.user ?? null);
 
       if (nextSession?.user) {
-        await syncUserState(nextSession.user);
+        if (pathname !== "/reset-password") {
+          await syncUserState(nextSession.user);
+        }
         if (mountedRef.current) setAuthPromptOpen(false);
       } else {
         setProfile(null);
@@ -377,9 +382,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
+
+      if (event === "PASSWORD_RECOVERY") {
+        setIsPasswordRecovery(Boolean(nextSession));
+        setAuthLoading(false);
+        if (nextSession) {
+          if (pathname !== "/reset-password") {
+            router.replace("/reset-password");
+          }
+        }
+        return;
+      }
+
+      if (event === "SIGNED_OUT") {
+        setIsPasswordRecovery(false);
+      }
 
       if (!nextSession?.user) {
         setProfile(null);
@@ -388,6 +408,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAuthLoading(false);
         return;
       }
+
+      if (isPasswordRecovery) return;
 
       void syncUserState(nextSession.user).finally(() => {
         if (mountedRef.current) {
@@ -401,7 +423,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mountedRef.current = false;
       subscription.unsubscribe();
     };
-  }, [syncUserState]);
+  }, [isPasswordRecovery, pathname, router, syncUserState]);
 
   useEffect(() => {
     setPortalReady(true);
@@ -515,6 +537,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authLoading,
       user,
       session,
+      isPasswordRecovery,
       profile,
       savedSpotIds,
       savedSpotIdsSet,
@@ -529,6 +552,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authLoading,
       user,
       session,
+      isPasswordRecovery,
       profile,
       savedSpotIds,
       savedSpotIdsSet,

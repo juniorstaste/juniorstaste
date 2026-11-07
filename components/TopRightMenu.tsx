@@ -38,6 +38,15 @@ function SavedSpotsIcon() {
   );
 }
 
+function MessagesIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 5.5h16v11H9l-5 3v-14Z" stroke="#0f3b2e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 9h8M8 13h5" stroke="#0f3b2e" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function CitySwitchIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -143,6 +152,11 @@ function LegalIcon() {
 }
 
 const menuItems: MenuItem[] = [
+  {
+    label: "Nachrichten",
+    href: "/messages",
+    icon: <MessagesIcon />,
+  },
   {
     label: "Gespeicherte Spots",
     href: "/saved",
@@ -331,14 +345,23 @@ export default function TopRightMenu({ onOpenChange }: Props) {
             <nav className="px-3 py-3">
               <button
                 type="button"
-                onClick={handleSavedSpotsClick}
+                onClick={() => handleNavigate("/messages")}
                 className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
               >
                 <span className="shrink-0">{menuItems[0].icon}</span>
                 <span className="text-[15px] font-semibold">{menuItems[0].label}</span>
               </button>
 
-              {menuItems.slice(1).map((item) => (
+              <button
+                type="button"
+                onClick={handleSavedSpotsClick}
+                className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-[#0f3b2e] transition hover:bg-[#f6efe3]"
+              >
+                <span className="shrink-0">{menuItems[1].icon}</span>
+                <span className="text-[15px] font-semibold">{menuItems[1].label}</span>
+              </button>
+
+              {menuItems.slice(2).map((item) => (
                 <button
                   key={item.label}
                   type="button"

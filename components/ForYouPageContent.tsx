@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookmarkSimple, ChatCircle, Heart, PaperPlaneTilt } from "@phosphor-icons/react";
+import { BookmarkSimple, ChatCircle, Heart } from "@phosphor-icons/react";
 import { useAuth } from "@/components/AuthProvider";
 import DeliveryButtons from "@/components/DeliveryButtons";
 import ForYouBottomTabs from "@/components/ForYouBottomTabs";
 import SpotCommentsSheet from "@/components/SpotCommentsSheet";
+import ShareSpotButton from "@/components/ShareSpotButton";
 import { supabase } from "@/lib/supabaseClient";
 import { logSupabaseError } from "@/lib/logSupabaseError";
 import { rankForYouSpots } from "@/lib/forYouRanking";
@@ -579,16 +580,7 @@ function FeedVideoSlide({
           </span>
         </button>
 
-        <button
-          type="button"
-          aria-label="Teilen"
-          className="inline-flex h-11 w-11 items-center justify-center"
-          onClick={swallowInteraction}
-          onPointerDown={swallowInteraction}
-          onPointerUp={swallowInteraction}
-        >
-          <PaperPlaneTilt size={30} weight="fill" aria-hidden="true" />
-        </button>
+        <ShareSpotButton spotId={spot.id} spotName={spot.name?.trim() || "Spot"} variant="video-large" />
 
         <button
           type="button"

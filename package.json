@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "thumbnails:spots": "node scripts/generate-spot-video-thumbnails.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.40.0",
