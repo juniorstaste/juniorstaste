@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Play } from "@phosphor-icons/react";
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, TouchEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import MessagesHeader from "@/components/MessagesHeader";
 import { useAuth } from "@/components/AuthProvider";
@@ -20,6 +20,35 @@ export default function ConversationPage() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const messageInputRef = useRef<HTMLInputElement | null>(null);
+  const historyTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const dismissedKeyboardForTouchRef = useRef(false);
+
+  function handleHistoryTouchStart(event: TouchEvent<HTMLElement>) {
+    const touch = event.touches[0];
+    if (!touch) return;
+    historyTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    dismissedKeyboardForTouchRef.current = false;
+  }
+
+  function handleHistoryTouchMove(event: TouchEvent<HTMLElement>) {
+    const start = historyTouchStartRef.current;
+    const touch = event.touches[0];
+    if (!start || !touch || dismissedKeyboardForTouchRef.current) return;
+
+    const horizontalDistance = Math.abs(touch.clientX - start.x);
+    const upwardDistance = start.y - touch.clientY;
+    if (upwardDistance < 12 || upwardDistance <= horizontalDistance) return;
+    if (document.activeElement !== messageInputRef.current) return;
+
+    dismissedKeyboardForTouchRef.current = true;
+    messageInputRef.current?.blur();
+  }
+
+  function handleHistoryTouchEnd() {
+    historyTouchStartRef.current = null;
+    dismissedKeyboardForTouchRef.current = false;
+  }
 
   const markRead = useCallback(async (lastVisibleMessageAt: string | undefined) => {
     if (!user || !lastVisibleMessageAt) return;
@@ -68,7 +97,13 @@ export default function ConversationPage() {
   return (
     <main className="flex min-h-screen flex-col bg-[#f6efe3]">
       <MessagesHeader title={title} backHref="/messages" />
-      <section className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 pb-28 pt-4">
+      <section
+        className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 pb-28 pt-4"
+        onTouchStart={handleHistoryTouchStart}
+        onTouchMove={handleHistoryTouchMove}
+        onTouchEnd={handleHistoryTouchEnd}
+        onTouchCancel={handleHistoryTouchEnd}
+      >
         <div className="flex-1 space-y-3">
           {messages.map((message) => {
             const own = message.sender_id === user?.id;
@@ -128,7 +163,7 @@ export default function ConversationPage() {
       </section>
       <form onSubmit={submit} className="fixed inset-x-0 bottom-0 z-20 border-t border-[#d8ccb7] bg-[#f6efe3]/95 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
         <div className="mx-auto flex max-w-2xl gap-2">
-          <input value={text} onChange={(event) => setText(event.target.value)} maxLength={2000} placeholder="Nachricht schreiben…" className="min-w-0 flex-1 rounded-2xl border border-[#d8ccb7] bg-white px-4 py-3 text-sm text-[#0f3b2e] outline-none focus:border-[#0f3b2e]" />
+          <input ref={messageInputRef} value={text} onChange={(event) => setText(event.target.value)} maxLength={2000} placeholder="Nachricht schreiben…" className="min-w-0 flex-1 rounded-2xl border border-[#d8ccb7] bg-white px-4 py-3 text-sm text-[#0f3b2e] outline-none focus:border-[#0f3b2e]" />
           <button disabled={!text.trim() || sending} className="rounded-2xl bg-[#0f3b2e] px-5 font-bold text-white disabled:opacity-40">Senden</button>
         </div>
         {sendError ? <p role="alert" className="mx-auto mt-2 max-w-2xl text-sm text-[#b33a2b]">{sendError}</p> : null}
